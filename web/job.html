@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Subtitles — Job</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body class="control app">
+<div class="topbar"><a href="/">← Subtitles</a><h1 id="title">Job</h1><span class="spacer"></span><span class="muted" id="who"></span></div>
+<main>
+<div class="alert" id="alert" hidden></div>
+<div class="ui" id="progressBox">
+  <div id="statusText"></div>
+  <div class="bar" style="margin-top:6px"><i id="bar"></i></div>
+</div>
+<div class="jobwrap" id="work" hidden>
+  <div>
+    <div class="ui">
+      <video id="video" controls playsinline></video>
+      <div class="subs" id="subs"></div>
+    </div>
+    <div class="ui">
+      <h2>Downloads</h2>
+      <div class="files" id="files"></div>
+      <h2 style="margin-top:14px">Burn subtitles into the video</h2>
+      <div class="btns">
+        <select id="mp4which"><option value="trans">translation</option><option value="both">translation + original</option><option value="text">original</option></select>
+        <button id="btnMp4">Render MP4</button>
+        <span class="muted" id="mp4Text"></span>
+      </div>
+    </div>
+  </div>
+  <div class="ui">
+    <div class="sticky btns">
+      <h2 style="display:inline;margin-right:10px">Cues</h2>
+      <button class="primary" id="btnSave" disabled>Save changes</button>
+      <button id="btnShift">Shift all…</button>
+      <span class="muted" id="saveText"></span>
+    </div>
+    <div class="cues" id="cues"></div>
+  </div>
+</div>
+</main>
+<script src="/job.js"></script>
+</body>
+</html>

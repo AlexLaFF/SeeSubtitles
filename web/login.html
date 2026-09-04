@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Subtitles — Log in</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body class="control app">
+<div class="login">
+  <div class="ui">
+    <h2>Subtitles</h2>
+    <p class="muted">Live Cantonese → Mandarin subtitles, remote displays and video subtitling.</p>
+    <form id="form">
+      <label>Email<input id="email" type="email" autocomplete="username" required></label>
+      <label>Password<input id="password" type="password" autocomplete="current-password" required></label>
+      <div class="alert" id="err" hidden></div>
+      <button class="primary" type="submit">Log in</button>
+    </form>
+  </div>
+</div>
+<script>
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('err');
+  err.hidden = true;
+  const r = await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: document.getElementById('email').value, password: document.getElementById('password').value }) }).then((x) => x.json()).catch(() => ({ error: 'network error' }));
+  if (r.error) { err.textContent = r.error; err.hidden = false; return; }
+  const next = new URLSearchParams(location.search).get('next');
+  location.href = next && next.startsWith('/') ? next : '/';
+});
+</script>
+</body>
+</html>

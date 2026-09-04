@@ -1,0 +1,23 @@
+{
+  "name": "@subs/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Subtitles desktop app for macOS: live Cantonese\u2192Mandarin subtitles, overlay window, recording",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:helpers": "node scripts/build-helpers.js",
+    "dist": "npm run build:helpers && electron-builder --mac"
+  },
+  "dependencies": {
+    "@subs/core": "*",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "electron": "44.2.0",
+    "electron-builder": "^26.0.0",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0"
+  },
+  "productName": "Subtitles"
+}

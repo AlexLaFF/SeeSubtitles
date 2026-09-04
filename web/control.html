@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Subtitle controls</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="control">
+<div id="alert" class="alert" hidden></div>
+<div class="cols">
+  <div class="ui">
+    <h3>Status</h3>
+    <div id="statusLine"><span class="badge" id="badge">…</span> <span id="stateText"></span></div>
+    <div class="meter"><i id="meter"></i></div>
+    <div class="muted" id="levelText">mic level</div>
+    <div class="btns">
+      <button id="btnPause" class="primary">Pause</button>
+      <button id="btnClear">Clear screen</button>
+      <button id="btnReconnect">Reconnect</button>
+      <button id="btnDisplay">Open display page ↗</button>
+      <button id="btnTranscript">Download transcript</button>
+      <button id="btnPlayback">Playback ↗</button>
+    </div>
+    <dl class="kv" id="kv"></dl>
+  </div>
+  <div class="ui">
+    <h3>Recording</h3>
+    <div class="btns"><button id="btnRec" class="danger">● Start recording</button></div>
+    <dl class="kv" id="recKv"></dl>
+    <div class="muted">Writes <code>recordings/&lt;date_time&gt;.mp3</code> continuously (playable even after a crash or power
+      loss), plus <code>.zh.srt</code> Mandarin and <code>.yue.srt</code> Cantonese subtitles appended sentence by sentence.
+      Recording does not depend on the network.</div>
+    <h3>Recent recordings</h3>
+    <div class="preview" id="recList"><div class="muted">none yet</div></div>
+  </div>
+  <div class="ui" id="cloudPanel">
+    <h3>Cloud (remote display)</h3>
+    <div id="cloudText" class="muted">…</div>
+    <div class="btns">
+      <button id="btnPublish" class="primary" hidden>Publish to cloud</button>
+      <button id="btnCopyShare" hidden>Copy share link</button>
+      <a id="shareLink" target="_blank" hidden></a>
+    </div>
+    <div class="muted">Publishing mirrors the subtitles to the hosted server so any browser can show them at the share link
+      (venue screens, phones). Audio and recording stay on this machine.</div>
+  </div>
+  <div class="ui" id="controlsIO"></div>
+  <div class="ui" id="controlsLook"></div>
+  <div class="ui">
+    <h3>Live transcript</h3>
+    <div class="preview" id="preview"></div>
+  </div>
+  <div class="ui">
+    <h3>Shortcuts (work on this page and the display page)</h3>
+    <div class="kbd" id="kbd"></div>
+  </div>
+  <div class="ui">
+    <h3>Log</h3>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+<script src="/schema.js"></script>
+<script src="/shared.js"></script>
+<script src="/controls.js"></script>
+<script src="/control.js"></script>
+</body>
+</html>

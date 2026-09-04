@@ -1,0 +1,37 @@
+appId: com.alexlaff.subtitles
+productName: Subtitles
+copyright: MIT
+directories:
+  output: dist
+  buildResources: build
+files:
+  - main.js
+  - preload.js
+  - local-server.js
+  - cloud.js
+  - settings.html
+  - lib/**
+  - package.json
+extraResources:
+  - from: ../web
+    to: web
+  - from: resources/bin
+    to: bin
+asar: true
+npmRebuild: false
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: Subtitles listens to the microphone to transcribe and translate speech in real time.
+    LSMinimumSystemVersion: "13.0"
+dmg:
+  sign: false

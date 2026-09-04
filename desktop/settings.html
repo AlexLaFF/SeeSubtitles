@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 13px -apple-system, "PingFang SC", sans-serif; margin: 0; padding: 18px 22px 28px; background: Canvas; color: CanvasText; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; opacity: .6; margin: 22px 0 8px; }
+  h2:first-child { margin-top: 0; }
+  .row { display: grid; grid-template-columns: 150px 1fr auto; gap: 8px; align-items: center; margin: 6px 0; }
+  .row label { opacity: .85; }
+  input[type=text], input[type=password], input[type=number], select { width: 100%; box-sizing: border-box; padding: 5px 7px; border: 1px solid color-mix(in srgb, CanvasText 25%, transparent); border-radius: 6px; background: Field; color: FieldText; font: inherit; }
+  button { font: inherit; padding: 5px 12px; border-radius: 6px; border: 1px solid color-mix(in srgb, CanvasText 25%, transparent); background: ButtonFace; color: ButtonText; cursor: pointer; }
+  button.primary { background: #2f6df6; color: #fff; border-color: #2f6df6; }
+  .hint { grid-column: 2 / 4; font-size: 12px; opacity: .6; margin: -2px 0 4px; }
+  .status { padding: 8px 10px; border-radius: 6px; background: color-mix(in srgb, CanvasText 6%, transparent); font-size: 12px; white-space: pre-wrap; }
+  .ok { color: #1f9d55; } .bad { color: #d64545; }
+  .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; align-items: center; }
+  #saved { opacity: .7; font-size: 12px; }
+  a { color: #2f6df6; }
+</style>
+</head>
+<body>
+<h2>Tencent Cloud (实时语音翻译)</h2>
+<div class="row"><label for="appid">APPID</label><input id="appid" type="text" placeholder="10-digit APPID (not the account UIN)"><span></span></div>
+<div class="row"><label for="secretId">SecretId</label><input id="secretId" type="text" placeholder="AKID…"><span></span></div>
+<div class="row"><label for="secretKey">SecretKey</label><input id="secretKey" type="password" placeholder=""><span></span></div>
+<div class="row"><div class="hint">Keys are stored encrypted with the macOS Keychain. Get them at <a href="#" data-url="https://console.cloud.tencent.com/cam/capi">console.cloud.tencent.com/cam/capi</a>. The 实时语音翻译 service must be activated on the account.</div></div>
+<div class="row"><label for="edge">Gateway edge</label><select id="edge"><option value="auto">auto (switch to mainland edge after a 404 — use with a VPN)</option><option value="cn">cn (always mainland Guangzhou edge)</option><option value="system">system (never switch)</option></select><span></span></div>
+<div class="row"><label>Status</label><div class="status" id="status">…</div><span></span></div>
+
+<h2>Recording</h2>
+<div class="row"><label for="recordingsDir">Recordings folder</label><input id="recordingsDir" type="text"><button id="btnFolder">Choose…</button></div>
+<div class="row"><label for="bitrate">MP3 bitrate</label><select id="bitrate"><option>96k</option><option>128k</option><option>192k</option></select><span></span></div>
+<div class="row"><label for="mp4auto">MP4 after recording</label><select id="mp4auto"><option value="1">yes — burned-in subtitles + zh/yue tracks</option><option value="0">no</option></select><span></span></div>
+<div class="row"><label for="mp4size">MP4 size</label><select id="mp4size"><option value="1080x1920">1080×1920 portrait</option><option value="1920x1080">1920×1080 landscape</option><option value="720x1280">720×1280 portrait (small)</option></select><span></span></div>
+<div class="row"><label for="mp4font">MP4 font size</label><input id="mp4font" type="number" min="24" max="200"><span></span></div>
+<div class="row"><label for="mp4show">MP4 subtitles</label><select id="mp4show"><option value="target">translation only</option><option value="both">translation + original</option></select><span></span></div>
+<div class="row"><label for="mp4enc">MP4 encoder</label><select id="mp4enc"><option value="libx264">libx264 (smaller files)</option><option value="h264_videotoolbox">h264_videotoolbox (faster)</option></select><span></span></div>
+
+<h2>Rehearsal</h2>
+<div class="row"><label for="audioFile">Audio file instead of mic</label><input id="audioFile" type="text" placeholder="(empty = microphone) 16 kHz mono WAV, looped"><button id="btnAudio">Choose…</button></div>
+<div class="row"><div class="hint">Demo mode (scripted sentences, no mic, no Tencent) is in the Subtitles menu.</div></div>
+
+<h2>Cloud (remote display)</h2>
+<div class="row"><label for="cloudUrl">Server URL</label><input id="cloudUrl" type="text" placeholder="https://subs.example.com"><span></span></div>
+<div class="row"><label for="cloudEmail">Email</label><input id="cloudEmail" type="text"><span></span></div>
+<div class="row"><label for="cloudPassword">Password</label><input id="cloudPassword" type="password"><button id="btnLogin">Log in</button></div>
+<div class="row"><label>Cloud status</label><div class="status" id="cloudStatus">not logged in</div><button id="btnLogout" hidden>Log out</button></div>
+
+<div class="actions">
+  <span id="saved"></span>
+  <button id="btnControl">Open Control window</button>
+  <button class="primary" id="btnSave">Save &amp; restart pipeline</button>
+</div>
+
+<script>
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  const cfg = await desktop.getConfig();
+  $('appid').value = cfg.appid || '';
+  $('secretId').value = cfg.secretId || '';
+  $('secretKey').placeholder = cfg.secretKeySet ? '•••••••• (saved — leave blank to keep)' : '';
+  $('edge').value = cfg.edge || 'auto';
+  $('recordingsDir').value = cfg.recordingsDir || '';
+  $('bitrate').value = cfg.bitrate || '128k';
+  $('mp4auto').value = cfg.mp4.auto ? '1' : '0';
+  $('mp4size').value = cfg.mp4.size;
+  $('mp4font').value = cfg.mp4.fontSize;
+  $('mp4show').value = cfg.mp4.show;
+  $('mp4enc').value = cfg.mp4.encoder;
+  $('audioFile').value = cfg.audioFile || '';
+  $('cloudUrl').value = cfg.cloud.url || '';
+  $('cloudEmail').value = cfg.cloud.email || '';
+
+  document.querySelectorAll('a[data-url]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); window.open(a.dataset.url); }));
+  $('btnFolder').onclick = async () => { const p = await desktop.chooseFolder(); if (p) $('recordingsDir').value = p; };
+  $('btnAudio').onclick = async () => { const p = await desktop.chooseAudioFile(); if (p) $('audioFile').value = p; };
+  $('btnControl').onclick = () => desktop.openControl();
+  $('btnSave').onclick = async () => {
+    $('btnSave').disabled = true;
+    $('saved').textContent = 'saving…';
+    await desktop.saveConfig({
+      appid: $('appid').value, secretId: $('secretId').value, secretKey: $('secretKey').value,
+      edge: $('edge').value, recordingsDir: $('recordingsDir').value, bitrate: $('bitrate').value,
+      mp4: { auto: $('mp4auto').value === '1', size: $('mp4size').value, fontSize: Number($('mp4font').value) || 64, show: $('mp4show').value, encoder: $('mp4enc').value },
+      audioFile: $('audioFile').value,
+    });
+    $('secretKey').value = '';
+    $('secretKey').placeholder = '•••••••• (saved — leave blank to keep)';
+    $('saved').textContent = 'saved, pipeline restarted';
+    $('btnSave').disabled = false;
+  };
+
+  const renderCloud = (c) => {
+    const el = $('cloudStatus');
+    if (!c || !c.loggedIn) { el.textContent = 'not logged in'; $('btnLogout').hidden = true; return; }
+    el.textContent = `logged in as ${c.email} @ ${c.url}` + (c.session ? `\npublishing → ${c.shareUrl}` : '\nnot publishing (toggle on the Control page)') + (c.error ? `\n${c.error}` : '');
+    $('btnLogout').hidden = false;
+  };
+  $('btnLogin').onclick = async () => {
+    $('cloudStatus').textContent = 'logging in…';
+    try {
+      const r = await desktop.cloud({ action: 'login', url: $('cloudUrl').value, email: $('cloudEmail').value, password: $('cloudPassword').value });
+      $('cloudPassword').value = '';
+      renderCloud(r.cloud);
+    } catch (err) { $('cloudStatus').textContent = `login failed: ${err.message.replace(/^.*Error: /, '')}`; }
+  };
+  $('btnLogout').onclick = async () => { const r = await desktop.cloud({ action: 'logout' }); renderCloud(r.cloud); };
+
+  const refresh = async () => {
+    const s = await desktop.coreStatus();
+    const el = $('status');
+    if (!s) { el.textContent = 'pipeline starting…'; return; }
+    const st = s.status;
+    const parts = [];
+    if (st.demo) parts.push('demo mode');
+    else if (st.credsError) parts.push(`✖ ${st.credsError}`);
+    else parts.push(`Tencent: ${st.stream.state}${st.stream.edge ? ` via ${st.stream.edge}` : ''}${st.stream.lastError ? ` — ${st.stream.lastError}` : ''}`);
+    if (st.capture) parts.push(`mic: ${st.capture.device}${st.capture.alive ? ' (running)' : ''}${st.capture.lastError ? ` — ${st.capture.lastError}` : ''}`);
+    el.textContent = parts.join('\n');
+    el.className = `status ${st.credsError || (st.stream.state && /error|fail/.test(st.stream.state)) ? 'bad' : st.stream.state === 'connected' || st.stream.state === 'demo' ? 'ok' : ''}`;
+    renderCloud(st.cloud);
+  };
+  refresh();
+  setInterval(refresh, 1500);
+})();
+</script>
+</body>
+</html>

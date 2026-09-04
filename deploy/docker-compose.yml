@@ -1,0 +1,34 @@
+# Hosted server + Caddy (automatic HTTPS). Run from the repo root:
+#   cp deploy/.env.example deploy/.env   # fill in DOMAIN + TENCENT_* keys
+#   docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    environment:
+      BASE_URL: https://${DOMAIN}
+      TENCENT_APPID: ${TENCENT_APPID}
+      TENCENT_SECRET_ID: ${TENCENT_SECRET_ID}
+      TENCENT_SECRET_KEY: ${TENCENT_SECRET_KEY}
+      TMT_REGION: ${TMT_REGION:-ap-hongkong}
+      MAX_UPLOAD_GB: ${MAX_UPLOAD_GB:-8}
+    volumes:
+      - subs-data:/data
+    expose: ["8080"]
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on: [app]
+volumes:
+  subs-data:
+  caddy-data:
+  caddy-config:

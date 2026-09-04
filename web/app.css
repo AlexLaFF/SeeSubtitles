@@ -1,0 +1,37 @@
+/* Hosted app pages (dashboard, job page, login) — extends style.css's .control look */
+body.app { padding: 0; }
+body.app .topbar { display: flex; align-items: center; gap: 16px; padding: 10px 18px; border-bottom: 1px solid #2a2f3a; background: #14171d; position: sticky; top: 0; z-index: 5; }
+body.app .topbar h1 { font-size: 16px; margin: 0; font-weight: 600; }
+body.app .topbar .spacer { flex: 1; }
+body.app .topbar a { color: #9ab; text-decoration: none; }
+body.app main { padding: 16px 18px 40px; max-width: 1400px; margin: 0 auto; }
+body.app .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+body.app .ui h2 { font-size: 15px; margin: 0 0 10px; }
+body.app label { display: block; margin: 8px 0 4px; font-size: 12px; color: #9ab; }
+body.app label input, body.app label select { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; }
+body.app table { width: 100%; border-collapse: collapse; font-size: 13px; }
+body.app th, body.app td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #262b35; vertical-align: top; }
+body.app th { color: #9ab; font-weight: 500; font-size: 12px; }
+body.app .bar { height: 6px; background: #262b35; border-radius: 3px; overflow: hidden; min-width: 120px; }
+body.app .bar i { display: block; height: 100%; background: #3b82f6; width: 0; transition: width .3s; }
+body.app .pill { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; background: #262b35; color: #cbd5e1; }
+body.app .pill.done { background: #14532d; color: #bbf7d0; } body.app .pill.failed { background: #7f1d1d; color: #fecaca; } body.app .pill.live { background: #1e3a8a; color: #bfdbfe; }
+body.app .login { min-height: 100vh; display: grid; place-items: center; }
+body.app .login .ui { width: 340px; }
+body.app .drop { border: 2px dashed #3a4150; border-radius: 10px; padding: 26px; text-align: center; color: #9ab; cursor: pointer; }
+body.app .drop.over { border-color: #3b82f6; color: #dbeafe; }
+body.app .files a { margin-right: 10px; }
+/* job page */
+body.app .jobwrap { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.2fr); gap: 14px; }
+@media (max-width: 1000px) { body.app .jobwrap { grid-template-columns: 1fr; } }
+body.app video { width: 100%; background: #000; border-radius: 8px; max-height: 60vh; }
+body.app .subs { margin-top: 10px; min-height: 90px; text-align: center; font-size: 22px; line-height: 1.4; }
+body.app .subs .s { font-size: 15px; color: #9ab; }
+body.app .cues { max-height: 70vh; overflow: auto; }
+body.app .cue { display: grid; grid-template-columns: 92px 1fr auto; gap: 8px; padding: 6px 4px; border-bottom: 1px solid #262b35; align-items: start; }
+body.app .cue.active { background: #1e293b; }
+body.app .cue .t { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #9ab; cursor: pointer; line-height: 1.6; }
+body.app .cue textarea { width: 100%; box-sizing: border-box; background: #0f1218; color: #e5e7eb; border: 1px solid #2a2f3a; border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 13px; resize: vertical; min-height: 28px; }
+body.app .cue textarea.orig { color: #9ab; font-size: 12px; margin-top: 3px; }
+body.app .cue .ops button { padding: 1px 6px; font-size: 11px; margin: 0 0 3px 0; display: block; }
+body.app .sticky { position: sticky; top: 0; background: #1b1f27; padding: 6px 0; z-index: 2; }

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Subtitles</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="display">
+<div id="stage"><div id="lines"></div></div>
+<div id="status" hidden></div>
+<div id="hint">C = controls · + / − = size</div>
+<div id="panel" class="ui" hidden>
+  <div class="btns">
+    <button id="btnClear">Clear</button>
+    <button id="btnPause">Pause</button>
+    <button id="btnReconnect">Reconnect</button>
+    <button id="btnRec">● Rec</button>
+    <button id="btnFs">Full screen</button>
+    <button id="btnControl">Control page ↗</button>
+    <button id="btnHide">Hide (C)</button>
+  </div>
+  <div id="panelControls"></div>
+  <h3>Shortcuts</h3>
+  <div class="kbd" id="kbd"></div>
+</div>
+<script src="/schema.js"></script>
+<script src="/shared.js"></script>
+<script src="/controls.js"></script>
+<script src="/display.js"></script>
+</body>
+</html>
