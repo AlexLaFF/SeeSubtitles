@@ -73,7 +73,7 @@ class CloudLink {
     const clean = String(url || '').trim().replace(/\/$/, '');
     if (!/^https?:\/\//.test(clean)) throw new Error('server URL must start with http:// or https://');
     this.cfg.url = clean;
-    const r = await this._fetch('/api/login', { email, password }, { auth: false });
+    const r = await this._fetch('/api/login', { email, password, kind: 'bearer', label: 'Subtitles desktop app' }, { auth: false });
     if (!r || !r.token) throw new Error('login did not return a token');
     this.cfg.token = r.token;
     this.cfg.email = email;

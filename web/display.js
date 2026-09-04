@@ -115,7 +115,8 @@
     const st = s.stream || {};
     let text = '';
     if (s.demo) text = '';
-    else if (!s.creds) text = 'no credentials in .env';
+    else if (s.remote) text = s.live === false ? 'session ended' : '';
+    else if (!s.creds) text = 'no credentials — open Settings';
     else if (!s.streaming) text = 'paused';
     else if (st.state === 'reconnecting') text = `reconnecting${st.retryAt ? ` in ${Math.max(0, Math.ceil((st.retryAt - (s.now || Date.now())) / 1000))}s` : ''}`;
     else if (st.state === 'connecting') text = 'connecting';
