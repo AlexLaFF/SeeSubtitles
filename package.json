@@ -1,0 +1,12 @@
+{
+  "name": "subtitle-platform",
+  "private": true,
+  "description": "Live and offline Cantonese/Mandarin subtitles: macOS desktop app + hosted web app",
+  "workspaces": ["core", "server", "desktop"],
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "npm test --workspaces --if-present",
+    "probe:batch": "node server/probe-batch.js"
+  },
+  "license": "MIT"
+}

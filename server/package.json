@@ -1,0 +1,9 @@
+{
+  "name": "@subs/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hosted backend: auth, live-session mirror, upload → transcript → subtitles jobs",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "probe:batch": "node probe-batch.js", "test": "node --test" },
+  "dependencies": { "@subs/core": "*", "ws": "^8.21.3" }
+}

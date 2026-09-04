@@ -1,0 +1,129 @@
+// Settings schema shared by the Node server (validation/defaults) and the browser (control UI).
+// Plain UMD so the same file is served to the page as /schema.js.
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.SCHEMA = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const DEFAULT_FONT = '"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif';
+
+  // Languages per the 实时语音翻译 docs. Target list is what the API accepts for yue + the common ones.
+  const SOURCES = [
+    ['yue', '粤语 Cantonese'], ['zh', '普通话 Mandarin'], ['zh_en', '中英混合 Mandarin + English'],
+    ['en', 'English'], ['ja', '日本語'], ['ko', '한국어'], ['id', 'Bahasa Indonesia'], ['th', 'ไทย'], ['ru', 'Русский'],
+  ];
+  const TARGETS = [
+    ['zh', '中文 Mandarin'], ['en', 'English'], ['ja', '日本語'], ['ko', '한국어'], ['yue', '粤语 Cantonese'], ['zh_en', '中英 (auto)'],
+  ];
+
+  const FIELDS = [
+    // input
+    { key: 'audioDevice', group: 'input', label: 'Microphone', type: 'device', default: 'default' },
+    { key: 'source', group: 'input', label: 'Spoken language', type: 'select', options: SOURCES, default: 'yue' },
+    { key: 'target', group: 'input', label: 'Subtitle language', type: 'select', options: TARGETS, default: 'zh' },
+    { key: 'transModel', group: 'input', label: 'Model', type: 'select', default: 'hunyuan-translation-lite',
+      options: [['hunyuan-translation-lite', 'hunyuan-translation-lite (fast)'], ['hunyuan-translation', 'hunyuan-translation (quality)']] },
+    { key: 'streaming', group: 'input', label: 'Streaming on', type: 'bool', default: true, persist: false },
+    // output
+    { key: 'showMode', group: 'output', label: 'Show', type: 'select', default: 'target',
+      options: [['target', 'Translation only'], ['both', 'Translation + original'], ['source', 'Original only']] },
+    { key: 'showStatus', group: 'output', label: 'Status dot when offline', type: 'bool', default: true },
+    { key: 'window', group: 'output', label: 'Overlay window', type: 'bounds', default: null },
+    // text
+    { key: 'fontSize', group: 'text', label: 'Text size', type: 'range', min: 8, max: 1200, step: 1, unit: 'px', default: 120, scale: 'log' },
+    { key: 'fontWeight', group: 'text', label: 'Weight', type: 'select', default: '700',
+      options: [['400', 'Regular'], ['500', 'Medium'], ['600', 'Semibold'], ['700', 'Bold'], ['900', 'Black']] },
+    { key: 'fontColor', group: 'text', label: 'Text color', type: 'color', default: '#ffffff' },
+    { key: 'textShadow', group: 'text', label: 'Dark outline', type: 'bool', default: true },
+    { key: 'fontFamily', group: 'text', label: 'Font', type: 'text', default: DEFAULT_FONT },
+    // layout
+    { key: 'visibleLines', group: 'layout', label: 'Max sentences kept', type: 'range', min: 1, max: 30, step: 1, default: 20 },
+    { key: 'topFade', group: 'layout', label: 'Fade out at top edge', type: 'bool', default: true },
+    { key: 'lineSpacing', group: 'layout', label: 'Line spacing', type: 'range', min: 0.8, max: 3, step: 0.01, unit: '×', default: 1.25 },
+    { key: 'lineGap', group: 'layout', label: 'Gap between lines', type: 'range', min: 0, max: 2, step: 0.05, unit: 'em', default: 0.3 },
+    { key: 'paddingX', group: 'layout', label: 'Side padding', type: 'range', min: 0, max: 45, step: 0.5, unit: '%', default: 4 },
+    { key: 'paddingY', group: 'layout', label: 'Bottom padding', type: 'range', min: 0, max: 60, step: 0.5, unit: '%', default: 3 },
+    { key: 'paddingTop', group: 'layout', label: 'Top padding', type: 'range', min: 0, max: 60, step: 0.5, unit: '%', default: 2 },
+    { key: 'align', group: 'layout', label: 'Alignment', type: 'select', default: 'center',
+      options: [['left', 'Left'], ['center', 'Center'], ['right', 'Right']] },
+    // background
+    { key: 'bgColor', group: 'background', label: 'Background', type: 'color', default: '#000000' },
+    { key: 'bgOpacity', group: 'background', label: 'Opacity', type: 'range', min: 0, max: 1, step: 0.01, unit: '', default: 1 },
+  ];
+
+  const GROUPS = [
+    ['input', 'Input'], ['output', 'Output'], ['text', 'Text'], ['layout', 'Layout'], ['background', 'Background'],
+  ];
+
+  const PRESETS = {
+    portrait: { label: 'Portrait strip', patch: { align: 'center', visibleLines: 20, fontSize: 110, lineSpacing: 1.2, paddingX: 3, paddingY: 3 } },
+    landscape: { label: 'Landscape bar', patch: { align: 'center', visibleLines: 20, fontSize: 140, lineSpacing: 1.2, paddingX: 6, paddingY: 4 } },
+    overlayBar: { label: 'Overlay on slides', patch: { bgOpacity: 0, textShadow: true, visibleLines: 3, align: 'center' } },
+  };
+
+  const byKey = {};
+  for (const f of FIELDS) byKey[f.key] = f;
+
+  function defaults() {
+    const o = {};
+    for (const f of FIELDS) o[f.key] = f.default;
+    return o;
+  }
+
+  /** Validate/coerce a partial settings object. Unknown keys and invalid values are dropped. */
+  function sanitize(patch) {
+    const out = {};
+    if (!patch || typeof patch !== 'object') return out;
+    for (const key of Object.keys(patch)) {
+      const f = byKey[key];
+      if (!f) continue;
+      let v = patch[key];
+      switch (f.type) {
+        case 'range':
+          v = Number(v);
+          if (!Number.isFinite(v)) continue;
+          v = Math.min(f.max, Math.max(f.min, v));
+          v = f.step >= 1 ? Math.round(v) : Math.round(v * 1000) / 1000;
+          break;
+        case 'select':
+          if (v === undefined || v === null) continue;
+          v = String(v);
+          if (!f.options.some((o) => o[0] === v)) continue;
+          break;
+        case 'color':
+          v = String(v).toLowerCase();
+          if (!/^#[0-9a-f]{6}$/.test(v)) continue;
+          break;
+        case 'bool':
+          v = v === true || v === 'true' || v === 1 || v === '1';
+          break;
+        case 'text':
+          v = String(v).slice(0, 300);
+          break;
+        case 'device':
+          if (v === undefined || v === null || v === '') continue;
+          v = String(v).slice(0, 200);
+          break;
+        case 'bounds': {
+          if (v === null) break;
+          if (typeof v !== 'object') continue;
+          const b = {};
+          for (const k of ['x', 'y', 'width', 'height']) {
+            const n = Math.round(Number(v[k]));
+            if (Number.isFinite(n)) b[k] = k === 'width' || k === 'height' ? Math.max(50, n) : n;
+          }
+          if (!Object.keys(b).length) continue;
+          v = b;
+          break;
+        }
+        default:
+          continue;
+      }
+      out[key] = v;
+    }
+    return out;
+  }
+
+  return { FIELDS, GROUPS, PRESETS, byKey, defaults, sanitize, DEFAULT_FONT };
+});
