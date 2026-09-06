@@ -154,8 +154,14 @@
   $('btnFs').addEventListener('click', toggleFullscreen);
   $('btnControl').addEventListener('click', () => window.open('/control', '_blank'));
   $('btnHide').addEventListener('click', () => togglePanel(false));
+  if (isOverlay) {
+    const closeBtn = $('btnCloseOverlay');
+    closeBtn.hidden = false;
+    closeBtn.addEventListener('click', () => Sub.post('/api/overlay/close'));
+  }
   $('stage').addEventListener('dblclick', () => togglePanel());
-  setTimeout(() => hint.classList.add('fade'), 6000);
+  if (isOverlay) hint.hidden = true; // nothing but subtitles on the venue screen
+  else setTimeout(() => hint.classList.add('fade'), 6000);
 
   document.addEventListener('keydown', (e) => {
     if (Sub.isTyping(e)) return;

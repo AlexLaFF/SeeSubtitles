@@ -1,0 +1,30 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { buildTranscript, parseSrt, systemPrompt } = require('../lib/summary');
+
+test('parseSrt reads cues', () => {
+  const cues = parseSrt('1\n00:00:01,000 --> 00:00:03,500\n你好\n\n2\n00:01:00,000 --> 00:01:02,000\n第二句\n');
+  assert.deepEqual(cues, [{ start: 1000, end: 3500, text: '你好' }, { start: 60000, end: 62000, text: '第二句' }]);
+});
+
+test('buildTranscript merges zh and yue with timestamps', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sum-'));
+  fs.writeFileSync(path.join(dir, 'r.zh.srt'), '1\n00:00:01,000 --> 00:00:03,500\n大家好\n\n2\n01:01:00,000 --> 01:01:02,000\n谢谢\n');
+  fs.writeFileSync(path.join(dir, 'r.yue.srt'), '1\n00:00:01,000 --> 00:00:03,500\n大家好呀\n\n2\n01:01:00,000 --> 01:01:02,000\n谢谢\n');
+  const t = buildTranscript(dir, 'r');
+  assert.equal(t.cues, 2);
+  assert.equal(t.durationMs, 3662000);
+  assert.equal(t.text, '[00:01] 大家好\n    （原文：大家好呀）\n[1:01:00] 谢谢');
+  assert.throws(() => buildTranscript(dir, 'missing'), /no subtitle cues/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('system prompt asks for a synthesized, logically ordered, skimmable digest', () => {
+  const p = systemPrompt('zh');
+  for (const must of ['综合而不是罗列', '逻辑顺序而不是演讲顺序', '不能丢', '简体中文', '时间戳', '一条要点只陈述一个判断', '## 一段话']) assert.ok(p.includes(must), must);
+  assert.ok(!p.includes('要点索引'), 'no chronological index');
+});

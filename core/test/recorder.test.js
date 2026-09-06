@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { Recorder, srtTime } = require('../recorder');
+const names = require('../names');
 
 let hasFfmpeg = true;
 try { execFileSync('ffmpeg', ['-version'], { stdio: 'ignore' }); } catch { hasFfmpeg = false; }
@@ -40,12 +41,13 @@ test('records a playable MP3 and appends SRT cues', { skip: !hasFfmpeg && 'ffmpe
   assert.ok(!r.recording);
   assert.equal(info.durationMs, 1000);
   assert.deepEqual(info.cues, { zh: 1, yue: 1 });
-  const mp3 = fs.statSync(path.join(dir, 'unit.mp3'));
+  const mp3 = fs.statSync(path.join(dir, names.fileName('unit', 'mp3')));
+  assert.equal(names.fileName('unit', 'mp3'), 'unit录音.mp3');
   assert.ok(mp3.size > 2000, `mp3 size ${mp3.size}`);
-  const probed = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', path.join(dir, 'unit.mp3')]).toString().trim();
+  const probed = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', path.join(dir, names.fileName('unit', 'mp3'))]).toString().trim();
   assert.ok(Math.abs(Number(probed) - 1) < 0.25, `duration ${probed}`);
-  assert.equal(fs.readFileSync(path.join(dir, 'unit.zh.srt'), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好\n\n');
-  assert.equal(fs.readFileSync(path.join(dir, 'unit.yue.srt'), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好呀\n\n');
+  assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'zh')), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好\n\n');
+  assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'yue')), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好呀\n\n');
   assert.equal(r.list()[0].base, 'unit');
   fs.rmSync(dir, { recursive: true, force: true });
 });

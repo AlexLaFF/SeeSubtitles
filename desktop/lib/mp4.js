@@ -6,6 +6,7 @@ const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const { buildHelper } = require('./helpers');
+const names = require('@subs/core/names');
 
 function probeDuration(file) {
   return new Promise((resolve, reject) => {
@@ -74,10 +75,10 @@ class Mp4Queue extends EventEmitter {
 
   async _run(base) {
     const t0 = Date.now();
-    const mp3 = path.join(this.dir, `${base}.mp3`);
-    if (!fs.existsSync(mp3)) throw new Error(`${base}.mp3 not found`);
-    const zh = path.join(this.dir, `${base}.zh.srt`);
-    const yue = path.join(this.dir, `${base}.yue.srt`);
+    const mp3 = names.filePath(this.dir, base, 'mp3');
+    if (!fs.existsSync(mp3)) throw new Error(`${path.basename(mp3)} not found`);
+    const zh = names.filePath(this.dir, base, 'zh');
+    const yue = names.filePath(this.dir, base, 'yue');
     const hasZh = fs.existsSync(zh);
     const hasYue = fs.existsSync(yue);
     if (!hasZh && !hasYue) throw new Error(`${base} has no subtitle files`);
@@ -103,8 +104,8 @@ class Mp4Queue extends EventEmitter {
       this.emit('log', `${base}: ${summary.frames || '?'} subtitle frames for ${summary.cues || '?'} cues`);
 
       this._set('encoding video', 0);
-      const out = path.join(this.dir, `${base}.mp4`);
-      const part = path.join(this.dir, `${base}.mp4.part`);
+      const out = names.filePath(this.dir, base, 'mp4');
+      const part = `${out}.part`;
       const ff = ['-y', '-hide_banner', '-loglevel', 'error', '-nostats', '-progress', 'pipe:1',
         '-f', 'concat', '-safe', '0', '-i', path.join(tmp, 'concat.txt'), '-i', mp3];
       const maps = ['-map', '0:v', '-map', '1:a'];
@@ -131,10 +132,10 @@ class Mp4Queue extends EventEmitter {
         p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}: ${errText.trim().slice(-300)}`))));
       });
       fs.renameSync(part, out);
-      return { base, file: `${base}.mp4`, bytes: fs.statSync(out).size, seconds: Math.round((Date.now() - t0) / 1000) };
+      return { base, file: path.basename(out), bytes: fs.statSync(out).size, seconds: Math.round((Date.now() - t0) / 1000) };
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
-      fs.rmSync(path.join(this.dir, `${base}.mp4.part`), { force: true });
+      fs.rmSync(`${names.filePath(this.dir, base, 'mp4')}.part`, { force: true });
     }
   }
 }

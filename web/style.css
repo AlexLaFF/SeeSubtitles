@@ -57,7 +57,8 @@ body.shadow .line { text-shadow: 0 0 0.06em rgba(0,0,0,.95), 0 0 0.18em rgba(0,0
 .ui button.danger { background: #b3261e; }
 .ui .btns { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
 .ui .muted { color: #9a9a9f; margin: 4px 0; }
-.ui .displays button { display: block; width: 100%; text-align: left; margin: 3px 0; }
+.ui .displays button { display: block; width: 100%; text-align: left; margin: 3px 0; border: 2px solid transparent; }
+.ui .displays button.filled { background: #0a84ff33; border-color: #0a84ff; color: #fff; font-weight: 600; }
 .ui .bounds { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 4px; margin-bottom: 6px; }
 .ui .bounds input { width: 100%; box-sizing: border-box; }
 .ui .kbd { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: baseline; }
@@ -97,3 +98,29 @@ body.playback #stage .line.partial { opacity: .55; }
 
 .alert { background: #b3261e; color: #fff; padding: 10px 14px; border-radius: 10px; margin: 0 0 14px; font-weight: 600; }
 .alert[hidden] { display: none; }
+
+/* ---------- summary page ---------- */
+body.summary .doc { max-width: 860px; margin: 0 auto; font-size: 15px; line-height: 1.65; }
+body.summary .doc h1 { font-size: 24px; margin: 8px 0 12px; color: #fff; text-transform: none; letter-spacing: 0; }
+body.summary .doc h2 { font-size: 18px; margin: 26px 0 8px; color: #fff; text-transform: none; letter-spacing: 0; border-bottom: 1px solid #2c2c2e; padding-bottom: 4px; }
+body.summary .doc h3 { font-size: 15px; margin: 18px 0 6px; color: #e8e8e8; text-transform: none; letter-spacing: 0; }
+body.summary .doc p, body.summary .doc li { margin: 4px 0; }
+body.summary .doc ul, body.summary .doc ol { padding-left: 1.4em; }
+body.summary .doc blockquote { border-left: 3px solid #ffd60a; margin: 8px 0; padding: 4px 10px; color: #ffd60a; }
+body.summary .doc a.ts { color: #6db3ff; text-decoration: none; font-size: 12px; font-variant-numeric: tabular-nums; }
+body.summary .doc code { background: #2c2c2e; padding: 0 4px; border-radius: 4px; }
+
+body.summary .doc .gen { margin-top: 28px; padding-top: 10px; border-top: 1px solid #2c2c2e; color: #9a9a9f; font-size: 12px; }
+/* print / PDF theme: white paper, dark text */
+body.summary.print { background: #fff; color: #1a1a1a; padding: 0; }
+body.summary.print .btns { display: none; }
+body.summary.print .doc { background: #fff; color: #1a1a1a; box-shadow: none; max-width: none; padding: 0; font-size: 12.5pt; line-height: 1.7; font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif; }
+body.summary.print .doc h1 { color: #111; font-size: 22pt; border-bottom: 2px solid #111; padding-bottom: 8px; margin: 0 0 14px; }
+body.summary.print .doc h2 { color: #111; font-size: 15pt; border-bottom: 1px solid #ccc; margin: 22px 0 8px; page-break-after: avoid; }
+body.summary.print .doc h3 { color: #333; font-size: 13pt; page-break-after: avoid; }
+body.summary.print .doc li, body.summary.print .doc p { page-break-inside: avoid; }
+body.summary.print .doc blockquote { border-left-color: #b26a00; color: #7a4a00; }
+body.summary.print .doc a.ts { color: #888; font-size: 9.5pt; }
+body.summary.print .doc code { background: #f0f0f0; }
+body.summary.print .doc .gen { border-top-color: #ccc; color: #777; }
+@page { size: A4; }

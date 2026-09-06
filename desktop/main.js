@@ -1,7 +1,7 @@
 'use strict';
 // Subtitles desktop app (macOS). Owns the local pipeline server, the Control / Display / Overlay windows,
 // the Settings window (Tencent keys in the Keychain via safeStorage) and the optional cloud mirror.
-const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell } = require('electron');
+const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell, Tray, nativeImage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -14,6 +14,7 @@ const PACKAGED = app.isPackaged;
 const WEB_DIR = PACKAGED ? path.join(process.resourcesPath, 'web') : path.join(__dirname, '..', 'web');
 const BIN_DIR = PACKAGED ? path.join(process.resourcesPath, 'bin') : path.join(__dirname, 'resources', 'bin');
 const SCHEMA_FILE = require.resolve('@subs/core/schema');
+if (process.env.SUBTITLES_USER_DATA) app.setPath('userData', path.resolve(process.env.SUBTITLES_USER_DATA));
 const USER_DATA = app.getPath('userData');
 const CONFIG_FILE = path.join(USER_DATA, 'config.json');
 const TOKEN = crypto.randomBytes(16).toString('hex');
@@ -25,6 +26,7 @@ process.env.PATH = [BIN_DIR, process.env.PATH || '', '/opt/homebrew/bin', '/usr/
 // ------------------------------------------------------------------ config
 const DEFAULT_CONFIG = {
   appid: '', secretId: '', secretKeyEnc: '',
+  summaryKeyEnc: '', summaryModel: 'claude-opus-5', summaryLanguage: 'zh', summaryEffort: 'high',
   recordingsDir: path.join(app.getPath('videos'), 'Subtitles'),
   demo: false, audioFile: '', edge: 'auto', bitrate: '128k',
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
@@ -81,12 +83,16 @@ async function startCore() {
     transcriptsDir: path.join(USER_DATA, 'transcripts'),
     creds,
     credsError,
+    summaryApiKey: decryptSecret(cfg.summaryKeyEnc),
     demo: cfg.demo,
     audioFile: cfg.audioFile || undefined,
     port,
     token: TOKEN,
     env: {
       TENCENT_EDGE: cfg.edge,
+      SUMMARY_MODEL: cfg.summaryModel,
+      SUMMARY_LANGUAGE: cfg.summaryLanguage,
+      SUMMARY_EFFORT: cfg.summaryEffort,
       RECORD_BITRATE: cfg.bitrate,
       MP4_AUTO: cfg.mp4.auto ? '1' : '0',
       MP4_SIZE: cfg.mp4.size,
@@ -96,6 +102,7 @@ async function startCore() {
       MP4_ENCODER: cfg.mp4.encoder,
     },
     onOpenOverlay: () => { openOverlay(); return 'opened'; },
+    onCloseOverlay: closeOverlay,
     onCloud: (body) => cloudAction(body),
     cloudStatus: () => cloud.status(),
     consoleLog,
@@ -108,6 +115,7 @@ async function startCore() {
   });
   cloud.attach(core, cfg.cloud);
   rebuildMenu();
+  reportOverlay();
 }
 
 async function restartCore() {
@@ -116,7 +124,11 @@ async function restartCore() {
   cloud.detach();
   if (old) await old.shutdown();
   await startCore();
-  for (const w of BrowserWindow.getAllWindows()) if (w !== wins.settings) w.reload();
+  for (const name of ['control', 'display', 'overlay']) {
+    const w = wins[name];
+    if (w && !w.isDestroyed()) w.reload();
+  }
+  reportOverlay();
 }
 
 async function cloudAction(body) {
@@ -215,6 +227,8 @@ function openOverlay() {
       enableLargerThanScreen: true, // portrait walls, BetterDisplay virtual screens
       backgroundColor: '#00000000',
       title: 'Subtitles — Overlay',
+      focusable: false, // keep PowerPoint and the audience menu bar active
+      skipTaskbar: true,
       webPreferences: WEB_PREFS,
     };
     if (Number.isFinite(saved.x)) opts.x = saved.x;
@@ -229,6 +243,10 @@ function openOverlay() {
     reportOverlay();
     return w;
   });
+}
+function closeOverlay() {
+  if (wins.overlay && !wins.overlay.isDestroyed()) wins.overlay.close();
+  reportOverlay();
 }
 function toggleOverlay() {
   if (wins.overlay && !wins.overlay.isDestroyed()) wins.overlay.close();
@@ -254,6 +272,26 @@ async function toggleRecording() {
   } catch (err) {
     dialog.showErrorBox('Recording', err.message);
   }
+}
+
+// Always reachable while presenting on another screen.
+let tray = null;
+function rebuildTray() {
+  if (!tray) {
+    tray = new Tray(nativeImage.createEmpty());
+    tray.setTitle('字幕');
+    tray.setToolTip('Subtitles');
+  }
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Control window', click: openControl },
+    { label: 'Open overlay', click: openOverlay },
+    ...displays().map((d) => ({ label: `Fill: ${d.label}${d.primary ? ' (main)' : ''} — ${d.bounds.width}×${d.bounds.height}`,
+      click: () => { openOverlay(); core.applySettings({ window: d.bounds }, null); applyOverlayBounds(d.bounds); reportOverlay(); } })),
+    { label: 'Reload overlay', click: () => { if (wins.overlay) wins.overlay.reload(); } },
+    { label: 'Close overlay', click: closeOverlay },
+    { type: 'separator' },
+    { label: 'Quit Subtitles', click: () => app.quit() },
+  ]));
 }
 
 // ------------------------------------------------------------------ menu
@@ -297,12 +335,15 @@ function rebuildMenu() {
 // ------------------------------------------------------------------ IPC (settings window)
 ipcMain.handle('config:get', () => {
   const cfg = loadConfig();
-  return { ...cfg, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc, cloud: { ...cfg.cloud, token: undefined, loggedIn: !!cfg.cloud.token } };
+  return { ...cfg, summaryKeyEnc: undefined, summaryKeySet: !!cfg.summaryKeyEnc, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc, cloud: { ...cfg.cloud, token: undefined, loggedIn: !!cfg.cloud.token } };
 });
 ipcMain.handle('config:save', async (_e, patch) => {
   const cfg = loadConfig();
   const next = { ...cfg, ...patch, mp4: { ...cfg.mp4, ...(patch.mp4 || {}) }, cloud: cfg.cloud };
   delete next.secretKey;
+  delete next.summaryKey;
+  delete next.summaryKeySet;
+  if (patch.summaryKey) next.summaryKeyEnc = encryptSecret(String(patch.summaryKey).trim());
   delete next.secretKeySet;
   if (patch.secretKey) next.secretKeyEnc = encryptSecret(String(patch.secretKey).trim());
   next.appid = String(next.appid || '').trim();
@@ -333,6 +374,10 @@ app.whenReady().then(async () => {
   await startCore();
   openControl();
   if (!cfg.demo && !cfg.secretKeyEnc) openSettings();
+  rebuildTray();
+  screen.on('display-added', rebuildTray);
+  screen.on('display-removed', rebuildTray);
+  screen.on('display-metrics-changed', rebuildTray);
   screen.on('display-added', reportOverlay);
   screen.on('display-removed', reportOverlay);
   screen.on('display-metrics-changed', reportOverlay);

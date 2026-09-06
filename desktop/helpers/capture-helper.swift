@@ -156,8 +156,19 @@ do {
 let startedAt = Date()
 // Selecting a device fires one configuration-change notification right after start; ignore that one.
 NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { _ in
-  if Date().timeIntervalSince(startedAt) < 2 { return }
-  log("audio configuration changed (device change); exiting for restart")
-  exit(3)
+  // macOS posts this for many changes that do not touch our input (output device switches, Bluetooth,
+  // sample-rate changes elsewhere). Only restart when our input format really changed or the engine stopped.
+  if Date().timeIntervalSince(startedAt) < 1.5 { return }
+  let now = input.inputFormat(forBus: 0)
+  if now.sampleRate != inFormat.sampleRate || now.channelCount != inFormat.channelCount {
+    log("audio configuration changed (input format \(inFormat.sampleRate) Hz/\(inFormat.channelCount) ch → \(now.sampleRate) Hz/\(now.channelCount) ch); exiting for restart")
+    exit(3)
+  }
+  if !engine.isRunning {
+    do { try engine.start(); log("audio configuration changed; engine restarted in place") }
+    catch { log("audio configuration changed and engine restart failed (\(error)); exiting for restart"); exit(3) }
+  } else {
+    log("audio configuration changed elsewhere; input unaffected, continuing")
+  }
 }
 RunLoop.main.run()

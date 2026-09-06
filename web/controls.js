@@ -35,7 +35,7 @@
     const r = el('div', { class: 'row wide' });
     r.appendChild(el('label', {}, 'Presets'));
     const wrap = el('div');
-    const sel = el('select');
+    const sel = el('select', { title: 'A preset stores every Text, Layout and Background setting plus "Show"' });
     const btns = el('div', { class: 'btns' });
     const post = (body) => Sub.post('/api/presets', { ...body, from: Sub.clientId }).then((x) => { if (x && x.error) alert(x.error); return x; });
     const selected = () => { const o = sel.options[sel.selectedIndex]; return o ? { name: o.value, user: o.dataset.user === '1' } : null; };
@@ -180,18 +180,34 @@
     for (const box of Controls.displaysEls) {
       box.innerHTML = '';
       const o = Controls.overlay;
-      if (!o || !o.present) {
-        box.appendChild(el('div', { class: 'muted' }, 'Overlay window is closed. It is a transparent, always-on-top window you can drag onto the venue screen.'));
+      if (!o || !o.present || !(o.displays || []).length) {
+        box.appendChild(el('div', { class: 'muted' }, o && o.present
+          ? 'An overlay window is connected but has not reported its displays (opened before the last server restart). Quit it with ⌘Q and open it again.'
+          : 'Overlay window is closed. It is a transparent, always-on-top window you can drag onto the venue screen.'));
         const b = el('button', { class: 'primary' }, 'Open overlay window');
         b.addEventListener('click', () => Sub.post('/api/overlay/open').then((r) => { if (r && r.error) alert(r.error); }));
         box.appendChild(b);
         continue;
       }
-      box.appendChild(el('div', { class: 'muted' }, 'Fill a display with the overlay:'));
+      const b = o.bounds;
+      const same = (d) => b && d.bounds.x === b.x && d.bounds.y === b.y && d.bounds.width === b.width && d.bounds.height === b.height;
+      const within = (d) => b && b.x + b.width / 2 >= d.bounds.x && b.x + b.width / 2 < d.bounds.x + d.bounds.width
+        && b.y + b.height / 2 >= d.bounds.y && b.y + b.height / 2 < d.bounds.y + d.bounds.height;
+      const filled = (o.displays || []).find(same);
+      const on = filled || (o.displays || []).find(within);
+      box.appendChild(el('div', { class: 'muted' }, filled
+        ? `Overlay is filling: ${filled.label}`
+        : on ? `Overlay is on ${on.label} but not filling it (${b.width}×${b.height}). Click a display to fill it:`
+          : 'Fill a display with the overlay:'));
+      const closeBtn = el('button', { class: 'danger' }, 'Close overlay window');
+      closeBtn.addEventListener('click', () => Sub.post('/api/overlay/close'));
+      box.appendChild(closeBtn);
       for (const d of o.displays || []) {
-        const b = el('button', {}, `${d.label}${d.primary ? ' (main)' : ''} — ${d.bounds.width}×${d.bounds.height} at ${d.bounds.x},${d.bounds.y}`);
-        b.addEventListener('click', () => Sub.update({ window: { ...d.bounds } }));
-        box.appendChild(b);
+        const isFilled = filled && filled.id === d.id;
+        const btn = el('button', { class: isFilled ? 'display filled' : 'display' },
+          `${isFilled ? '● ' : ''}${d.label}${d.primary ? ' (main)' : ''} — ${d.bounds.width}×${d.bounds.height} at ${d.bounds.x},${d.bounds.y}${isFilled ? '   ✓ filling' : ''}`);
+        btn.addEventListener('click', () => Sub.update({ window: { ...d.bounds } }));
+        box.appendChild(btn);
       }
     }
   }

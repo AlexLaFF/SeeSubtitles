@@ -46,7 +46,7 @@
     } else rows.push(['Status', 'idle']);
     for (const [k, v] of rows) { kv.appendChild(el('dt', {}, k)); kv.appendChild(el('dd', {}, String(v))); }
     if (recWasOn !== on) { recWasOn = on; loadRecordings(); }
-    const mp4Key = JSON.stringify(rc && Sub.status.mp4);
+    const mp4Key = JSON.stringify([Sub.status.mp4, Sub.status.summary]);
     if (mp4Key !== renderRecorder.mp4Key) { renderRecorder.mp4Key = mp4Key; loadRecordings(); }
   }
   function loadRecordings() {
@@ -69,6 +69,21 @@
         else if (mp4st.current && mp4st.current.base === r.base) links.appendChild(el('span', { class: 'muted' }, `mp4: ${mp4st.current.stage} ${mp4st.current.percent}%`));
         else if ((mp4st.queue || []).includes(r.base)) links.appendChild(el('span', { class: 'muted' }, 'mp4: queued'));
         else if (r.zh || r.yue) { const b = el('button', {}, 'Make MP4'); b.addEventListener('click', () => Sub.post('/api/recordings/mp4', { base: r.base }).then((x) => { if (x && x.error) alert(x.error); })); links.appendChild(b); }
+        // AI learning summary (manual)
+        const sm = (Sub.status && Sub.status.summary) || {};
+        links.appendChild(document.createTextNode('  '));
+        if (sm.current && sm.current.base === r.base) links.appendChild(el('span', { class: 'muted' }, `AI summary: ${sm.current.stage}${sm.current.chars ? ` — ${sm.current.chars} chars written so far` : ''}…`));
+        else if ((sm.queue || []).includes(r.base)) links.appendChild(el('span', { class: 'muted' }, 'AI summary: queued'));
+        else {
+          if (r.summary) { const a2 = el('a', { href: `/summary?rec=${encodeURIComponent(r.base)}`, target: '_blank' }, '📘 AI summary'); links.appendChild(a2); links.appendChild(document.createTextNode('  ')); }
+          if (r.summaryPdf) a(r.summaryPdf, 'summary PDF');
+          else if (r.summary) { const bp = el('button', {}, 'Make PDF'); bp.addEventListener('click', () => Sub.post('/api/recordings/summary-pdf', { base: r.base }).then((x) => { if (x && x.error) alert(x.error); })); links.appendChild(bp); links.appendChild(document.createTextNode('  ')); }
+          if (r.zh || r.yue) {
+            const b = el('button', { title: sm.configured ? `Generate a learning summary with ${sm.model}` : 'Add your Anthropic API key in Settings → AI summaries' }, r.summary ? 'Regenerate summary' : 'Generate AI summary');
+            b.addEventListener('click', () => { if (r.summary && !confirm('Regenerate the AI summary? The current one will be replaced.')) return; Sub.post('/api/recordings/summary', { base: r.base }).then((x) => { if (x && x.error) alert(x.error); }); });
+            links.appendChild(b);
+          }
+        }
         p.appendChild(links);
         box.appendChild(p);
       }

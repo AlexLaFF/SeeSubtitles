@@ -9,6 +9,7 @@ const { EventEmitter } = require('node:events');
 const { TranslationStream, Transcript, Recorder, schema } = require('@subs/core');
 const { AudioCapture, FileCapture, listDevices, listDevicesFfmpeg } = require('./lib/capture');
 const { Mp4Queue } = require('./lib/mp4');
+const { SummaryQueue } = require('./lib/summary');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -134,7 +135,7 @@ async function createLocalServer(opts) {
       case 'apply': {
         const patch = userPresets[name] || (schema.PRESETS[name] && schema.PRESETS[name].patch);
         if (!patch) throw new Error(`unknown preset "${name}"`);
-        applySettings(patch, body.from);
+        applySettings(patch, null);
         log('info', `preset "${name}" applied`);
         return { applied: name };
       }
@@ -165,6 +166,19 @@ async function createLocalServer(opts) {
   mp4.on('status', () => broadcast('status', status()));
   mp4.on('done', (r) => log('info', `mp4 ready: ${r.file} (${(r.bytes / 1e6).toFixed(1)} MB, took ${r.seconds} s)`));
   mp4.on('error', (e) => log('error', `mp4 ${e.base}: ${e.error}`));
+  const summaries = new SummaryQueue({
+    dir: opts.recordingsDir,
+    apiKey: (opts.summaryApiKey || '').trim(),
+    model: env.SUMMARY_MODEL || 'claude-opus-5',
+    language: env.SUMMARY_LANGUAGE || 'zh',
+    effort: env.SUMMARY_EFFORT || 'high',
+    pdfRenderer: opts.pdfRenderer,
+    pdfUrlFor: (base) => `http://127.0.0.1:${port}/summary?rec=${encodeURIComponent(base)}&print=1${opts.token ? `&token=${opts.token}` : ""}`,
+  });
+  summaries.on('log', (t) => log('info', `summary: ${t}`));
+  summaries.on('status', () => broadcast('status', status()));
+  summaries.on('done', (r) => log('info', `summary ready: ${r.file}${r.pdf ? ` + ${r.pdf}` : ''} (${r.chars} chars, ${r.seconds} s, ${r.usage.input || '?'}→${r.usage.output || '?'} tokens${r.truncated ? ', TRUNCATED' : ''})`));
+  summaries.on('error', (e) => log('error', `summary ${e.base}: ${e.error}`));
   const capture = DEMO ? null
     : opts.audioFile ? new FileCapture({ file: opts.audioFile })
       : new AudioCapture({ device: settings.audioDevice, backend: env.AUDIO_BACKEND || 'auto' });
@@ -226,6 +240,7 @@ async function createLocalServer(opts) {
       overlay,
       recorder: recorder.status(),
       mp4: mp4.status(),
+      summary: summaries.status(),
       cloud: opts.cloudStatus ? opts.cloudStatus() : null,
       now: Date.now(),
     };
@@ -359,6 +374,23 @@ async function createLocalServer(opts) {
         return send(res, 200, { ok: true });
       case '/api/presets':
         try { return send(res, 200, presetAction(body)); } catch (err) { return send(res, 400, { error: err.message }); }
+      case '/api/recordings/summary': {
+        const base = String(body.base || '');
+        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
+        if (!summaries.configured) return send(res, 400, { error: 'Add your Anthropic API key in Settings → AI summaries' });
+        const queued = summaries.add(base);
+        log('info', queued ? `AI summary requested for ${base}` : `AI summary for ${base} already in progress`);
+        return send(res, 200, { ok: true, queued, summary: summaries.status() });
+      }
+      case '/api/recordings/summary-pdf': {
+        const base = String(body.base || '');
+        if (!recorder.list(1000).some((r) => r.base === base && r.summary)) return send(res, 404, { error: 'no summary for this recording yet' });
+        summaries.makePdf(base).then(
+          (pdf) => { log('info', `summary PDF made for ${base}`); broadcast('status', status()); },
+          (err) => log('error', `summary PDF ${base}: ${err.message}`),
+        );
+        return send(res, 200, { ok: true });
+      }
       case '/api/recordings/mp4': {
         const base = String(body.base || '');
         if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
@@ -376,6 +408,9 @@ async function createLocalServer(opts) {
         if (action === 'stop') { const info = await recorder.stop(); return send(res, 200, { ok: true, saved: info, recorder: recorder.status() }); }
         return send(res, 400, { error: 'action must be start, stop or toggle' });
       }
+      case '/api/overlay/close':
+        if (opts.onCloseOverlay) await opts.onCloseOverlay();
+        return send(res, 200, { ok: true });
       case '/api/overlay/open':
         if (!opts.onOpenOverlay) return send(res, 400, { error: 'overlay not available' });
         return send(res, 200, { result: await opts.onOpenOverlay() });
@@ -395,7 +430,7 @@ async function createLocalServer(opts) {
     if (!name || !fs.existsSync(file)) return send(res, 404, 'not found', MIME['.txt']);
     const size = fs.statSync(file).size;
     const ext = path.extname(file);
-    const type = ext === '.mp3' ? 'audio/mpeg' : ext === '.mp4' ? 'video/mp4' : 'text/plain; charset=utf-8';
+    const type = ext === '.mp3' ? 'audio/mpeg' : ext === '.mp4' ? 'video/mp4' : ext === '.md' ? 'text/markdown; charset=utf-8' : ext === '.pdf' ? 'application/pdf' : 'text/plain; charset=utf-8';
     const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
     if (m && (m[1] || m[2])) {
       const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
@@ -409,7 +444,7 @@ async function createLocalServer(opts) {
     return fs.createReadStream(file).pipe(res);
   }
 
-  const PAGES = { '/': 'index.html', '/control': 'control.html', '/playback': 'playback.html' };
+  const PAGES = { '/': 'index.html', '/control': 'control.html', '/playback': 'playback.html', '/summary': 'summary.html' };
   function authorised(req, url) {
     if (!opts.token) return true;
     if (url.searchParams.get('token') === opts.token) return true;

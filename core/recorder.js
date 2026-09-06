@@ -13,6 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { EventEmitter } = require('node:events');
+const names = require('./names');
 
 const GAP_PAD_MS = 1500; // pad silence when the audio falls this far behind the wall clock
 const LAG_SETTLE_MS = 2000; // measure the pipeline's normal lag after this long
@@ -44,12 +45,12 @@ class Recorder extends EventEmitter {
   start({ rate = 48000, channels = 1, name } = {}) {
     if (this.rec) return this.rec.base;
     fs.mkdirSync(this.dir, { recursive: true });
-    const base = name || stamp();
+    const base = name || names.uniqueBase(this.dir, names.baseFromDate());
     const rec = {
       base, rate, channels,
       startedAt: Date.now(),
-      mp3: path.join(this.dir, `${base}.mp3`),
-      srt: { zh: path.join(this.dir, `${base}.zh.srt`), yue: path.join(this.dir, `${base}.yue.srt`) },
+      mp3: path.join(this.dir, names.fileName(base, 'mp3')),
+      srt: { zh: path.join(this.dir, names.fileName(base, 'zh')), yue: path.join(this.dir, names.fileName(base, 'yue')) },
       cues: { zh: 0, yue: 0 },
       seen: new Set(),
       writtenSamples: 0,
@@ -185,21 +186,23 @@ class Recorder extends EventEmitter {
     };
   }
 
-  /** Recent recordings on disk, newest first. */
+  /** Recent recordings on disk, newest first (both naming styles). */
   list(limit = 20) {
-    let names;
-    try { names = fs.readdirSync(this.dir); } catch { return []; }
+    let files;
+    try { files = fs.readdirSync(this.dir); } catch { return []; }
     const byBase = new Map();
-    for (const name of names) {
-      const m = name.match(/^(.+?)(\.zh\.srt|\.yue\.srt|\.mp3|\.mp4)$/);
-      if (!m || name.startsWith('.')) continue;
-      const entry = byBase.get(m[1]) || { base: m[1], mp3: null, mp4: null, mp4Bytes: 0, zh: null, yue: null, mtime: 0, bytes: 0 };
+    for (const name of files) {
+      const p = names.parse(name);
+      if (!p) continue;
+      const entry = byBase.get(p.base) || { base: p.base, style: p.style, mp3: null, mp4: null, mp4Bytes: 0, summary: null, summaryPdf: null, zh: null, yue: null, mtime: 0, bytes: 0 };
       const st = fs.statSync(path.join(this.dir, name));
-      if (m[2] === '.mp3') { entry.mp3 = name; entry.bytes = st.size; entry.mtime = Math.max(entry.mtime, st.mtimeMs); }
-      else if (m[2] === '.mp4') { entry.mp4 = name; entry.mp4Bytes = st.size; }
-      else if (m[2] === '.zh.srt') entry.zh = name;
-      else entry.yue = name;
-      byBase.set(m[1], entry);
+      if (p.kind === 'mp3') { entry.mp3 = name; entry.bytes = st.size; entry.mtime = Math.max(entry.mtime, st.mtimeMs); }
+      else if (p.kind === 'mp4') { entry.mp4 = name; entry.mp4Bytes = st.size; }
+      else if (p.kind === 'summary') entry.summary = name;
+      else if (p.kind === 'pdf') entry.summaryPdf = name;
+      else if (p.kind === 'zh') entry.zh = name;
+      else if (p.kind === 'yue') entry.yue = name;
+      byBase.set(p.base, entry);
     }
     return [...byBase.values()].filter((e) => e.mp3).sort((a, b) => b.mtime - a.mtime).slice(0, limit);
   }

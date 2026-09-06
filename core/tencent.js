@@ -95,25 +95,36 @@ const DOH_URLS = [
 ];
 let mainlandCache = { ip: null, at: 0 };
 
-async function resolveMainland({ ttlMs = 10 * 60_000 } = {}) {
-  if (mainlandCache.ip && Date.now() - mainlandCache.at < ttlMs) return mainlandCache.ip;
+/**
+ * Resolve the mainland edge via Chinese DoH resolvers. `avoid` lists IPs known not to work (e.g. the
+ * overseas edge the system DNS returned, or an edge that just answered 404) so a resolver whose answer
+ * is skewed by the VPN exit is skipped in favour of the next one. `force` bypasses the cache.
+ */
+async function resolveMainland({ ttlMs = 10 * 60_000, force = false, avoid = [] } = {}) {
+  if (!force && mainlandCache.ip && !avoid.includes(mainlandCache.ip) && Date.now() - mainlandCache.at < ttlMs) return mainlandCache.ip;
   let lastErr = null;
+  let fallback = null;
   for (const url of DOH_URLS) {
     try {
       const res = await fetch(url, { headers: { accept: 'application/dns-json' }, signal: AbortSignal.timeout(6000) });
       const json = await res.json();
-      const ip = (json.Answer || []).filter((a) => a.type === 1).map((a) => a.data).find((d) => /^\d+\.\d+\.\d+\.\d+$/.test(d));
-      if (ip) {
-        mainlandCache = { ip, at: Date.now() };
-        return ip;
+      const ips = (json.Answer || []).filter((a) => a.type === 1).map((a) => a.data).filter((d) => /^\d+\.\d+\.\d+\.\d+$/.test(d));
+      const good = ips.find((ip) => !avoid.includes(ip));
+      if (good) {
+        mainlandCache = { ip: good, at: Date.now() };
+        return good;
       }
-      lastErr = new Error(`no A record in answer from ${url}`);
+      if (ips[0] && !fallback) fallback = ips[0];
+      lastErr = new Error(`no usable A record from ${url}`);
     } catch (err) {
       lastErr = err;
     }
   }
+  if (fallback) { mainlandCache = { ip: fallback, at: Date.now() }; return fallback; }
   throw new Error(`mainland DNS lookup failed: ${lastErr ? lastErr.message : 'unknown'}`);
 }
+
+function forgetMainland() { mainlandCache = { ip: null, at: 0 }; }
 
 /** Extra `ws` options that pin the TCP connection to `ip` while keeping TLS SNI + Host = asr.cloud.tencent.com. */
 function pinnedOptions(ip) {
@@ -140,5 +151,6 @@ module.exports = {
   buildConnection,
   maskSecret,
   resolveMainland,
+  forgetMainland,
   pinnedOptions,
 };
