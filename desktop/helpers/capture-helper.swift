@@ -99,8 +99,11 @@ guard inFormat.sampleRate > 0, inFormat.channelCount > 0 else {
   exit(2)
 }
 let channels = Int(inFormat.channelCount)
-guard let floatFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: outRate, channels: inFormat.channelCount, interleaved: false),
-      let converter = AVAudioConverter(from: inFormat, to: floatFormat) else {
+// Keep the input's channel layout on the converter target: for more than two channels (the built-in
+// MacBook Pro microphone reports three) a layout-less format makes AVAudioConverter refuse to convert.
+let floatFormat = inFormat.channelLayout.flatMap { AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: outRate, interleaved: false, channelLayout: $0) }
+  ?? AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: outRate, channels: inFormat.channelCount, interleaved: false)
+guard let floatFormat, let converter = AVAudioConverter(from: inFormat, to: floatFormat) else {
   log("cannot build a converter from \(inFormat)")
   exit(2)
 }
