@@ -1,4 +1,4 @@
-# Subtitle platform
+# transcriptionApp
 
 Live Cantonese → Mandarin subtitles for venue screens, remote displays in any browser, and
 upload-a-video subtitling — built on Tencent Cloud speech services. Successor of the localhost tool in
