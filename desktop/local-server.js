@@ -7,6 +7,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { TranslationStream, Transcript, Recorder, schema } = require('@subs/core');
+const names = require('@subs/core/names');
+const { readCues, writeCues } = require('./lib/cues');
+const { liveName } = require('./lib/resubtitle');
 const { AudioCapture, FileCapture, listDevices, listDevicesFfmpeg } = require('./lib/capture');
 const { Mp4Queue } = require('./lib/mp4');
 const { SummaryQueue } = require('./lib/summary');
@@ -49,6 +52,12 @@ function readJson(req) {
  * @param {function} [opts.onCloud]      (body) => result, for POST /api/cloud
  * @param {function} [opts.cloudStatus]  () => object merged into status()
  * @param {object}   [opts.resubtitle]   ResubtitleQueue (needs the cloud login) for POST /api/recordings/resubtitle
+ * @param {object}   [opts.uploads]      UploadQueue for POST /api/files/add
+ * @param {function} [opts.cloudJobs]    async () => the account's upload jobs on the hosted server
+ * @param {function} [opts.onOpenDisplay] ({fullscreen}) => void
+ * @param {function} [opts.displayStatus] () => {open, fullscreen}
+ * @param {function} [opts.onOpenExternal] (url) => void
+ * @param {function} [opts.onOpenFolder]  () => void
  * @param {function} [opts.consoleLog]   (level, text) — defaults to console
  */
 async function createLocalServer(opts) {
@@ -109,6 +118,28 @@ async function createLocalServer(opts) {
   try { userPresets = JSON.parse(fs.readFileSync(PRESETS_FILE, 'utf8')); } catch (err) { if (err.code !== 'ENOENT') log('warn', `presets.json ignored: ${err.message}`); }
   const currentLook = () => { const o = {}; for (const k of PRESET_KEYS) o[k] = settings[k]; return o; };
   const presetsPayload = () => ({ builtin: schema.PRESETS, user: userPresets });
+  /** "Add file…": upload any video/audio file to the hosted server as a subtitling job, using the live languages. */
+  function addFile(file) {
+    if (!opts.uploads) throw new Error('cloud link not available');
+    const cloud = opts.cloudStatus ? opts.cloudStatus() : null;
+    if (!cloud || !cloud.loggedIn) throw new Error('Log in under Settings first');
+    const SOURCE = { yue: 'yue', zh: 'zh', zh_en: 'mixed', en: 'en', ja: 'ja', ko: 'ko' };
+    const TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko' };
+    const sourceLang = SOURCE[settings.source];
+    if (!sourceLang) throw new Error(`the cloud does not transcribe "${settings.source}" uploads yet`);
+    const queued = opts.uploads.add({ file, sourceLang, targetLang: TARGET[settings.target] || 'none' });
+    log('info', `add file: ${path.basename(file)} (${sourceLang} → ${TARGET[settings.target] || 'none'})`);
+    return queued;
+  }
+  /** Recordings with what the Files view needs: whether the subtitles came from the cloud, the live backups, the length. */
+  function listRecordings() {
+    return recorder.list().map((r) => {
+      const backups = ['zh', 'yue', 'mp4'].map((k) => liveName(opts.recordingsDir, r.base, k)).filter((f) => fs.existsSync(f)).map((f) => path.basename(f));
+      let durationMs = null;
+      try { const cues = readCues(opts.recordingsDir, r.base); if (cues.length) durationMs = cues[cues.length - 1].end; } catch { /* none */ }
+      return { ...r, resubtitled: backups.some((b) => /\.srt$/.test(b)), backups, durationMs };
+    });
+  }
   const savePresetsFile = () => fs.writeFile(PRESETS_FILE, JSON.stringify(userPresets, null, 2), (err) => { if (err) log('error', `saving presets: ${err.message}`); });
   function presetAction(body) {
     const name = String(body.name || '').trim().slice(0, 60);
@@ -167,6 +198,7 @@ async function createLocalServer(opts) {
   mp4.on('status', () => broadcast('status', status()));
   mp4.on('done', (r) => log('info', `mp4 ready: ${r.file} (${(r.bytes / 1e6).toFixed(1)} MB, took ${r.seconds} s)`));
   mp4.on('error', (e) => log('error', `mp4 ${e.base}: ${e.error}`));
+  if (opts.uploads) opts.uploads.on('status', () => broadcast('status', status()));
   if (opts.resubtitle) {
     opts.resubtitle.on('status', () => broadcast('status', status()));
     opts.resubtitle.on('done', ({ base }) => { if (MP4_AUTO) { mp4.add(base); log('info', `re-rendering the MP4 for ${base} with the complete subtitles`); } });
@@ -253,6 +285,10 @@ async function createLocalServer(opts) {
       summary: summaries.status(),
       cloud: opts.cloudStatus ? opts.cloudStatus() : null,
       resubtitle: opts.resubtitle ? opts.resubtitle.status() : null,
+      uploads: opts.uploads ? opts.uploads.status() : null,
+      display: opts.displayStatus ? opts.displayStatus() : null,
+      recordingsDir: opts.recordingsDir,
+      mp4Auto: MP4_AUTO,
       now: Date.now(),
     };
   }
@@ -363,12 +399,21 @@ async function createLocalServer(opts) {
     req.on('close', () => { clearInterval(hb); clients.delete(client); });
   }
 
-  async function api(req, res, p) {
+  async function api(req, res, p, url) {
     if (req.method === 'GET') {
       if (p === '/api/state') return send(res, 200, stateSnapshot());
       if (p === '/api/devices') return send(res, 200, await refreshDevices());
       if (p === '/api/transcript') return send(res, 200, transcript.toText(), MIME['.txt']);
-      if (p === '/api/recordings') return send(res, 200, recorder.list());
+      if (p === '/api/recordings') return send(res, 200, listRecordings());
+      if (p === '/api/recordings/cues') {
+        const base = String(url.searchParams.get('base') || '');
+        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
+        return send(res, 200, { base, cues: readCues(opts.recordingsDir, base) });
+      }
+      if (p === '/api/cloud/jobs') {
+        if (!opts.cloudJobs) return send(res, 200, []);
+        try { return send(res, 200, await opts.cloudJobs()); } catch (err) { return send(res, 200, []); }
+      }
       if (p === '/api/presets') return send(res, 200, presetsPayload());
       return send(res, 404, { error: 'unknown endpoint' });
     }
@@ -404,6 +449,27 @@ async function createLocalServer(opts) {
           (err) => log('error', `summary PDF ${base}: ${err.message}`),
         );
         return send(res, 200, { ok: true });
+      }
+      case '/api/recordings/cues': {
+        const base = String(body.base || '');
+        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
+        try { const cues = writeCues(opts.recordingsDir, base, body.cues); log('info', `subtitles of ${base} edited (${cues.length} cues)`); return send(res, 200, { ok: true, cues }); } catch (err) { return send(res, 400, { error: err.message }); }
+      }
+      case '/api/recordings/open-folder':
+        if (opts.onOpenFolder) opts.onOpenFolder();
+        return send(res, 200, { ok: true });
+      case '/api/display/open':
+        if (!opts.onOpenDisplay) return send(res, 400, { error: 'display window not available' });
+        await opts.onOpenDisplay({ fullscreen: !!body.fullscreen });
+        return send(res, 200, { ok: true });
+      case '/api/open': {
+        const u = String(body.url || '');
+        if (!/^https?:\/\//.test(u) || !opts.onOpenExternal) return send(res, 400, { error: 'bad url' });
+        opts.onOpenExternal(u);
+        return send(res, 200, { ok: true });
+      }
+      case '/api/files/add': {
+        try { return send(res, 200, { ok: true, queued: addFile(String(body.path || '')), uploads: opts.uploads.status() }); } catch (err) { return send(res, 400, { error: err.message }); }
       }
       case '/api/recordings/resubtitle': {
         const base = String(body.base || '');
@@ -474,7 +540,7 @@ async function createLocalServer(opts) {
     return fs.createReadStream(file).pipe(res);
   }
 
-  const PAGES = { '/': 'index.html', '/control': 'control.html', '/playback': 'playback.html', '/summary': 'summary.html' };
+  const PAGES = { '/': 'index.html', '/control': 'desktop.html', '/files': 'desktop.html', '/settings': 'desktop.html', '/summary': 'summary.html' };
   function authorised(req, url) {
     if (!opts.token) return true;
     if (url.searchParams.get('token') === opts.token) return true;
@@ -488,16 +554,17 @@ async function createLocalServer(opts) {
     try {
       if (!authorised(req, url)) return send(res, 401, 'unauthorised', MIME['.txt']);
       if (p === '/events') return sse(req, res, url);
-      if (p.startsWith('/api/')) return await api(req, res, p);
+      if (p.startsWith('/api/')) return await api(req, res, p, url);
       if (p === '/schema.js') return send(res, 200, fs.readFileSync(opts.schemaFile), MIME['.js']);
       if (p.startsWith('/recordings/')) return serveRecording(req, res, path.basename(decodeURIComponent(p.slice('/recordings/'.length))));
-      const rel = PAGES[p] || p.slice(1);
+      const isShell = PAGES[p] === 'desktop.html' || /^\/files\/./.test(p);
+      const rel = isShell ? 'desktop.html' : PAGES[p] || p.slice(1);
       const full = path.join(opts.webDir, path.normalize(rel));
       if (!full.startsWith(opts.webDir + path.sep) || !fs.existsSync(full) || fs.statSync(full).isDirectory()) {
         return send(res, 404, 'not found', MIME['.txt']);
       }
       const extra = {};
-      if (opts.token && PAGES[p]) extra['set-cookie'] = `token=${opts.token}; Path=/; SameSite=Strict`;
+      if (opts.token && (PAGES[p] || isShell)) extra['set-cookie'] = `token=${opts.token}; Path=/; SameSite=Strict`;
       return send(res, 200, fs.readFileSync(full), MIME[path.extname(full)] || 'application/octet-stream', extra);
     } catch (err) {
       log('error', `${req.method} ${p}: ${err.message}`);
@@ -550,6 +617,8 @@ async function createLocalServer(opts) {
     startRecording,
     stopRecording: () => recorder.stop(),
     get recording() { return recorder.recording; },
+    clear: () => { transcript.clear(); broadcast('clear', {}); },
+    addFile,
     recordingsDir: opts.recordingsDir,
     pageUrl: (page = '/', extra = '') => `${base}${page}${opts.token ? `${page.includes('?') ? '&' : '?'}token=${opts.token}` : ''}${extra}`,
     shutdown,

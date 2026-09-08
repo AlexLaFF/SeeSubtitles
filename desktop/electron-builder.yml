@@ -1,5 +1,5 @@
 appId: com.alexlaff.subtitles
-productName: Subtitles
+productName: See Subtitles
 copyright: MIT
 directories:
   output: dist
@@ -9,7 +9,6 @@ files:
   - preload.js
   - local-server.js
   - cloud.js
-  - settings.html
   - lib/**
   - package.json
 extraResources:
@@ -20,7 +19,7 @@ extraResources:
 asar: true
 npmRebuild: false
 # Updates are served by the hosted server (server/lib/updates.js): copy dist/latest-mac.yml, the zip and the dmg
-# into its <DATA_DIR>/updates. The app checks <server>/updates on launch and from Subtitles → Check for Updates…
+# into its <DATA_DIR>/updates. The app checks <server>/updates on launch and from See Subtitles → Check for Updates…
 publish:
   provider: generic
   url: https://seesubtitles.com/updates
@@ -36,7 +35,7 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    NSMicrophoneUsageDescription: Subtitles listens to the microphone to transcribe and translate speech in real time.
+    NSMicrophoneUsageDescription: See Subtitles listens to the microphone to transcribe and translate speech in real time.
     LSMinimumSystemVersion: "13.0"
 dmg:
   sign: false

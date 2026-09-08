@@ -4,7 +4,9 @@
   const $ = (id) => document.getElementById(id);
   const params = new URLSearchParams(location.search);
   const isOverlay = params.has('overlay');
+  const isPreview = params.has('preview'); // embedded in the desktop app's Live view: subtitles only, no hint, no keys
   if (isOverlay) document.body.classList.add('overlay');
+  if (isPreview) document.body.classList.add('preview');
   if (Sub.remote) document.body.classList.add('remote');
 
   const linesEl = $('lines');
@@ -160,7 +162,7 @@
     closeBtn.addEventListener('click', () => Sub.post('/api/overlay/close'));
   }
   $('stage').addEventListener('dblclick', () => togglePanel());
-  if (isOverlay) hint.hidden = true; // nothing but subtitles on the venue screen
+  if (isOverlay || isPreview) hint.hidden = true; // nothing but subtitles on the venue screen / in the preview
   else setTimeout(() => hint.classList.add('fade'), 6000);
 
   document.addEventListener('keydown', (e) => {

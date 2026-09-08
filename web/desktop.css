@@ -1,0 +1,85 @@
+/* Desktop app shell: sidebar + views. Extends style.css (.ui, .badge, .meter, .preview, .log, dl.kv). */
+body.shell { margin: 0; padding: 0; background: #111; color: #e8e8e8; font: 13px/1.45 -apple-system, system-ui, "PingFang SC", sans-serif; height: 100vh; overflow: hidden; }
+.shell .app { display: flex; height: 100vh; }
+.shell .side { width: 190px; flex: none; background: #161618; border-right: 1px solid #2a2a2d; display: flex; flex-direction: column; gap: 2px; padding: 40px 10px 10px; box-sizing: border-box; -webkit-app-region: drag; }
+.shell .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; padding: 0 10px 14px; color: #fff; }
+.shell .nav { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; color: #c8c8cc; font-size: 14px; cursor: pointer; -webkit-app-region: no-drag; }
+.shell .nav:hover { background: #ffffff0f; }
+.shell .nav.active { background: #0a84ff26; color: #fff; }
+.shell .nav svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.shell .grow { flex: 1; }
+.shell .account { padding: 10px; border-top: 1px solid #2a2a2d; font-size: 12px; color: #9a9a9f; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.shell .account b { color: #e8e8e8; font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.shell .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.shell .top { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid #2a2a2d; min-height: 30px; -webkit-app-region: drag; }
+.shell .top > * { -webkit-app-region: no-drag; }
+.shell .top h1 { margin: 0; font-size: 18px; font-weight: 600; white-space: nowrap; }
+.shell .top .crumb { color: #9a9a9f; }
+.shell .chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.shell .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 10px; background: #2c2c2e; font-size: 12px; white-space: nowrap; }
+.shell .chip.ok { background: #1e8e3e; } .shell .chip.rec { background: #b3261e; } .shell .chip.warn { background: #b26a00; } .shell .chip.bad { background: #b3261e; } .shell .chip.demo { background: #5e5ce6; }
+.shell .dot { width: 8px; height: 8px; border-radius: 50%; background: #34c759; display: inline-block; }
+.shell .chip .bar { display: inline-block; width: 70px; height: 6px; background: #3a3a3d; border-radius: 3px; overflow: hidden; }
+.shell .chip .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #1e8e3e, #34c759 55%, #ffd60a 80%, #ff453a); transition: width 90ms linear; }
+.shell .toolbar { display: flex; gap: 8px; padding: 12px 20px 0; align-items: center; flex-wrap: wrap; }
+.shell button { font: inherit; background: #3a3a3d; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.shell button:hover { background: #4a4a4e; } .shell button:disabled { opacity: .5; cursor: default; }
+.shell button.primary { background: #0a84ff; } .shell button.primary:hover { background: #2a94ff; }
+.shell button.danger { background: #b3261e; } .shell button.ghost { background: transparent; border: 1px solid #3a3a3d; }
+.shell button.small { padding: 3px 9px; font-size: 12px; }
+.shell button svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.shell .body { display: flex; gap: 14px; padding: 14px 20px; flex: 1; min-height: 0; overflow: hidden; }
+.shell .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; min-height: 0; }
+.shell .col.scroll { overflow: auto; padding-right: 2px; }
+.shell .ui { box-shadow: none; }
+.shell .ui h3 { display: flex; align-items: center; gap: 8px; }
+.shell .ui h3 .n { width: 18px; height: 18px; border-radius: 50%; background: #2c2c2e; color: #e8e8e8; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; letter-spacing: 0; flex: none; }
+.shell .ui h3 .grow { flex: 1; }
+.shell .ui .row { grid-template-columns: 130px 1fr auto auto; }
+.shell .ui .row.wide { grid-template-columns: 130px 1fr; }
+.shell .ui .row.text { grid-template-columns: 130px 1fr; }
+.shell details.fold { margin: 6px 0 2px; }
+.shell details.fold > summary { cursor: pointer; color: #9a9a9f; font-size: 12px; list-style: none; display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.shell details.fold > summary::-webkit-details-marker { display: none; }
+.shell details.fold > summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid #9a9a9f; border-bottom: 1.5px solid #9a9a9f; transform: rotate(-45deg); transition: transform .15s; }
+.shell details.fold[open] > summary::before { transform: rotate(45deg); }
+.shell details.fold > .inner { padding: 4px 0 2px; }
+.shell .pills { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.shell .pill { padding: 4px 10px; border-radius: 12px; background: #2c2c2e; font-size: 12px; cursor: pointer; border: 0; color: #e8e8e8; }
+.shell .pill.on { background: #0a84ff; color: #fff; }
+.shell .stagebox { position: relative; background: #000; border-radius: 10px; overflow: hidden; }
+.shell .stagebox iframe { position: absolute; left: 0; top: 0; border: 0; pointer-events: none; transform-origin: 0 0; }
+.shell .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; background: #2c2c2e; color: #cbd5e1; white-space: nowrap; }
+.shell .tag.done { background: #14532d; color: #bbf7d0; } .shell .tag.live { background: #1e3a8a; color: #bfdbfe; } .shell .tag.busy { background: #78350f; color: #fde68a; } .shell .tag.bad { background: #7f1d1d; color: #fecaca; }
+.shell table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.shell th, .shell td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #2a2a2d; vertical-align: middle; }
+.shell th { color: #9a9a9f; font-weight: 500; font-size: 12px; }
+.shell tr.row-click { cursor: pointer; } .shell tr.row-click:hover td { background: #ffffff08; }
+.shell .drop { border: 2px dashed #3a3a3d; border-radius: 10px; padding: 22px; text-align: center; color: #9a9a9f; }
+.shell .drop.over { border-color: #0a84ff; color: #dbeafe; }
+.shell .progress { display: inline-block; width: 80px; height: 5px; background: #2c2c2e; border-radius: 3px; vertical-align: middle; overflow: hidden; }
+.shell .progress i { display: block; height: 100%; background: #0a84ff; }
+.shell .cues { overflow: auto; flex: 1; min-height: 0; }
+.shell .cue { display: grid; grid-template-columns: 74px 1fr auto; gap: 8px; padding: 6px 4px; border-bottom: 1px solid #2a2a2d; align-items: start; }
+.shell .cue.active { background: #0a84ff1a; }
+.shell .cue .t { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #9a9a9f; cursor: pointer; line-height: 1.6; }
+.shell .cue textarea { width: 100%; box-sizing: border-box; background: #2c2c2e; color: #eee; border: 1px solid #3a3a3d; border-radius: 6px; padding: 4px 6px; font: inherit; resize: none; min-height: 26px; }
+.shell .cue textarea.orig { color: #9a9a9f; font-size: 12px; margin-top: 3px; }
+.shell .cue .ops { display: flex; flex-direction: column; gap: 3px; }
+.shell .cue .ops button { padding: 1px 6px; font-size: 11px; }
+.shell .kv2 { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 12.5px; }
+.shell .kv2 span:nth-child(odd) { color: #9a9a9f; white-space: nowrap; }
+.shell .status-line { padding: 8px 10px; border-radius: 6px; background: #ffffff0a; font-size: 12px; white-space: pre-wrap; }
+.shell .snav { display: flex; flex-direction: column; gap: 2px; width: 170px; flex: none; }
+.shell .snav .nav { font-size: 13px; padding: 7px 10px; }
+.shell .menu { position: absolute; z-index: 20; background: #1c1c1e; border: 1px solid #3a3a3d; border-radius: 8px; padding: 4px; box-shadow: 0 8px 30px rgba(0,0,0,.5); display: flex; flex-direction: column; min-width: 220px; }
+.shell .menu a, .shell .menu button { text-align: left; background: transparent; color: #e8e8e8; padding: 6px 10px; border-radius: 5px; text-decoration: none; display: block; }
+.shell .menu a:hover, .shell .menu button:hover { background: #0a84ff33; }
+.shell .empty { color: #9a9a9f; padding: 20px; text-align: center; }
+.shell .alert { margin: 12px 20px 0; }
+.shell .log { max-height: 160px; }
+.shell .stage-p { background: #000; border-radius: 10px; height: 300px; padding: 16px 20px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; font-family: "PingFang SC", "Hiragino Sans GB", sans-serif; font-weight: 700; color: #fff; text-align: center; overflow: hidden; }
+.shell .stage-p .l { font-size: 24px; line-height: 1.25; overflow-wrap: anywhere; }
+.shell .stage-p .l.old { opacity: .55; }
+.shell .stage-p .l .s { display: block; font-size: 13px; font-weight: 500; opacity: .72; }
+.shell .cue textarea { overflow: hidden; }

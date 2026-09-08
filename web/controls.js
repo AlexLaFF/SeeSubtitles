@@ -16,6 +16,18 @@
   const toSlider = (f, v) => (f.scale === 'log' ? Math.round((LOG_MAX * Math.log(v / f.min)) / Math.log(f.max / f.min)) : v);
   const fromSlider = (f, p) => (f.scale === 'log' ? Math.round(f.min * Math.pow(f.max / f.min, p / LOG_MAX)) : Number(p));
 
+  /** Render only the given field keys into root (no group headings). Used by the desktop app's panels. */
+  Controls.renderFields = function (root, keys) {
+    for (const key of keys) {
+      const f = SCHEMA.byKey ? SCHEMA.byKey[key] : SCHEMA.FIELDS.find((x) => x.key === key);
+      if (f) root.appendChild(row(f));
+    }
+    Controls.sync(Sub.settings, true);
+  };
+  Controls.presetRow = () => presetRow();
+  /** Forget rendered inputs (the desktop app re-renders whole views). */
+  Controls.reset = function () { Controls.inputs = {}; Controls.deviceSelects = []; Controls.displaysEls = []; Controls.presetSelects = []; Controls._overlayKey = ''; };
+
   Controls.render = function (root, { groups } = {}) {
     for (const [g, label] of SCHEMA.GROUPS) {
       if (groups && !groups.includes(g)) continue;

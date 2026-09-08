@@ -1,4 +1,4 @@
-# transcriptionApp
+# transcriptionApp — See Subtitles
 
 Live Cantonese → Mandarin subtitles for venue screens, remote displays in any browser, and
 upload-a-video subtitling — built on Tencent Cloud speech services. Successor of the localhost tool in
@@ -24,18 +24,16 @@ npm start -w desktop                    # run from source
 npm run dist -w desktop                 # DMG in desktop/dist (unsigned unless a Developer ID certificate is installed)
 ```
 
-First launch opens **Settings** (⌘,): enter the Tencent APPID / SecretId / SecretKey (stored encrypted with
-the macOS Keychain), choose the recordings folder (default `~/Movies/Subtitles`). Windows: **Control** (⌘1),
-**Display** (⌘2), **Overlay** (⌘3, transparent, always on top, placeable on any display including
-BetterDisplay virtual screens). ⇧⌘R starts/stops the MP3 + SRT recording; the MP4 with burned-in subtitles
-is produced when it stops. **Demo mode** (Subtitles menu) runs scripted sentences without a mic or keys.
+The app is one window with a sidebar: **Live** (a talk happening now), **Files** (recordings from Live and
+files you add, each with playback, editable subtitles, exports, MP4 and AI summary) and **Settings**. First
+launch asks you to log in to seesubtitles.com (Settings › Account); the app then fetches its Tencent keys from
+the server, so no keys are typed. Live is arranged in the order you set up a talk: source, subtitle look,
+where it shows (Display window ⌘3, transparent Overlay window ⌘4 placeable on any display including
+BetterDisplay virtual screens, and the share link for phones), recording (⇧⌘R). The menu bar mirrors
+everything: File › Add File… (⌘O), View › Live / Files (⌘1 / ⌘2), Display / Overlay windows, Demo Mode.
+The MP4 with burned-in subtitles is produced when a recording stops.
 
-**Publish to cloud** (Control window): after logging in to the hosted server in Settings → Cloud, the
-transcript and look settings are mirrored to a live session; the share link `https://<host>/d/<code>`
-shows the subtitles in any browser (venue screens, phones). Audio never leaves the laptop; if the server is
-unreachable the local display and recording are unaffected.
-
-**Re-subtitle via cloud** (next to each recording on the Control page): uploads the recording's MP3 to the
+**Re-subtitle via cloud** (Files › a recording): uploads the recording's MP3 to the
 hosted server as a job (whole-file 录音文件识别 + 混元翻译) and replaces the live subtitles with the complete
 set, which fills the holes a connection drop leaves and reads better. The live files are kept as
 `…中文字幕.zh.live.srt` / `…粤语字幕.yue.live.srt`, a stale MP4 as `…录音＋字幕.live.mp4`, and the MP4 is

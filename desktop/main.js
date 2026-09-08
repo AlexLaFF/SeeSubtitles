@@ -15,7 +15,19 @@ const PACKAGED = app.isPackaged;
 const WEB_DIR = PACKAGED ? path.join(process.resourcesPath, 'web') : path.join(__dirname, '..', 'web');
 const BIN_DIR = PACKAGED ? path.join(process.resourcesPath, 'bin') : path.join(__dirname, 'resources', 'bin');
 const SCHEMA_FILE = require.resolve('@subs/core/schema');
+app.setName('See Subtitles');
 if (process.env.SUBTITLES_USER_DATA) app.setPath('userData', path.resolve(process.env.SUBTITLES_USER_DATA));
+else {
+  // the data folder is named after the app; carry the files over from the old name ("Subtitles") once
+  const cur = app.getPath('userData');
+  const old = path.join(path.dirname(cur), 'Subtitles');
+  if (!fs.existsSync(path.join(cur, 'config.json')) && fs.existsSync(path.join(old, 'config.json'))) {
+    try {
+      fs.mkdirSync(cur, { recursive: true });
+      for (const f of ['config.json', 'settings.json', 'presets.json', 'transcripts']) if (fs.existsSync(path.join(old, f))) fs.cpSync(path.join(old, f), path.join(cur, f), { recursive: true });
+    } catch { /* keep going with a fresh folder */ }
+  }
+}
 const USER_DATA = app.getPath('userData');
 const CONFIG_FILE = path.join(USER_DATA, 'config.json');
 const TOKEN = crypto.randomBytes(16).toString('hex');
@@ -29,7 +41,7 @@ const DEFAULT_CONFIG = {
   appid: '', secretId: '', secretKeyEnc: '',
   cloudKeysEnc: '', // Tencent keys handed out by the server after login (encrypted JSON), used when no manual keys are set
   summaryKeyEnc: '', summaryModel: 'claude-opus-5', summaryLanguage: 'zh', summaryEffort: 'high',
-  recordingsDir: path.join(app.getPath('videos'), 'Subtitles'),
+  recordingsDir: path.join(app.getPath('videos'), 'See Subtitles'),
   demo: false, audioFile: '', edge: 'auto', bitrate: '128k',
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
   cloud: { url: DEFAULT_CLOUD_URL, email: '', token: '', publish: false },
@@ -53,7 +65,8 @@ function encryptSecret(plain) {
 }
 function decryptSecret(stored) {
   if (!stored) return '';
-  if (stored.startsWith('enc:')) return safeStorage.decryptString(Buffer.from(stored.slice(4), 'base64'));
+  // the Keychain item is tied to the app name; after a rename older secrets cannot be read — treat them as unset
+  if (stored.startsWith('enc:')) { try { return safeStorage.decryptString(Buffer.from(stored.slice(4), 'base64')); } catch { return ''; } }
   if (stored.startsWith('plain:')) return Buffer.from(stored.slice(6), 'base64').toString('utf8');
   return stored;
 }
@@ -86,6 +99,8 @@ const cloud = new CloudLink({ log: (level, text) => core && core.log(level, `clo
 const { ResubtitleQueue } = require('./lib/resubtitle');
 const resubtitle = new ResubtitleQueue({ cloud, log: (level, text) => core && core.log(level, text) });
 const { Updater } = require('./lib/updater');
+const { UploadQueue } = require('./lib/uploads');
+const uploads = new UploadQueue({ cloud, log: (level, text) => core && core.log(level, text) });
 const updater = new Updater({ cloud, log: (level, text) => (core ? core.log(level, `updates: ${text}`) : consoleLog(level, `updates: ${text}`)), packaged: PACKAGED });
 
 function consoleLog(level, text) {
@@ -139,6 +154,12 @@ async function startCore() {
     onCloud: (body) => cloudAction(body),
     cloudStatus: () => cloud.status(),
     resubtitle,
+    uploads,
+    cloudJobs: async () => (cloud.status().loggedIn ? cloud._fetch('/api/jobs', null, { method: 'GET' }) : []),
+    onOpenDisplay: ({ fullscreen } = {}) => { const w = openDisplay(); if (fullscreen) w.setFullScreen(true); },
+    displayStatus: () => ({ open: !!(wins.display && !wins.display.isDestroyed()), fullscreen: !!(wins.display && !wins.display.isDestroyed() && wins.display.isFullScreen()) }),
+    onOpenExternal: (url) => shell.openExternal(url),
+    onOpenFolder: () => shell.openPath(loadConfig().recordingsDir),
     consoleLog,
   });
   port = core.port;
@@ -201,6 +222,7 @@ async function cloudAction(body) {
 // ------------------------------------------------------------------ windows
 const wins = { control: null, display: null, overlay: null, settings: null };
 const WEB_PREFS = { contextIsolation: true, sandbox: true };
+const SHELL_PREFS = { ...WEB_PREFS, preload: path.join(__dirname, 'preload.js') }; // the main window talks to this process (settings, file pickers)
 
 function focusOr(name, create) {
   if (wins[name] && !wins[name].isDestroyed()) { wins[name].show(); wins[name].focus(); return wins[name]; }
@@ -212,16 +234,18 @@ function focusOr(name, create) {
 
 function openControl() {
   return focusOr('control', () => {
-    const w = new BrowserWindow({ width: 1000, height: 780, minWidth: 720, minHeight: 500, title: 'Subtitles — Control', webPreferences: WEB_PREFS });
+    const w = new BrowserWindow({ width: 1320, height: 860, minWidth: 980, minHeight: 600, title: 'See Subtitles', titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 }, backgroundColor: '#111111', webPreferences: SHELL_PREFS });
     w.loadURL(core.pageUrl('/control'));
+    w.on('enter-full-screen', reportDisplay); w.on('leave-full-screen', reportDisplay);
     return w;
   });
 }
 
 function openDisplay() {
   return focusOr('display', () => {
-    const w = new BrowserWindow({ width: 1280, height: 720, backgroundColor: '#000000', title: 'Subtitles — Display', webPreferences: WEB_PREFS });
+    const w = new BrowserWindow({ width: 1280, height: 720, backgroundColor: '#000000', title: 'See Subtitles — Display', webPreferences: WEB_PREFS });
     w.loadURL(core.pageUrl('/'));
+    for (const ev of ['enter-full-screen', 'leave-full-screen', 'closed', 'show']) w.on(ev, reportDisplay);
     return w;
   });
 }
@@ -265,7 +289,7 @@ function openOverlay() {
       fullscreenable: false,
       enableLargerThanScreen: true, // portrait walls, BetterDisplay virtual screens
       backgroundColor: '#00000000',
-      title: 'Subtitles — Overlay',
+      title: 'See Subtitles — Overlay',
       focusable: false, // keep PowerPoint and the audience menu bar active
       skipTaskbar: true,
       webPreferences: WEB_PREFS,
@@ -292,16 +316,14 @@ function toggleOverlay() {
   else openOverlay();
 }
 
-function openSettings() {
-  return focusOr('settings', () => {
-    const w = new BrowserWindow({
-      width: 640, height: 760, minWidth: 520, title: 'Subtitles — Settings', resizable: true,
-      webPreferences: { contextIsolation: true, sandbox: true, preload: path.join(__dirname, 'preload.js') },
-    });
-    w.loadFile(path.join(__dirname, 'settings.html'));
-    return w;
-  });
+/** Show a view of the main window (Live / Files / Settings). */
+function navigate(view, params) {
+  const w = openControl();
+  if (w.webContents.getURL().includes('/control') || w.webContents.getURL().includes('/files') || w.webContents.getURL().includes('/settings')) w.webContents.send('app:navigate', view, params || {});
+  else w.loadURL(core.pageUrl(view === 'files' ? '/files' : view === 'settings' ? '/settings' : '/control'));
 }
+function openSettings() { navigate('settings'); }
+function reportDisplay() { if (core) core.emitter.emit('display'); }
 
 async function toggleRecording() {
   if (!core) return;
@@ -319,17 +341,17 @@ function rebuildTray() {
   if (!tray) {
     tray = new Tray(nativeImage.createEmpty());
     tray.setTitle('字幕');
-    tray.setToolTip('Subtitles');
+    tray.setToolTip('See Subtitles');
   }
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Open Control window', click: openControl },
+    { label: 'Open See Subtitles', click: openControl },
     { label: 'Open overlay', click: openOverlay },
     ...displays().map((d) => ({ label: `Fill: ${d.label}${d.primary ? ' (main)' : ''} — ${d.bounds.width}×${d.bounds.height}`,
       click: () => { openOverlay(); core.applySettings({ window: d.bounds }, null); applyOverlayBounds(d.bounds); reportOverlay(); } })),
     { label: 'Reload overlay', click: () => { if (wins.overlay) wins.overlay.reload(); } },
     { label: 'Close overlay', click: closeOverlay },
     { type: 'separator' },
-    { label: 'Quit Subtitles', click: () => app.quit() },
+    { label: 'Quit See Subtitles', click: () => app.quit() },
   ]));
 }
 
@@ -337,39 +359,50 @@ function rebuildTray() {
 function rebuildMenu() {
   const cfg = loadConfig();
   const template = [
-    {
-      label: app.name,
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { label: 'Settings…', accelerator: 'Cmd+,', click: openSettings },
-        { type: 'separator' },
-        { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
-        { type: 'separator' },
-        { role: 'quit' },
-      ],
-    },
-    {
-      label: 'Subtitles',
-      submenu: [
-        { label: 'Control Window', accelerator: 'Cmd+1', click: openControl },
-        { label: 'Display Window', accelerator: 'Cmd+2', click: openDisplay },
-        { label: 'Overlay Window (transparent, always on top)', accelerator: 'Cmd+3', click: toggleOverlay },
-        { type: 'separator' },
-        { label: 'Start / Stop Recording', accelerator: 'Shift+Cmd+R', click: toggleRecording },
-        { label: 'Open Recordings Folder', click: () => shell.openPath(cfg.recordingsDir) },
-        { label: 'Open Playback Page', click: () => shell.openExternal(core.pageUrl('/playback')) },
-        { type: 'separator' },
-        { label: 'Demo Mode (scripted sentences, no microphone)', type: 'checkbox', checked: !!cfg.demo, click: (item) => { const c = loadConfig(); c.demo = item.checked; saveConfig(c); restartCore(); } },
-        { label: 'Restart Pipeline', click: () => restartCore() },
-        { label: 'Check for Updates…', click: () => updater.check({ interactive: true }) },
-      ],
-    },
+    { label: app.name, submenu: [
+      { role: 'about' },
+      { label: 'Check for Updates…', click: () => updater.check({ interactive: true }) },
+      { type: 'separator' },
+      { label: 'Settings…', accelerator: 'Cmd+,', click: openSettings },
+      { type: 'separator' },
+      { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
+      { type: 'separator' },
+      { role: 'quit' },
+    ] },
+    { label: 'File', submenu: [
+      { label: 'Add File…', accelerator: 'Cmd+O', click: async () => { const p = await chooseMediaFile(); if (p && core) navigate('files'); if (p && core) core.addFile(p); } },
+      { label: core && core.recording ? 'Stop Recording' : 'Start Recording', accelerator: 'Shift+Cmd+R', click: toggleRecording },
+      { type: 'separator' },
+      { label: 'Open Recordings Folder', click: () => shell.openPath(cfg.recordingsDir) },
+    ] },
     { role: 'editMenu' },
-    { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { type: 'separator' }, { role: 'togglefullscreen' }] },
+    { label: 'View', submenu: [
+      { label: 'Live', accelerator: 'Cmd+1', click: () => navigate('live') },
+      { label: 'Files', accelerator: 'Cmd+2', click: () => navigate('files') },
+      { type: 'separator' },
+      { label: 'Display Window', accelerator: 'Cmd+3', click: openDisplay },
+      { label: 'Overlay Window', accelerator: 'Cmd+4', click: toggleOverlay },
+      { label: 'Full Screen Display', accelerator: 'Ctrl+Cmd+F', click: () => { const w = openDisplay(); w.setFullScreen(!w.isFullScreen()); } },
+      { type: 'separator' },
+      { label: 'Pause Subtitles', click: () => core && core.applySettings({ streaming: !core.settings.streaming }, null) },
+      { label: 'Clear Screen', click: () => core && core.clear() },
+      { type: 'separator' },
+      { label: 'Demo Mode', type: 'checkbox', checked: !!cfg.demo, click: (item) => { const c = loadConfig(); c.demo = item.checked; saveConfig(c); restartCore(); } },
+      { label: 'Restart Pipeline', click: () => restartCore() },
+      { type: 'separator' },
+      { role: 'reload' }, { role: 'toggleDevTools' },
+    ] },
     { role: 'windowMenu' },
+    { label: 'Help', submenu: [
+      { label: 'Keyboard Shortcuts', click: () => dialog.showMessageBox({ message: 'Keyboard shortcuts', detail: '⇧⌘R  start / stop recording\n⌘1 / ⌘2  Live / Files\n⌘3 / ⌘4  Display / Overlay window\n⌃⌘F  full-screen display\n\nOn the Live and Display pages:\n+ / −  text size (Shift = bigger steps)\n[ / ]  fewer / more sentences kept\nShift+S  translation → both → original\nP  pause / resume subtitles\nX  clear the screen\nC  show / hide the panel (display page)\nF  full screen (display page)' }) },
+      { label: 'Open seesubtitles.com', click: () => shell.openExternal('https://seesubtitles.com') },
+    ] },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+async function chooseMediaFile() {
+  const r = await dialog.showOpenDialog(wins.control || undefined, { properties: ['openFile'], filters: [{ name: 'Video or audio', extensions: ['mp4', 'mov', 'm4v', 'mkv', 'webm', 'mp3', 'm4a', 'wav', 'aac', 'flac', 'ogg'] }] });
+  return r.canceled ? null : r.filePaths[0];
 }
 
 // ------------------------------------------------------------------ IPC (settings window)
@@ -404,6 +437,7 @@ ipcMain.handle('config:chooseFolder', async () => {
   const r = await dialog.showOpenDialog(wins.settings, { properties: ['openDirectory', 'createDirectory'] });
   return r.canceled ? null : r.filePaths[0];
 });
+ipcMain.handle('files:choose', () => chooseMediaFile());
 ipcMain.handle('config:chooseAudioFile', async () => {
   const r = await dialog.showOpenDialog(wins.settings, { properties: ['openFile'], filters: [{ name: 'WAV (16 kHz mono)', extensions: ['wav', 'pcm'] }] });
   return r.canceled ? null : r.filePaths[0];
@@ -415,7 +449,6 @@ ipcMain.handle('updates:check', () => updater.check({ interactive: true }));
 ipcMain.handle('updates:status', () => updater.status());
 
 // ------------------------------------------------------------------ lifecycle
-app.setName('Subtitles');
 app.whenReady().then(async () => {
   const cfg = loadConfig();
   if (!cfg.demo && process.platform === 'darwin') {

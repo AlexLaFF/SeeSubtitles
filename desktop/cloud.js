@@ -118,7 +118,7 @@ class CloudLink {
   }
   async login(url, email, password) {
     const clean = this._useUrl(url);
-    const r = await this._fetch('/api/login', { email, password, kind: 'bearer', label: 'Subtitles desktop app' }, { auth: false });
+    const r = await this._fetch('/api/login', { email, password, kind: 'bearer', label: 'See Subtitles desktop app' }, { auth: false });
     if (!r || !r.token) throw new Error('login did not return a token');
     this.cfg.token = r.token;
     this.cfg.email = email;
@@ -129,7 +129,7 @@ class CloudLink {
   /** Create an account (the server must be in invite or open sign-up mode) and log in. */
   async signup(url, email, password, invite) {
     const clean = this._useUrl(url);
-    const r = await this._fetch('/api/signup', { email, password, invite: invite || '', kind: 'bearer', label: 'Subtitles desktop app' }, { auth: false });
+    const r = await this._fetch('/api/signup', { email, password, invite: invite || '', kind: 'bearer', label: 'See Subtitles desktop app' }, { auth: false });
     if (!r || !r.token) throw new Error('sign-up did not return a token');
     this.cfg.token = r.token;
     this.cfg.email = email;
