@@ -26,16 +26,19 @@ process.env.PATH = [BIN_DIR, process.env.PATH || '', '/opt/homebrew/bin', '/usr/
 // ------------------------------------------------------------------ config
 const DEFAULT_CONFIG = {
   appid: '', secretId: '', secretKeyEnc: '',
+  cloudKeysEnc: '', // Tencent keys handed out by the server after login (encrypted JSON), used when no manual keys are set
   summaryKeyEnc: '', summaryModel: 'claude-opus-5', summaryLanguage: 'zh', summaryEffort: 'high',
   recordingsDir: path.join(app.getPath('videos'), 'Subtitles'),
   demo: false, audioFile: '', edge: 'auto', bitrate: '128k',
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
-  cloud: { url: '', email: '', token: '', publish: false },
+  cloud: { url: DEFAULT_CLOUD_URL, email: '', token: '', publish: false },
 };
 function loadConfig() {
   try {
     const raw = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-    return { ...DEFAULT_CONFIG, ...raw, mp4: { ...DEFAULT_CONFIG.mp4, ...(raw.mp4 || {}) }, cloud: { ...DEFAULT_CONFIG.cloud, ...(raw.cloud || {}) } };
+    const cfg = { ...DEFAULT_CONFIG, ...raw, mp4: { ...DEFAULT_CONFIG.mp4, ...(raw.mp4 || {}) }, cloud: { ...DEFAULT_CONFIG.cloud, ...(raw.cloud || {}) } };
+    if (!cfg.cloud.url) cfg.cloud.url = DEFAULT_CLOUD_URL;
+    return cfg;
   } catch { return { ...DEFAULT_CONFIG, mp4: { ...DEFAULT_CONFIG.mp4 }, cloud: { ...DEFAULT_CONFIG.cloud } }; }
 }
 function saveConfig(cfg) {
@@ -55,6 +58,25 @@ function decryptSecret(stored) {
 }
 // The cloud login token is stored encrypted like the API keys (older configs hold it in clear; decryptSecret accepts both).
 const cloudConfig = (cfg) => ({ ...cfg.cloud, token: decryptSecret(cfg.cloud.token) });
+/** Which Tencent keys the pipeline uses: the user's own (Settings) win over the ones the server handed out. */
+function resolveKeys(cfg) {
+  if (cfg.secretKeyEnc) return { source: 'manual', appid: cfg.appid, secretId: cfg.secretId, secretKey: decryptSecret(cfg.secretKeyEnc) };
+  if (cfg.cloudKeysEnc) {
+    try { const k = JSON.parse(decryptSecret(cfg.cloudKeysEnc)); return { source: 'cloud', ...k }; } catch { /* corrupt; ignore */ }
+  }
+  return null;
+}
+/** Ask the server for the Tencent keys (after login, and once a day). Returns true when they changed. */
+async function refreshCloudKeys(cfg) {
+  const r = await cloud.fetchCredentials();
+  if (!r || !r.tencent || !r.tencent.secretKey) throw new Error('the server did not return keys');
+  const next = encryptSecret(JSON.stringify({ ...r.tencent, fetchedAt: Date.now() }));
+  const before = cfg.cloudKeysEnc ? decryptSecret(cfg.cloudKeysEnc) : '';
+  const changed = !before || JSON.parse(before).secretKey !== r.tencent.secretKey || JSON.parse(before).appid !== r.tencent.appid;
+  cfg.cloudKeysEnc = next;
+  saveConfig(cfg);
+  return changed;
+}
 
 // ------------------------------------------------------------------ core (local pipeline server)
 let core = null;
@@ -62,6 +84,9 @@ let port = 0;
 const cloud = new CloudLink({ log: (level, text) => core && core.log(level, `cloud: ${text}`) });
 const { ResubtitleQueue } = require('./lib/resubtitle');
 const resubtitle = new ResubtitleQueue({ cloud, log: (level, text) => core && core.log(level, text) });
+const { Updater } = require('./lib/updater');
+const updater = new Updater({ cloud, log: (level, text) => (core ? core.log(level, `updates: ${text}`) : consoleLog(level, `updates: ${text}`)), packaged: PACKAGED });
+const { DEFAULT_URL: DEFAULT_CLOUD_URL } = require('./cloud');
 
 function consoleLog(level, text) {
   const ts = new Date().toTimeString().slice(0, 8);
@@ -73,10 +98,14 @@ async function startCore() {
   let creds = null;
   let credsError = null;
   if (!cfg.demo) {
-    try {
-      creds = getCredentials({ TENCENT_APPID: cfg.appid, TENCENT_SECRET_ID: cfg.secretId, TENCENT_SECRET_KEY: decryptSecret(cfg.secretKeyEnc) });
-    } catch (err) {
-      credsError = err.message.replace(/ in \.env.*$/, ' — open Settings (⌘,) and enter the Tencent Cloud keys');
+    const keys = resolveKeys(cfg);
+    if (!keys) credsError = cfg.cloud.token ? 'no Tencent keys yet — the server should provide them after login; open Settings (⌘,) and log in again' : 'not logged in — open Settings (⌘,) and log in to seesubtitles.com (the keys come from the server), or enter Tencent keys';
+    else {
+      try {
+        creds = getCredentials({ TENCENT_APPID: keys.appid, TENCENT_SECRET_ID: keys.secretId, TENCENT_SECRET_KEY: keys.secretKey });
+      } catch (err) {
+        credsError = err.message.replace(/ in \.env.*$/, keys.source === 'cloud' ? ' — the keys from the server look invalid' : ' — open Settings (⌘,) and check the Tencent Cloud keys');
+      }
     }
   }
   core = await createLocalServer({
@@ -139,12 +168,17 @@ async function restartCore() {
 async function cloudAction(body) {
   const cfg = loadConfig();
   switch (body.action) {
-    case 'login': {
-      const r = await cloud.login(body.url, body.email, body.password);
+    case 'login':
+    case 'signup': {
+      const r = body.action === 'signup' ? await cloud.signup(body.url, body.email, body.password, body.invite) : await cloud.login(body.url, body.email, body.password);
       cfg.cloud = { ...cfg.cloud, url: r.url, email: body.email, token: encryptSecret(r.token) };
       saveConfig(cfg);
       cloud.attach(core, cloudConfig(cfg));
-      return { ok: true, cloud: cloud.status() };
+      // keys come from the server; start the pipeline with them unless the user entered their own
+      let keys = 'unchanged';
+      try { keys = (await refreshCloudKeys(cfg)) ? 'updated' : 'unchanged'; } catch (err) { keys = `unavailable: ${err.message}`; }
+      if (!cfg.secretKeyEnc && keys === 'updated') restartCore().catch(() => {});
+      return { ok: true, cloud: cloud.status(), keys };
     }
     case 'logout':
       cfg.cloud = { ...cfg.cloud, token: '', publish: false };
@@ -328,6 +362,7 @@ function rebuildMenu() {
         { type: 'separator' },
         { label: 'Demo Mode (scripted sentences, no microphone)', type: 'checkbox', checked: !!cfg.demo, click: (item) => { const c = loadConfig(); c.demo = item.checked; saveConfig(c); restartCore(); } },
         { label: 'Restart Pipeline', click: () => restartCore() },
+        { label: 'Check for Updates…', click: () => updater.check({ interactive: true }) },
       ],
     },
     { role: 'editMenu' },
@@ -340,7 +375,13 @@ function rebuildMenu() {
 // ------------------------------------------------------------------ IPC (settings window)
 ipcMain.handle('config:get', () => {
   const cfg = loadConfig();
-  return { ...cfg, summaryKeyEnc: undefined, summaryKeySet: !!cfg.summaryKeyEnc, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc, cloud: { ...cfg.cloud, token: undefined, loggedIn: !!cfg.cloud.token } };
+  const keys = resolveKeys(cfg);
+  return {
+    ...cfg, summaryKeyEnc: undefined, summaryKeySet: !!cfg.summaryKeyEnc, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc,
+    cloudKeysEnc: undefined, keysSource: keys ? keys.source : null, cloudKeysAt: keys && keys.source === 'cloud' ? keys.fetchedAt : null,
+    cloud: { ...cfg.cloud, token: undefined, loggedIn: !!cfg.cloud.token },
+    version: app.getVersion(), packaged: PACKAGED, defaultCloudUrl: DEFAULT_CLOUD_URL,
+  };
 });
 ipcMain.handle('config:save', async (_e, patch) => {
   const cfg = loadConfig();
@@ -350,7 +391,9 @@ ipcMain.handle('config:save', async (_e, patch) => {
   delete next.summaryKeySet;
   if (patch.summaryKey) next.summaryKeyEnc = encryptSecret(String(patch.summaryKey).trim());
   delete next.secretKeySet;
+  delete next.keysSource; delete next.cloudKeysAt; delete next.version; delete next.packaged; delete next.defaultCloudUrl; delete next.useCloudKeys;
   if (patch.secretKey) next.secretKeyEnc = encryptSecret(String(patch.secretKey).trim());
+  if (patch.useCloudKeys) { next.secretKeyEnc = ''; next.appid = ''; next.secretId = ''; } // back to the server-provided keys
   next.appid = String(next.appid || '').trim();
   next.secretId = String(next.secretId || '').trim();
   saveConfig(next);
@@ -368,6 +411,8 @@ ipcMain.handle('config:chooseAudioFile', async () => {
 ipcMain.handle('core:status', () => (core ? { base: core.base, demo: core.demo, status: core.status() } : null));
 ipcMain.handle('core:openControl', () => { openControl(); });
 ipcMain.handle('cloud:action', (_e, body) => cloudAction(body));
+ipcMain.handle('updates:check', () => updater.check({ interactive: true }));
+ipcMain.handle('updates:status', () => updater.status());
 
 // ------------------------------------------------------------------ lifecycle
 app.setName('Subtitles');
@@ -378,7 +423,14 @@ app.whenReady().then(async () => {
   }
   await startCore();
   openControl();
-  if (!cfg.demo && !cfg.secretKeyEnc) openSettings();
+  if (!cfg.demo && !resolveKeys(cfg)) openSettings();
+  // keys from the server: refresh once a day; updates: check shortly after launch and every 6 h
+  const keys = resolveKeys(cfg);
+  if (cfg.cloud.token && (!keys || (keys.source === 'cloud' && Date.now() - (keys.fetchedAt || 0) > 24 * 3600_000))) {
+    setTimeout(() => refreshCloudKeys(loadConfig()).then((changed) => { if (changed && !loadConfig().secretKeyEnc) restartCore(); }).catch((err) => consoleLog('warn', `keys from the server: ${err.message}`)), 3000);
+  }
+  setTimeout(() => updater.check().catch(() => {}), 15_000);
+  setInterval(() => updater.check().catch(() => {}), 6 * 3600_000).unref();
   rebuildTray();
   screen.on('display-added', rebuildTray);
   screen.on('display-removed', rebuildTray);

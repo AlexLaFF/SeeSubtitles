@@ -12,6 +12,7 @@ const { createAuth } = require('./lib/auth');
 const { LiveSessions } = require('./lib/live');
 const { JobRunner, ENGINES, TARGETS } = require('./lib/jobs');
 const { createLimiter, SIGNUP_MODES } = require('./lib/auth');
+const { latestRelease } = require('./lib/updates');
 
 loadEnv(path.join(__dirname, '..', '.env'));
 const PORT = Number(process.env.PORT) || 8080;
@@ -23,6 +24,11 @@ const SECURE = /^https:/.test(BASE_URL);
 const SIGNUP_MODE = SIGNUP_MODES.includes(process.env.SIGNUP_MODE) ? process.env.SIGNUP_MODE : 'closed';
 const attempts = createLimiter({ max: 20, windowMs: 15 * 60_000 }); // login + sign-up attempts per IP and per email
 const clientIp = (req) => (String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?');
+// Desktop apps get the Tencent keys from the server after login, so nobody types keys. Fine for an invite-only
+// team (every account is trusted with the shared key); with open sign-up it needs SHARE_TENCENT_KEYS=1 explicitly.
+const SHARE_KEYS = SIGNUP_MODE !== 'open' || /^(1|true|yes)$/i.test(process.env.SHARE_TENCENT_KEYS || '');
+const UPDATES_DIR = path.join(DATA_DIR, 'updates');
+fs.mkdirSync(UPDATES_DIR, { recursive: true });
 const WEB_DIR = path.join(__dirname, '..', 'web');
 const SCHEMA_FILE = require.resolve('@subs/core/schema');
 const MAX_UPLOAD = (Number(process.env.MAX_UPLOAD_GB) || 8) * 1024 ** 3;
@@ -101,6 +107,10 @@ async function api(req, res, url, user) {
 
   // public
   if (p === '/api/config') return send(res, 200, { signup: SIGNUP_MODE, baseUrl: BASE_URL });
+  if (p === '/api/desktop/version') {
+    const rel = latestRelease(UPDATES_DIR);
+    return send(res, 200, rel ? { version: rel.version, releaseDate: rel.releaseDate, dmg: rel.dmg ? `${BASE_URL}/updates/${encodeURIComponent(rel.dmg)}` : null, zip: rel.zip ? `${BASE_URL}/updates/${encodeURIComponent(rel.zip)}` : null } : { version: null });
+  }
   if (p === '/api/login' && req.method === 'POST') {
     const body = await readJson(req, 1e4);
     const kind = body.kind === 'bearer' ? 'bearer' : 'cookie';
@@ -117,9 +127,10 @@ async function api(req, res, url, user) {
     if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
     let created;
     try { created = auth.signup(body.email, body.password, { mode: SIGNUP_MODE, invite: body.invite }); } catch (err) { return fail(res, SIGNUP_MODE === 'closed' ? 403 : 400, err.message); }
-    const token = auth.issueToken(created.id, 'cookie', req.headers['user-agent']);
-    log('info', `sign-up ${created.email} (${SIGNUP_MODE}${body.invite ? ', invite' : ''})`);
-    return send(res, 200, { ok: true, user: created }, undefined, { 'set-cookie': auth.cookieHeader(token, SECURE) });
+    const kind = body.kind === 'bearer' ? 'bearer' : 'cookie';
+    const token = auth.issueToken(created.id, kind, body.label || req.headers['user-agent']);
+    log('info', `sign-up ${created.email} (${SIGNUP_MODE}${body.invite ? ', invite' : ''}, ${kind})`);
+    return send(res, 200, { ok: true, user: created, token: kind === 'bearer' ? token : undefined }, undefined, kind === 'cookie' ? { 'set-cookie': auth.cookieHeader(token, SECURE) } : {});
   }
   if ((r = m(/^\/api\/d\/([a-z0-9]+)\/stream$/))) {
     if (!live.subscribe(r[1], req, res, schema.defaults())) return fail(res, 404, 'no such session');
@@ -130,6 +141,12 @@ async function api(req, res, url, user) {
   if (!user) return fail(res, 401, 'login required');
 
   if (p === '/api/me') return send(res, 200, { user: { id: user.id, email: user.email }, baseUrl: BASE_URL, creds: !!creds });
+  if (p === '/api/desktop/credentials') {
+    if (!creds) return fail(res, 503, 'the server has no Tencent keys configured');
+    if (!SHARE_KEYS) return fail(res, 403, 'this server does not hand out keys to desktop apps (open sign-up); enter your own keys in Settings');
+    log('info', `desktop keys handed to ${user.email}`);
+    return send(res, 200, { tencent: { appid: creds.appid, secretId: creds.secretId, secretKey: creds.secretKey, expiresAt: null }, fetchedAt: Date.now() });
+  }
   if (p === '/api/logout' && req.method === 'POST') { auth.revoke(user.token); return send(res, 200, { ok: true }, undefined, { 'set-cookie': auth.clearCookie() }); }
 
   // live sessions
@@ -204,6 +221,10 @@ const server = http.createServer(async (req, res) => {
       return serveFile(req, res, job ? path.join(jobs.jobDir(job.id), 'audio.mp3') : null);
     }
     if (/^\/d\/[a-z0-9]+$/.test(p)) return page(res, 'index.html');
+    if ((r = /^\/updates\/([^/]+)$/.exec(p))) {
+      const name = path.basename(decodeURIComponent(r[1]));
+      return serveFile(req, res, /^[\w.@() -]+$/.test(name) ? path.join(UPDATES_DIR, name) : null, name.endsWith('.dmg'));
+    }
     if (p === '/schema.js') return send(res, 200, fs.readFileSync(SCHEMA_FILE), MIME['.js']);
     if (p === '/login') return page(res, 'login.html');
     if (p === '/healthz') return send(res, 200, 'ok', MIME['.txt']);

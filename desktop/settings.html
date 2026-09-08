@@ -22,11 +22,24 @@
 </style>
 </head>
 <body>
+<h2>Account</h2>
+<div class="row"><label for="cloudEmail">Email</label><input id="cloudEmail" type="text" autocomplete="username"><span></span></div>
+<div class="row"><label for="cloudPassword">Password</label><input id="cloudPassword" type="password" autocomplete="current-password"><button class="primary" id="btnLogin">Log in</button></div>
+<div class="row" id="inviteRow" hidden><label for="invite">Invite code</label><input id="invite" type="text" autocomplete="off" placeholder="from the person who runs the server"><button class="primary" id="btnSignup">Create account</button></div>
+<div class="row"><div class="hint"><a href="#" id="toggleSignup">Create an account instead</a> · Logging in gives this app its Tencent keys, the share link for remote displays and cloud re-subtitling.</div></div>
+<div class="row"><label>Status</label><div class="status" id="cloudStatus">not logged in</div><button id="btnLogout" hidden>Log out</button></div>
+<div class="row"><label for="cloudUrl">Server</label><input id="cloudUrl" type="text"><span></span></div>
+<div class="row"><div class="hint">Leave the server as it is unless you run your own copy of the hosted app.</div></div>
+
 <h2>Tencent Cloud (实时语音翻译)</h2>
+<div class="row"><label>Keys</label><div class="status" id="keysStatus">…</div><button id="btnUseCloudKeys" hidden>Use the server's keys</button></div>
+<div class="row"><div class="hint">The live pipeline needs Tencent keys. They arrive automatically from the server when you log in and are stored encrypted with the macOS Keychain. Only enter your own if you run without the server.</div></div>
+<details id="manualKeys"><summary style="cursor:pointer;opacity:.8;margin:4px 0 8px">Use my own keys instead</summary>
 <div class="row"><label for="appid">APPID</label><input id="appid" type="text" placeholder="10-digit APPID (not the account UIN)"><span></span></div>
 <div class="row"><label for="secretId">SecretId</label><input id="secretId" type="text" placeholder="AKID…"><span></span></div>
 <div class="row"><label for="secretKey">SecretKey</label><input id="secretKey" type="password" placeholder=""><span></span></div>
-<div class="row"><div class="hint">Keys are stored encrypted with the macOS Keychain. Get them at <a href="#" data-url="https://console.cloud.tencent.com/cam/capi">console.cloud.tencent.com/cam/capi</a>. The 实时语音翻译 service must be activated on the account.</div></div>
+<div class="row"><div class="hint">Get them at <a href="#" data-url="https://console.cloud.tencent.com/cam/capi">console.cloud.tencent.com/cam/capi</a>; the 实时语音翻译 service must be activated on the account.</div></div>
+</details>
 <div class="row"><label for="edge">Gateway edge</label><select id="edge"><option value="auto">auto (switch to mainland edge after a 404 — use with a VPN)</option><option value="cn">cn (always mainland Guangzhou edge)</option><option value="system">system (never switch)</option></select><span></span></div>
 <div class="row"><label>Status</label><div class="status" id="status">…</div><span></span></div>
 
@@ -50,13 +63,9 @@
 <div class="row"><label for="audioFile">Audio file instead of mic</label><input id="audioFile" type="text" placeholder="(empty = microphone) 16 kHz mono WAV, looped"><button id="btnAudio">Choose…</button></div>
 <div class="row"><div class="hint">Demo mode (scripted sentences, no mic, no Tencent) is in the Subtitles menu.</div></div>
 
-<h2>Cloud (remote display)</h2>
-<div class="row"><label for="cloudUrl">Server URL</label><input id="cloudUrl" type="text" placeholder="https://subs.example.com"><span></span></div>
-<div class="row"><label for="cloudEmail">Email</label><input id="cloudEmail" type="text"><span></span></div>
-<div class="row"><label for="cloudPassword">Password</label><input id="cloudPassword" type="password"><button id="btnLogin">Log in</button></div>
-<div class="row"><label>Cloud status</label><div class="status" id="cloudStatus">not logged in</div><button id="btnLogout" hidden>Log out</button></div>
-
 <div class="actions">
+  <span id="version" style="opacity:.6;font-size:12px"></span>
+  <button id="btnUpdates">Check for updates</button>
   <span id="saved"></span>
   <button id="btnControl">Open Control window</button>
   <button class="primary" id="btnSave">Save &amp; restart pipeline</button>
@@ -82,8 +91,20 @@
   $('mp4show').value = cfg.mp4.show;
   $('mp4enc').value = cfg.mp4.encoder;
   $('audioFile').value = cfg.audioFile || '';
-  $('cloudUrl').value = cfg.cloud.url || '';
+  $('cloudUrl').value = cfg.cloud.url || cfg.defaultCloudUrl || '';
   $('cloudEmail').value = cfg.cloud.email || '';
+  $('version').textContent = `Subtitles ${cfg.version}${cfg.packaged ? '' : ' (running from source)'}`;
+  const renderKeys = (c) => {
+    const el = $('keysStatus');
+    if (c.keysSource === 'manual') { el.textContent = 'your own keys (entered below)'; $('btnUseCloudKeys').hidden = false; $('manualKeys').open = true; }
+    else if (c.keysSource === 'cloud') { el.textContent = `provided by ${c.cloud.url}${c.cloudKeysAt ? ` · fetched ${new Date(c.cloudKeysAt).toLocaleString()}` : ''}`; $('btnUseCloudKeys').hidden = true; }
+    else { el.textContent = c.cloud.loggedIn ? 'none yet — log in again to fetch them from the server' : 'none yet — log in above and they arrive automatically'; $('btnUseCloudKeys').hidden = true; }
+  };
+  renderKeys(cfg);
+  $('btnUseCloudKeys').onclick = async () => { await desktop.saveConfig({ useCloudKeys: true }); renderKeys(await desktop.getConfig()); $('appid').value = ''; $('secretId').value = ''; $('secretKey').value = ''; $('manualKeys').open = false; };
+  $('btnUpdates').onclick = () => desktop.checkUpdates();
+  let creating = false;
+  $('toggleSignup').onclick = (e) => { e.preventDefault(); creating = !creating; $('inviteRow').hidden = !creating; $('btnLogin').hidden = creating; $('toggleSignup').textContent = creating ? 'I already have an account' : 'Create an account instead'; $('cloudPassword').autocomplete = creating ? 'new-password' : 'current-password'; };
 
   document.querySelectorAll('a[data-url]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); window.open(a.dataset.url); }));
   $('btnFolder').onclick = async () => { const p = await desktop.chooseFolder(); if (p) $('recordingsDir').value = p; };
@@ -114,14 +135,19 @@
     el.textContent = `logged in as ${c.email} @ ${c.url}` + (c.session ? `\npublishing → ${c.shareUrl}` : '\nnot publishing (toggle on the Control page)') + (c.error ? `\n${c.error}` : '');
     $('btnLogout').hidden = false;
   };
-  $('btnLogin').onclick = async () => {
-    $('cloudStatus').textContent = 'logging in…';
+  const auth = async (action) => {
+    $('cloudStatus').textContent = action === 'signup' ? 'creating the account…' : 'logging in…';
     try {
-      const r = await desktop.cloud({ action: 'login', url: $('cloudUrl').value, email: $('cloudEmail').value, password: $('cloudPassword').value });
+      const r = await desktop.cloud({ action, url: $('cloudUrl').value, email: $('cloudEmail').value, password: $('cloudPassword').value, invite: $('invite').value });
       $('cloudPassword').value = '';
+      $('invite').value = '';
       renderCloud(r.cloud);
-    } catch (err) { $('cloudStatus').textContent = `login failed: ${err.message.replace(/^.*Error: /, '')}`; }
+      if (r.keys && r.keys.startsWith('unavailable')) $('cloudStatus').textContent += `\nkeys ${r.keys}`;
+      renderKeys(await desktop.getConfig());
+    } catch (err) { $('cloudStatus').textContent = `${action === 'signup' ? 'sign-up' : 'login'} failed: ${err.message.replace(/^.*Error: /, '')}`; }
   };
+  $('btnLogin').onclick = () => auth('login');
+  $('btnSignup').onclick = () => auth('signup');
   $('btnLogout').onclick = async () => { const r = await desktop.cloud({ action: 'logout' }); renderCloud(r.cloud); };
 
   const refresh = async () => {

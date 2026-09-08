@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld('desktop', {
   coreStatus: () => ipcRenderer.invoke('core:status'),
   openControl: () => ipcRenderer.invoke('core:openControl'),
   cloud: (body) => ipcRenderer.invoke('cloud:action', body),
+  checkUpdates: () => ipcRenderer.invoke('updates:check'),
+  updateStatus: () => ipcRenderer.invoke('updates:status'),
 });

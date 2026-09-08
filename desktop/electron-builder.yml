@@ -19,6 +19,11 @@ extraResources:
     to: bin
 asar: true
 npmRebuild: false
+# Updates are served by the hosted server (server/lib/updates.js): copy dist/latest-mac.yml, the zip and the dmg
+# into its <DATA_DIR>/updates. The app checks <server>/updates on launch and from Subtitles → Check for Updates…
+publish:
+  provider: generic
+  url: https://seesubtitles.com/updates
 mac:
   category: public.app-category.productivity
   target:

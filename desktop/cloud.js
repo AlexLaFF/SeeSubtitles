@@ -3,6 +3,7 @@
 // (settings, lines, clear) to a live session there, so any browser can show the subtitles at /d/<code>.
 // Never blocks the local pipeline: events are queued, batched every 250 ms, retried with backoff and
 // the queue is bounded (latest settings + the last 200 lines).
+const DEFAULT_URL = 'https://seesubtitles.com'; // the hosted server; Settings can override it
 const MAX_LINES = 200;
 const FLUSH_MS = 250;
 const BACKOFF_MS = [1000, 2000, 5000, 10000, 20000];
@@ -10,7 +11,7 @@ const BACKOFF_MS = [1000, 2000, 5000, 10000, 20000];
 class CloudLink {
   constructor({ log } = {}) {
     this.log = log || (() => {});
-    this.cfg = { url: '', email: '', token: '' };
+    this.cfg = { url: DEFAULT_URL, email: '', token: '' };
     this.core = null;
     this.session = null; // {id, code, shareUrl}
     this.queue = [];
@@ -109,10 +110,14 @@ class CloudLink {
     return dest;
   }
 
-  async login(url, email, password) {
-    const clean = String(url || '').trim().replace(/\/$/, '');
+  _useUrl(url) {
+    const clean = String(url || DEFAULT_URL).trim().replace(/\/$/, '') || DEFAULT_URL;
     if (!/^https?:\/\//.test(clean)) throw new Error('server URL must start with http:// or https://');
     this.cfg.url = clean;
+    return clean;
+  }
+  async login(url, email, password) {
+    const clean = this._useUrl(url);
     const r = await this._fetch('/api/login', { email, password, kind: 'bearer', label: 'Subtitles desktop app' }, { auth: false });
     if (!r || !r.token) throw new Error('login did not return a token');
     this.cfg.token = r.token;
@@ -120,6 +125,25 @@ class CloudLink {
     this.error = null;
     this.log('info', `logged in to ${clean} as ${email}`);
     return { url: clean, token: r.token };
+  }
+  /** Create an account (the server must be in invite or open sign-up mode) and log in. */
+  async signup(url, email, password, invite) {
+    const clean = this._useUrl(url);
+    const r = await this._fetch('/api/signup', { email, password, invite: invite || '', kind: 'bearer', label: 'Subtitles desktop app' }, { auth: false });
+    if (!r || !r.token) throw new Error('sign-up did not return a token');
+    this.cfg.token = r.token;
+    this.cfg.email = email;
+    this.error = null;
+    this.log('info', `account created on ${clean} as ${email}`);
+    return { url: clean, token: r.token };
+  }
+  /** Tencent keys for the live pipeline, handed out by the server to logged-in desktops. */
+  fetchCredentials() {
+    return this._fetch('/api/desktop/credentials', null, { method: 'GET' });
+  }
+  /** Newest published desktop build: {version, dmg, zip} or {version: null}. Public. */
+  checkVersion() {
+    return this._fetch('/api/desktop/version', null, { method: 'GET', auth: false });
   }
 
   async startSession(name) {
@@ -200,4 +224,4 @@ class CloudLink {
   }
 }
 
-module.exports = { CloudLink };
+module.exports = { CloudLink, DEFAULT_URL };
