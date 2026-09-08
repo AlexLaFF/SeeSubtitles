@@ -3,7 +3,7 @@
 // backoff, and a seamless rotation to a fresh connection before the 5-hour cap.
 const WebSocket = require('ws');
 const { EventEmitter } = require('node:events');
-const { buildConnection, resolveMainland, forgetMainland, pinnedOptions } = require('./tencent');
+const { buildConnection, resolveMainland, forgetMainland, pinnedOptions, hotwordList } = require('./tencent');
 const dns = require('node:dns/promises');
 
 const CHUNK_MS = 200;
@@ -17,6 +17,18 @@ const ACCOUNT_BACKOFF_MS = 30_000; // auth / billing errors: retry slowly
 const ACCOUNT_ERRORS = new Set([6002, 6003, 6004, 6005]);
 const ROTATE_GRACE_MS = 5 * 60_000; // wait this long for a sentence boundary before forcing rotation
 const DRAIN_MS = 5000; // how long a retiring socket may wait for its `final`
+
+/** Tencent request parameters derived from the tuning options (omitted when at their defaults). */
+function recognitionParams(opts) {
+  const p = {};
+  const hw = hotwordList(opts.hotwords);
+  if (hw) p.hotword_list = hw;
+  if (opts.vadSilenceTime && Number(opts.vadSilenceTime) !== 1000) p.vad_silence_time = Math.round(Number(opts.vadSilenceTime));
+  if (opts.maxSpeakTime && Number(opts.maxSpeakTime) !== 10) p.max_speak_time = Math.round(Number(opts.maxSpeakTime) * 1000);
+  if (opts.noiseThreshold && Number(opts.noiseThreshold) !== 0) p.noise_threshold = Number(opts.noiseThreshold);
+  if (opts.filterModal && Number(opts.filterModal) !== 0) p.filter_modal = Number(opts.filterModal);
+  return p;
+}
 
 class TranslationStream extends EventEmitter {
   /**
@@ -124,6 +136,7 @@ class TranslationStream extends EventEmitter {
       source: this.opts.source,
       target: this.opts.target,
       transModel: this.opts.transModel,
+      tuning: recognitionParams(this.opts),
       edge: this.mainland.use ? `mainland${this.mainland.ip ? ` ${this.mainland.ip}` : ''}` : 'system',
     };
   }
@@ -162,7 +175,7 @@ class TranslationStream extends EventEmitter {
   _connectNow(role) {
     let conn;
     try {
-      conn = buildConnection(this.creds, this.opts);
+      conn = buildConnection(this.creds, { ...this.opts, extra: recognitionParams(this.opts) });
     } catch (err) {
       this.lastError = { message: err.message };
       this._log(`✖ cannot build connection: ${err.message}`);
@@ -397,4 +410,4 @@ class TranslationStream extends EventEmitter {
   }
 }
 
-module.exports = { TranslationStream, CHUNK_BYTES, CHUNK_MS };
+module.exports = { TranslationStream, recognitionParams, CHUNK_BYTES, CHUNK_MS };

@@ -46,7 +46,9 @@ body.shadow .line { text-shadow: 0 0 0.06em rgba(0,0,0,.95), 0 0 0.18em rgba(0,0
 .ui input[type=range] { width: 100%; min-width: 60px; }
 .ui input[type=number] { width: 66px; }
 .ui input[type=number].num { width: 66px; }
-.ui input[type=text], .ui select { width: 100%; box-sizing: border-box; }
+.ui input[type=text], .ui select, .ui textarea { width: 100%; box-sizing: border-box; }
+.ui textarea { font: inherit; color: #eee; background: #2c2c2e; border: 1px solid #3a3a3d; border-radius: 6px; padding: 4px 6px; resize: vertical; }
+.ui .hint { color: #8a8a8f; font-size: 11.5px; line-height: 1.35; margin: -2px 0 4px; }
 .ui input, .ui select { font: inherit; color: #eee; background: #2c2c2e; border: 1px solid #3a3a3d; border-radius: 6px; padding: 3px 6px; }
 .ui input[type=color] { width: 44px; height: 26px; padding: 0 2px; }
 .ui input[type=checkbox] { width: 16px; height: 16px; }

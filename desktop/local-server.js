@@ -188,6 +188,11 @@ async function createLocalServer(opts) {
       source: settings.source,
       target: settings.target,
       transModel: settings.transModel,
+      hotwords: settings.hotwords,
+      vadSilenceTime: settings.vadSilenceTime,
+      maxSpeakTime: settings.maxSpeakTime,
+      noiseThreshold: settings.noiseThreshold,
+      filterModal: settings.filterModal,
       rotateMs: (Number(env.TENCENT_ROTATE_MINUTES) || 290) * 60_000,
       edge: env.TENCENT_EDGE || 'auto',
     })
@@ -263,8 +268,11 @@ async function createLocalServer(opts) {
       capture.setDevice(settings.audioDevice);
     }
     if (stream) {
-      if (changed.some((k) => k === 'source' || k === 'target' || k === 'transModel')) {
-        stream.setOptions({ source: settings.source, target: settings.target, transModel: settings.transModel });
+      const TUNING = ['source', 'target', 'transModel', 'hotwords', 'vadSilenceTime', 'maxSpeakTime', 'noiseThreshold', 'filterModal'];
+      if (changed.some((k) => TUNING.includes(k))) {
+        const patch = {};
+        for (const k of TUNING) patch[k] = settings[k];
+        stream.setOptions(patch); // graceful rotation to a connection with the new parameters
       }
       if (changed.includes('streaming')) {
         if (settings.streaming) { log('info', 'streaming resumed'); stream.start(); } else { log('info', 'streaming paused'); stream.stop(); }

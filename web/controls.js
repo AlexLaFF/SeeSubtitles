@@ -77,7 +77,7 @@
 
   function row(f) {
     const r = el('div', { class: 'row', 'data-key': f.key });
-    r.appendChild(el('label', {}, f.label));
+    r.appendChild(el('label', { title: f.hint || '' }, f.label));
     const set = (v) => Sub.update({ [f.key]: v });
     switch (f.type) {
       case 'range': {
@@ -121,6 +121,14 @@
         register(f.key, { els: [t], setValue: (v) => { t.value = v; } });
         break;
       }
+      case 'textarea': {
+        const t = el('textarea', { rows: 4, placeholder: f.placeholder || '' });
+        t.addEventListener('change', () => set(t.value));
+        r.classList.add('wide');
+        r.appendChild(t);
+        register(f.key, { els: [t], setValue: (v) => { t.value = v || ''; } });
+        break;
+      }
       case 'device': {
         const s = el('select');
         const btn = el('button', { title: 'Rescan input devices' }, '↻');
@@ -151,6 +159,7 @@
       default:
         break;
     }
+    if (f.hint) { const h = el('div', { class: 'hint' }, f.hint); h.style.gridColumn = '1 / -1'; r.appendChild(h); }
     return r;
   }
 

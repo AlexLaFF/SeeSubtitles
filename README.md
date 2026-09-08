@@ -41,7 +41,7 @@ for notarization (electron-builder picks them up).
 
 ## Local-tool update sync (0.2.0)
 
-Ported the ten local-tool commits after `3cff4b8`, through `ecead5d` (September 6, 2026):
+Ported the local-tool commits after `3cff4b8`, through `2be9fbc` (September 7, 2026):
 
 - AI learning summaries with the latest concise synthesis prompt, progress, Markdown viewing,
   clickable recording timestamps, and formatted A4 PDF export. Add the Anthropic key in
@@ -59,6 +59,16 @@ Ported the ten local-tool commits after `3cff4b8`, through `ecead5d` (September 
   server in one process, it does not need the standalone overlay's server-loss quit timer.
 - Applying a preset refreshes the initiating browser's controls. Microphone capture ignores unrelated
   audio-device changes, and Tencent connection retries avoid previously failing edges.
+- MP4 exports carry no embedded subtitle tracks (players would draw a second copy of the burned-in
+  text); the stacked subtitles fill the frame and dissolve at the top edge like the live display.
+  Plain-text downloads (original / translation, text only) for the live transcript and every recording.
+- Recognition tuning in the Input group, applied at the next connection through a graceful rotation:
+  hotwords (`词|权重`, one per line, up to 128), pause that ends a sentence (500–2000 ms), forced split
+  (5–90 s), filler-word filter, noise threshold. Measured on Cantonese: shorter sentences translate more
+  literally and finalize sooner, longer ones read more fluently but get paraphrased. Values that are not
+  URL-safe are signed raw and sent URL-encoded, as the API requires.
+- Behind a VPN the mainland edge is found through Chinese DoH resolvers queried with a mainland
+  client-subnet hint, with a known-good Guangzhou edge as the last resort.
 
 The original localhost checkout, credentials, recordings and running processes are not modified.
 Cloud mirroring and the hosted upload workflow remain available. Summary generation is for desktop
