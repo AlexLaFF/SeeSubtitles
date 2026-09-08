@@ -11,6 +11,7 @@ const { openDb } = require('./lib/db');
 const { createAuth } = require('./lib/auth');
 const { LiveSessions } = require('./lib/live');
 const { JobRunner, ENGINES, TARGETS } = require('./lib/jobs');
+const { createLimiter, SIGNUP_MODES } = require('./lib/auth');
 
 loadEnv(path.join(__dirname, '..', '.env'));
 const PORT = Number(process.env.PORT) || 8080;
@@ -18,6 +19,10 @@ const HOST = process.env.HOST || '0.0.0.0';
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
 const BASE_URL = (process.env.BASE_URL || '').replace(/\/$/, '');
 const SECURE = /^https:/.test(BASE_URL);
+// Accounts: closed (admin CLI creates users; default) · invite (sign-up with a code from `cli.js add-invite`) · open
+const SIGNUP_MODE = SIGNUP_MODES.includes(process.env.SIGNUP_MODE) ? process.env.SIGNUP_MODE : 'closed';
+const attempts = createLimiter({ max: 20, windowMs: 15 * 60_000 }); // login + sign-up attempts per IP and per email
+const clientIp = (req) => (String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?');
 const WEB_DIR = path.join(__dirname, '..', 'web');
 const SCHEMA_FILE = require.resolve('@subs/core/schema');
 const MAX_UPLOAD = (Number(process.env.MAX_UPLOAD_GB) || 8) * 1024 ** 3;
@@ -40,6 +45,7 @@ let creds = null;
 try { creds = getCredentials(); } catch (err) { log('error', `${err.message} — upload jobs will fail until the Tencent keys are set`); }
 const jobs = new JobRunner({ db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe' });
 log('info', `clean transcripts ready for ${jobs.backfillPlainExports()} existing jobs`);
+log('info', `accounts: sign-up ${SIGNUP_MODE}`);
 log(jobs.backend === 'tokenhub' ? 'info' : 'warn', `translation backend: ${jobs.backend} (${jobs.model})${jobs.backend === 'hunyuan-legacy' ? ' — the standalone Hunyuan API stops on 2026-09-30; set TOKENHUB_API_KEY' : ''}`);
 const jobClients = new Map(); // job id -> Set<res>
 jobs.on('update', (j) => {
@@ -94,14 +100,26 @@ async function api(req, res, url, user) {
   let r;
 
   // public
+  if (p === '/api/config') return send(res, 200, { signup: SIGNUP_MODE, baseUrl: BASE_URL });
   if (p === '/api/login' && req.method === 'POST') {
     const body = await readJson(req, 1e4);
     const kind = body.kind === 'bearer' ? 'bearer' : 'cookie';
-    const out = auth.login(body.email, body.password, kind, body.label || req.headers['user-agent']);
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!attempts.allow(`ip:${clientIp(req)}`) || !attempts.allow(`email:${email}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
+    const out = auth.login(email, body.password, kind, body.label || req.headers['user-agent']);
     if (!out) return fail(res, 401, 'wrong email or password');
     log('info', `login ${out.user.email} (${kind})`);
     const extra = kind === 'cookie' ? { 'set-cookie': auth.cookieHeader(out.token, SECURE) } : {};
     return send(res, 200, { ok: true, user: out.user, token: kind === 'bearer' ? out.token : (body.token ? out.token : undefined) }, undefined, extra);
+  }
+  if (p === '/api/signup' && req.method === 'POST') {
+    const body = await readJson(req, 1e4);
+    if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
+    let created;
+    try { created = auth.signup(body.email, body.password, { mode: SIGNUP_MODE, invite: body.invite }); } catch (err) { return fail(res, SIGNUP_MODE === 'closed' ? 403 : 400, err.message); }
+    const token = auth.issueToken(created.id, 'cookie', req.headers['user-agent']);
+    log('info', `sign-up ${created.email} (${SIGNUP_MODE}${body.invite ? ', invite' : ''})`);
+    return send(res, 200, { ok: true, user: created }, undefined, { 'set-cookie': auth.cookieHeader(token, SECURE) });
   }
   if ((r = m(/^\/api\/d\/([a-z0-9]+)\/stream$/))) {
     if (!live.subscribe(r[1], req, res, schema.defaults())) return fail(res, 404, 'no such session');

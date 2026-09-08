@@ -4,6 +4,23 @@ const crypto = require('node:crypto');
 
 const COOKIE = 'sid';
 const TOKEN_TTL_MS = 90 * 24 * 3600 * 1000;
+const SIGNUP_MODES = ['closed', 'invite', 'open']; // closed: admin CLI only · invite: needs a code · open: anyone
+
+/** Sliding-window counter for login / sign-up attempts, keyed by IP or email. In memory, per process. */
+function createLimiter({ max = 20, windowMs = 15 * 60_000 } = {}) {
+  const hits = new Map();
+  return {
+    allow(key) {
+      const now = Date.now();
+      const recent = (hits.get(key) || []).filter((t) => now - t < windowMs);
+      if (recent.length >= max) { hits.set(key, recent); return false; }
+      recent.push(now);
+      hits.set(key, recent);
+      if (hits.size > 10_000) for (const [k, v] of hits) if (!v.some((t) => now - t < windowMs)) hits.delete(k);
+      return true;
+    },
+  };
+}
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16);
@@ -69,7 +86,31 @@ function createAuth(db) {
     const r = db.run('UPDATE users SET pass_hash = ? WHERE email = ?', hashPassword(password), String(email).trim().toLowerCase());
     if (!r.changes) throw new Error('no such user');
   }
-  return { login, authenticate, revoke, cookieHeader, clearCookie, addUser, setPassword, issueToken };
+  function setRole(email, role) {
+    if (!['user', 'admin'].includes(role)) throw new Error('role must be user or admin');
+    const r = db.run('UPDATE users SET role = ? WHERE email = ?', role, String(email).trim().toLowerCase());
+    if (!r.changes) throw new Error('no such user');
+  }
+  function createInvite(createdBy = null) {
+    const code = crypto.randomBytes(6).toString('base64url');
+    db.run('INSERT INTO invites(code, created_by, created_at) VALUES (?,?,?)', code, createdBy, Date.now());
+    return code;
+  }
+  /** Self-service account creation, gated by the server's SIGNUP_MODE. */
+  function signup(email, password, { mode = 'closed', invite = '' } = {}) {
+    if (!SIGNUP_MODES.includes(mode)) throw new Error(`unknown sign-up mode "${mode}"`);
+    if (mode === 'closed') throw new Error('sign-up is closed; ask the administrator for an account');
+    let inv = null;
+    if (mode === 'invite') {
+      inv = db.get('SELECT code FROM invites WHERE code = ? AND used_at IS NULL', String(invite || '').trim());
+      if (!inv) throw new Error('invalid or already used invite code');
+    }
+    if (db.get('SELECT 1 FROM users WHERE email = ?', String(email || '').trim().toLowerCase())) throw new Error('an account with this email already exists');
+    const user = addUser(email, password);
+    if (inv) db.run('UPDATE invites SET used_by = ?, used_at = ? WHERE code = ?', user.id, Date.now(), inv.code);
+    return user;
+  }
+  return { login, authenticate, revoke, cookieHeader, clearCookie, addUser, setPassword, setRole, createInvite, signup, issueToken };
 }
 
-module.exports = { createAuth, hashPassword, verifyPassword, parseCookies, COOKIE };
+module.exports = { createAuth, createLimiter, hashPassword, verifyPassword, parseCookies, COOKIE, SIGNUP_MODES };

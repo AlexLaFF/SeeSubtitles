@@ -98,6 +98,11 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 docker compose -f deploy/docker-compose.yml exec app node server/cli.js add-user you@example.com
 ```
 
+Accounts: `SIGNUP_MODE=closed` (default) means only `cli.js add-user` creates accounts; `invite` shows a
+sign-up form that needs a code from `cli.js add-invite`; `open` lets anyone sign up. Every user only sees their
+own jobs and live sessions; `cli.js set-role <email> admin` marks administrators for future admin pages. Login
+and sign-up are rate-limited per IP and per email.
+
 Caddy obtains the TLS certificate for `DOMAIN` automatically. Data (SQLite, uploads, session logs) lives in
 the `subs-data` volume; back it up with `docker run --rm -v subs-data:/data -v $PWD:/out alpine tar czf /out/subs-data.tgz /data`.
 

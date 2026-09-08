@@ -53,6 +53,8 @@ function decryptSecret(stored) {
   if (stored.startsWith('plain:')) return Buffer.from(stored.slice(6), 'base64').toString('utf8');
   return stored;
 }
+// The cloud login token is stored encrypted like the API keys (older configs hold it in clear; decryptSecret accepts both).
+const cloudConfig = (cfg) => ({ ...cfg.cloud, token: decryptSecret(cfg.cloud.token) });
 
 // ------------------------------------------------------------------ core (local pipeline server)
 let core = null;
@@ -113,7 +115,7 @@ async function startCore() {
     if (ev === 'settings' && data.changed && data.changed.includes('window')) applyOverlayBounds(data.settings.window);
     cloud.onEvent(ev, data);
   });
-  cloud.attach(core, cfg.cloud);
+  cloud.attach(core, cloudConfig(cfg));
   rebuildMenu();
   reportOverlay();
 }
@@ -136,9 +138,9 @@ async function cloudAction(body) {
   switch (body.action) {
     case 'login': {
       const r = await cloud.login(body.url, body.email, body.password);
-      cfg.cloud = { ...cfg.cloud, url: r.url, email: body.email, token: r.token };
+      cfg.cloud = { ...cfg.cloud, url: r.url, email: body.email, token: encryptSecret(r.token) };
       saveConfig(cfg);
-      cloud.attach(core, cfg.cloud);
+      cloud.attach(core, cloudConfig(cfg));
       return { ok: true, cloud: cloud.status() };
     }
     case 'logout':

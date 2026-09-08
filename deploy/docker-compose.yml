@@ -15,6 +15,7 @@ services:
       TOKENHUB_API_KEY: ${TOKENHUB_API_KEY:-}
       TRANSLATION_MODEL: ${TRANSLATION_MODEL:-hy-mt2-pro}
       MAX_UPLOAD_GB: ${MAX_UPLOAD_GB:-8}
+      SIGNUP_MODE: ${SIGNUP_MODE:-closed}
     volumes:
       - subs-data:/data
     expose: ["8080"]

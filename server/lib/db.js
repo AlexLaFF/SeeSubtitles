@@ -47,13 +47,27 @@ CREATE TABLE IF NOT EXISTS jobs (
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS jobs_user ON jobs(user_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS invites (
+  code TEXT PRIMARY KEY,
+  created_by INTEGER REFERENCES users(id),
+  created_at INTEGER NOT NULL,
+  used_by INTEGER REFERENCES users(id),
+  used_at INTEGER
+);
 `;
+// Columns added after the first release (CREATE TABLE IF NOT EXISTS does not alter existing tables).
+const MIGRATIONS = [
+  ['users', 'role', "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'"], // user | admin
+];
 
 function openDb(dataDir) {
   fs.mkdirSync(dataDir, { recursive: true });
   const db = new DatabaseSync(path.join(dataDir, 'platform.sqlite'));
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   db.exec(SCHEMA);
+  for (const [table, column, sql] of MIGRATIONS) {
+    if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column)) db.exec(sql);
+  }
   const stmts = new Map();
   const prep = (sql) => { let s = stmts.get(sql); if (!s) { s = db.prepare(sql); stmts.set(sql, s); } return s; };
   return {
