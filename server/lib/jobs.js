@@ -7,23 +7,29 @@ const crypto = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const { spawn, execFile } = require('node:child_process');
 const { fromTexts } = require('@subs/core/plain-text');
-const { asr, tmt } = require('./tc3');
-const { buildCues, toSrt, toVtt, toTxt, toAss, toStackedAss } = require('./subtitles');
+const { asr, hunyuan } = require('./tc3');
+const tokenhub = require('./tokenhub');
+const { buildCues, toSrt, toVtt, toTxt, toAss, toStackedAss, isCjkText } = require('./subtitles');
+const { translateSentences, distribute } = require('./translate');
 
 const MAX_DURATION_S = 5 * 3600;
 const INLINE_LIMIT = 4.5 * 1024 * 1024; // CreateRecTask base64 payload cap is 5 MB
 const POLL_MS = 5000;
 
-// source language → Tencent batch engine, and TMT source code
+// source language → Tencent batch engine, and the 混元翻译 (Hunyuan) source code. Hunyuan knows Cantonese
+// (yue) as its own language, so Cantonese transcripts are no longer translated "as Mandarin".
 const ENGINES = {
-  yue: { engine: '16k_yue', tmt: 'zh', label: '粤语 Cantonese' },
-  zh: { engine: '16k_zh', tmt: 'zh', label: '普通话 Mandarin' },
-  mixed: { engine: '16k_zh-PY', tmt: 'auto', label: '中英粤混合 Mandarin + English + Cantonese' },
-  en: { engine: '16k_en', tmt: 'en', label: 'English' },
-  ja: { engine: '16k_ja', tmt: 'ja', label: '日本語 Japanese' },
-  ko: { engine: '16k_ko', tmt: 'ko', label: '한국어 Korean' },
+  yue: { engine: '16k_yue', hunyuan: 'yue', label: '粤语 Cantonese' },
+  zh: { engine: '16k_zh', hunyuan: 'zh', label: '普通话 Mandarin' },
+  mixed: { engine: '16k_zh-PY', hunyuan: 'zh', label: '中英粤混合 Mandarin + English + Cantonese' },
+  en: { engine: '16k_en', hunyuan: 'en', label: 'English' },
+  ja: { engine: '16k_ja', hunyuan: 'ja', label: '日本語 Japanese' },
+  ko: { engine: '16k_ko', hunyuan: 'ko', label: '한국어 Korean' },
 };
 const TARGETS = { none: 'no translation', zh: '简体中文', 'zh-TW': '繁體中文', en: 'English', ja: '日本語', ko: '한국어' };
+// job target code → Hunyuan / TokenHub target code (both spell Traditional Chinese zh-TR)
+const HUNYUAN_TARGET = { zh: 'zh', 'zh-TW': 'zh-TR', en: 'en', ja: 'ja', ko: 'ko' };
+const LEGACY_MODEL = 'hunyuan-translation'; // standalone Hunyuan API, stops on 2026-09-30
 
 const safeName = (s) => String(s || 'video').replace(/\.[^.]+$/, '').replace(/[^\w一-鿿぀-ヿ가-힯 .-]+/g, '_').slice(0, 80) || 'video';
 
@@ -54,7 +60,16 @@ function probe(ffprobe, file) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 class JobRunner extends EventEmitter {
-  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tmtRegion = 'ap-hongkong' }) {
+  /**
+   * Translation backend, in order of preference:
+   *   1. TokenHub (o.tokenhubKey set): hy-mt2-pro by default — the durable path.
+   *   2. Legacy standalone Hunyuan API with the TC3 creds (hunyuan-translation) — works until 2026-09-30.
+   * @param {object} o
+   * @param {string} [o.tokenhubKey]  TokenHub API key (Bearer)
+   * @param {string} [o.model]        translation model for the chosen backend
+   * @param {Function} [o.translate]  override (tests): ({text, source, target}) → Promise<string>
+   */
+  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null }) {
     super();
     this.db = db;
     this.dir = dir;
@@ -63,7 +78,23 @@ class JobRunner extends EventEmitter {
     this.log = log || (() => {});
     this.ffmpeg = ffmpeg;
     this.ffprobe = ffprobe;
-    this.tmtRegion = tmtRegion;
+    if (translate) {
+      this.backend = 'custom';
+      this.model = model || 'custom';
+      this.translate = translate;
+    } else if (tokenhubKey) {
+      this.backend = 'tokenhub';
+      this.model = model || tokenhub.DEFAULT_MODEL;
+      this.translate = ({ text, source, target }) => tokenhub.translate(tokenhubKey, { model: this.model, text, source, target });
+    } else {
+      this.backend = 'hunyuan-legacy';
+      this.model = model || LEGACY_MODEL;
+      this.translate = async ({ text, source, target }) => {
+        const r = await hunyuan(this.creds, 'ChatTranslations', { Model: this.model, Text: text, Source: source, Target: target, Stream: false });
+        const c = r.Choices && r.Choices[0];
+        return (c && c.Message && c.Message.Content) || '';
+      };
+    }
     this.current = null;
     this.renders = new Map(); // id -> {percent}
     fs.mkdirSync(dir, { recursive: true });
@@ -220,8 +251,9 @@ class JobRunner extends EventEmitter {
 
     // 4. translation
     if (job.target_lang !== 'none') {
-      await this._translate(id, cues, ENGINES[job.source_lang].tmt, job.target_lang);
+      await this._translate(id, cues, ENGINES[job.source_lang].hunyuan, HUNYUAN_TARGET[job.target_lang]);
     }
+    for (const c of cues) delete c.sentence;
 
     // 5. exports
     this._progress(id, 'rendering', 100);
@@ -231,23 +263,30 @@ class JobRunner extends EventEmitter {
     this.log('info', `job ${id}: done, ${cues.length} cues for ${(meta.duration / 60).toFixed(1)} min`);
   }
 
+  /**
+   * Translate whole recognised sentences (not the ≤ 22-character cues), then share each translation
+   * over the sentence's cues in proportion to their length. Cues carry `sentence` from buildCues; a cue
+   * without one (edited or legacy) is translated on its own.
+   */
   async _translate(id, cues, source, target) {
-    const BATCH = 15;
-    const total = cues.length;
-    for (let i = 0; i < total; i += BATCH) {
-      const slice = cues.slice(i, i + BATCH);
-      const texts = slice.map((c) => c.text || ' ');
-      let r;
-      for (let attempt = 0; ; attempt++) {
-        try { r = await tmt(this.creds, 'TextTranslateBatch', { Source: source, Target: target, ProjectId: 0, SourceTextList: texts }, this.tmtRegion); break; } catch (err) {
-          if (attempt >= 3 || /UserNotRegistered|AuthFailure|InvalidParameter/.test(err.message)) throw new Error(`translation: ${err.message}`);
-          await sleep(1000 * (attempt + 1));
-        }
-      }
-      (r.TargetTextList || []).forEach((t, k) => { slice[k].trans = String(t || '').trim(); });
-      this._progress(id, 'translating', ((i + slice.length) / total) * 100);
-      await sleep(250); // TMT allows 5 requests/s
+    const groups = new Map();
+    for (const c of cues) {
+      const key = c.sentence ?? `cue-${c.id}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(c);
     }
+    const list = [...groups.values()];
+    const texts = list.map((g) => (isCjkText(g.map((c) => c.text).join('')) ? g.map((c) => c.text).join('') : g.map((c) => c.text).join(' ')));
+    const translations = await translateSentences(texts, {
+      call: this.translate,
+      source,
+      target,
+      onProgress: (done, total) => this._progress(id, 'translating', (done / total) * 100),
+    });
+    list.forEach((g, i) => {
+      const parts = distribute(translations[i], g.map((c) => [...c.text].length));
+      g.forEach((c, k) => { c.trans = parts[k] || ''; });
+    });
   }
 
   writePlainExports(id, cues) {

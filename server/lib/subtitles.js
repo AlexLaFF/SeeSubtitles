@@ -42,7 +42,7 @@ function alignWords(sentence) {
 /** Split recognised sentences into readable cues with word-accurate timing. */
 function buildCues(sentences) {
   const cues = [];
-  for (const s of sentences || []) {
+  (sentences || []).forEach((s, sentence) => {
     const words = alignWords(s);
     const cjk = isCjkText(words.map((w) => w.text).join(''));
     const max = cjk ? MAX_CJK : MAX_LATIN;
@@ -50,7 +50,8 @@ function buildCues(sentences) {
     let cur = [];
     const flush = () => {
       if (!cur.length) return;
-      cues.push({ text: join(cur), start: cur[0].start, end: Math.max(cur[cur.length - 1].end, cur[0].start + MIN_MS), speaker: s.SpeakerId ?? null });
+      // `sentence` = index of the recognised sentence this cue was cut from (used to translate whole sentences)
+      cues.push({ text: join(cur), start: cur[0].start, end: Math.max(cur[cur.length - 1].end, cur[0].start + MIN_MS), speaker: s.SpeakerId ?? null, sentence });
       cur = [];
     };
     for (const w of words) {
@@ -63,7 +64,7 @@ function buildCues(sentences) {
       else if (SOFT_PUNCT.test(t) && t.length >= max * 0.7) flush();
     }
     flush();
-  }
+  });
   // tidy: monotone, non-overlapping, ids
   for (let i = 0; i < cues.length; i++) {
     const c = cues[i];

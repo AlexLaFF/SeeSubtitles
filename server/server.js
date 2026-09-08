@@ -2,7 +2,7 @@
 'use strict';
 // Hosted server: login, live-session mirror (remote displays at /d/<code>), upload → subtitles jobs.
 //   PORT (8080) HOST (0.0.0.0) DATA_DIR (../data) BASE_URL (public https URL, needed for long uploads)
-//   TENCENT_APPID / TENCENT_SECRET_ID / TENCENT_SECRET_KEY   TMT_REGION (ap-hongkong)   FFMPEG / FFPROBE (binaries; MP4 burn-in needs libass)
+//   TENCENT_APPID / TENCENT_SECRET_ID / TENCENT_SECRET_KEY   TOKENHUB_API_KEY + TRANSLATION_MODEL (hy-mt2-pro)   FFMPEG / FFPROBE (binaries; MP4 burn-in needs libass)
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -38,8 +38,9 @@ const auth = createAuth(db);
 const live = new LiveSessions({ db, dir: path.join(DATA_DIR, 'sessions'), log });
 let creds = null;
 try { creds = getCredentials(); } catch (err) { log('error', `${err.message} — upload jobs will fail until the Tencent keys are set`); }
-const jobs = new JobRunner({ db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tmtRegion: process.env.TMT_REGION || 'ap-hongkong', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe' });
+const jobs = new JobRunner({ db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe' });
 log('info', `clean transcripts ready for ${jobs.backfillPlainExports()} existing jobs`);
+log(jobs.backend === 'tokenhub' ? 'info' : 'warn', `translation backend: ${jobs.backend} (${jobs.model})${jobs.backend === 'hunyuan-legacy' ? ' — the standalone Hunyuan API stops on 2026-09-30; set TOKENHUB_API_KEY' : ''}`);
 const jobClients = new Map(); // job id -> Set<res>
 jobs.on('update', (j) => {
   const set = jobClients.get(j.id);

@@ -68,7 +68,10 @@ function call(creds, { service, version, action, region, payload, timeoutMs = 60
 
 // 录音文件识别 (batch ASR). Region is not needed for this service.
 const asr = (creds, action, payload) => call(creds, { service: 'asr', version: '2019-06-14', action, payload });
-// 机器翻译 TMT. Region is required; Hong Kong keeps traffic close to the HK server.
+// 机器翻译 TMT (legacy; not used by the upload pipeline any more). Region is required.
 const tmt = (creds, action, payload, region = 'ap-hongkong') => call(creds, { service: 'tmt', version: '2018-03-21', action, region, payload });
+// 混元翻译 Hunyuan translation models (ChatTranslations). No region; the sub-user needs QcloudHunYuanFullAccess
+// and the account must have the Hunyuan service activated.
+const hunyuan = (creds, action, payload) => call(creds, { service: 'hunyuan', version: '2023-09-01', action, payload, timeoutMs: 120_000 });
 
-module.exports = { call, asr, tmt, TencentApiError };
+module.exports = { call, asr, tmt, hunyuan, TencentApiError };

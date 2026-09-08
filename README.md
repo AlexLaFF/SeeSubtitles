@@ -8,7 +8,7 @@ upload-a-video subtitling — built on Tencent Cloud speech services. Successor 
 core/      shared pipeline: Tencent signing, streaming translator, 48→16 kHz decimator, transcript, MP3+SRT recorder
 web/       pages: display, control, playback (desktop) · login, dashboard, job editor, /d/<code> remote display (hosted)
 desktop/   macOS app (Electron): mic → Tencent 实时语音翻译 → Display / transparent Overlay windows, recording, cloud mirror
-server/    hosted server: login, live-session mirror, upload → 录音文件识别 → cues → 机器翻译 → SRT/VTT/MP4, cue editor
+server/    hosted server: login, live-session mirror, upload → 录音文件识别 → sentences → 混元翻译 → cues → SRT/VTT/MP4, cue editor
 deploy/    docker-compose + Caddy for Tencent Cloud (HK) or any Linux box
 ```
 
@@ -104,12 +104,19 @@ the `subs-data` volume; back it up with `docker run --rm -v subs-data:/data -v $
 Locally: `DATA_DIR=./data node server/server.js` (port 8080). For MP4 burn-in on macOS point `FFMPEG` at an
 ffmpeg with libass, e.g. `FFMPEG=desktop/resources/bin/ffmpeg`.
 
-Tencent services that must be activated on the account: 实时语音翻译 (live), 录音文件识别 (uploads),
-机器翻译 TMT (translation of uploads). `npm run probe:batch -- clip.mp3` proves the last two work.
+Tencent services used: 实时语音翻译 (live), 录音文件识别 (uploads; CAM policy `QcloudASRFullAccess`), and
+混元翻译 for translating uploads. Translation runs on **TokenHub** (大模型服务平台, `TOKENHUB_API_KEY` from
+console.cloud.tencent.com/tokenhub/apikey, models `hy-mt2-pro` / `hy-mt2-plus` / `hy-mt2-lite`, 0.5 / 2 元 per
+million tokens). Without a TokenHub key the server falls back to the standalone Hunyuan API with the TC3 keys
+(`QcloudHunYuanFullAccess`, `hunyuan-translation`), which Tencent shuts down on 2026-09-30. The older 机器翻译
+(TMT) product is not used. `npm run probe:batch -- --translate-only` checks the translation key;
+`npm run probe:batch -- clip.mp3` runs recognition + translation end to end.
 
 Upload pipeline: ffmpeg extracts 16 kHz mono audio → `CreateRecTask` (engine by spoken language, word
-timestamps) → cues of ≤ 22 CJK / 44 Latin characters split at punctuation → `TextTranslateBatch` → SRT, VTT,
-TXT (original, translated, bilingual). The job page plays the video with the cues, lets you edit text and
+timestamps) → each recognised sentence is translated whole (Cantonese is sent as `yue`, its own language in
+混元翻译; several sentences per request, redone one by one if the line count comes back different) → cues of
+≤ 22 CJK / 44 Latin characters split at punctuation, with the sentence's translation shared over its cues in
+proportion to their length → SRT, VTT, TXT (original, translated, bilingual). The job page plays the video with the cues, lets you edit text and
 timing (nudge, merge, delete, shift all), regenerates the files on save, and renders an MP4 with burned-in
 subtitles on demand. Audio files longer than a few minutes are fetched by Tencent from
 `BASE_URL/media/<token>.mp3`, so the server must be reachable from the internet.

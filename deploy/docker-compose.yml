@@ -12,7 +12,8 @@ services:
       TENCENT_APPID: ${TENCENT_APPID}
       TENCENT_SECRET_ID: ${TENCENT_SECRET_ID}
       TENCENT_SECRET_KEY: ${TENCENT_SECRET_KEY}
-      TMT_REGION: ${TMT_REGION:-ap-hongkong}
+      TOKENHUB_API_KEY: ${TOKENHUB_API_KEY:-}
+      TRANSLATION_MODEL: ${TRANSLATION_MODEL:-hy-mt2-pro}
       MAX_UPLOAD_GB: ${MAX_UPLOAD_GB:-8}
     volumes:
       - subs-data:/data
