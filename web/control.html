@@ -20,6 +20,8 @@
       <button id="btnReconnect">Reconnect</button>
       <button id="btnDisplay">Open display page ↗</button>
       <button id="btnTranscript">Download transcript</button>
+      <button id="btnPlainSource">Plain text · original</button>
+      <button id="btnPlainTarget">Plain text · translation</button>
       <button id="btnPlayback">Playback ↗</button>
     </div>
     <dl class="kv" id="kv"></dl>
@@ -28,9 +30,8 @@
     <h3>Recording</h3>
     <div class="btns"><button id="btnRec" class="danger">● Start recording</button></div>
     <dl class="kv" id="recKv"></dl>
-    <div class="muted">Writes <code>recordings/&lt;date_time&gt;.mp3</code> continuously (playable even after a crash or power
-      loss), plus <code>.zh.srt</code> Mandarin and <code>.yue.srt</code> Cantonese subtitles appended sentence by sentence.
-      Recording does not depend on the network.</div>
+    <div class="muted">Saves audio and matching subtitles with readable names such as 9月5号14点33分录音.mp3.
+      Recording continues if the network drops. Existing recordings keep their original names.</div>
     <h3>Recent recordings</h3>
     <div class="preview" id="recList"><div class="muted">none yet</div></div>
   </div>
@@ -62,6 +63,8 @@
 </div>
 <script src="/schema.js"></script>
 <script src="/shared.js"></script>
+<script src="/plain-text.js"></script>
+<script src="/clean-downloads.js"></script>
 <script src="/controls.js"></script>
 <script src="/control.js"></script>
 </body>

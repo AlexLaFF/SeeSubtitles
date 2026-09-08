@@ -6,8 +6,9 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const { spawn, execFile } = require('node:child_process');
+const { fromTexts } = require('@subs/core/plain-text');
 const { asr, tmt } = require('./tc3');
-const { buildCues, toSrt, toVtt, toTxt, toAss } = require('./subtitles');
+const { buildCues, toSrt, toVtt, toTxt, toAss, toStackedAss } = require('./subtitles');
 
 const MAX_DURATION_S = 5 * 3600;
 const INLINE_LIMIT = 4.5 * 1024 * 1024; // CreateRecTask base64 payload cap is 5 MB
@@ -249,11 +250,31 @@ class JobRunner extends EventEmitter {
     }
   }
 
+  writePlainExports(id, cues) {
+    const job = this.get(id);
+    const base = safeName(job.filename);
+    const dir = this.jobDir(id);
+    fs.writeFileSync(path.join(dir, `${base}.original.${job.source_lang}.plain.txt`), fromTexts(cues.map(c => c.text)));
+    if (job.target_lang !== 'none' && cues.some(c => c.trans)) {
+      fs.writeFileSync(path.join(dir, `${base}.translated.${job.target_lang}.plain.txt`), fromTexts(cues.map(c => c.trans)));
+    }
+  }
+
+  backfillPlainExports() {
+    let count = 0;
+    for (const job of this.db.all('SELECT id FROM jobs')) {
+      const data = this.cues(job.id);
+      if (data && data.cues && data.cues.length) { this.writePlainExports(job.id, data.cues); count++; }
+    }
+    return count;
+  }
+
   writeTextExports(id, cues) {
     const job = this.get(id);
     const dir = this.jobDir(id);
     const base = safeName(job.filename);
     for (const f of fs.readdirSync(dir)) if (/\.(srt|vtt|txt)$/.test(f)) fs.rmSync(path.join(dir, f));
+    this.writePlainExports(id, cues);
     fs.writeFileSync(path.join(dir, `${base}.${job.source_lang}.srt`), toSrt(cues, 'text'));
     fs.writeFileSync(path.join(dir, `${base}.${job.source_lang}.vtt`), toVtt(cues, 'text'));
     fs.writeFileSync(path.join(dir, `${base}.${job.source_lang}.txt`), toTxt(cues, 'text'));
@@ -276,10 +297,14 @@ class JobRunner extends EventEmitter {
     if (!src || !data) throw new Error('missing source or cues');
     const dir = this.jobDir(id);
     const meta = await probe(this.ffprobe, src);
-    const width = meta.width || 1920;
-    const height = meta.height || 1080;
+    // Video uploads keep classic bottom subtitles over the picture. Audio-only uploads get a portrait
+    // black canvas with the sentences stacked up the frame, like the live display (no embedded
+    // subtitle tracks, so players never draw a second copy).
+    const stacked = !meta.hasVideo;
+    const width = stacked ? 1080 : (meta.width || 1920);
+    const height = stacked ? 1920 : (meta.height || 1080);
     const ass = path.join(dir, 'subs.ass');
-    fs.writeFileSync(ass, toAss(data.cues, { which, width, height, fontSize }));
+    fs.writeFileSync(ass, stacked ? toStackedAss(data.cues, { which, width, height, fontSize }) : toAss(data.cues, { which, width, height, fontSize }));
     const base = safeName(job.filename);
     const out = path.join(dir, `${base}.${which === 'text' ? job.source_lang : which === 'both' ? 'bilingual' : job.target_lang}.mp4`);
     const state = { percent: 0, which, startedAt: Date.now() };
@@ -288,7 +313,7 @@ class JobRunner extends EventEmitter {
     try {
       const args = ['-y', '-hide_banner', '-loglevel', 'error', '-nostats', '-progress', 'pipe:1', '-i', src];
       if (meta.hasVideo) args.push('-vf', 'ass=subs.ass', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p');
-      else args.push('-f', 'lavfi', '-i', `color=c=black:s=1280x720:r=15:d=${Math.ceil(meta.duration)}`, '-map', '1:v', '-map', '0:a', '-vf', 'ass=subs.ass', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-tune', 'stillimage', '-shortest');
+      else args.push('-f', 'lavfi', '-i', `color=c=black:s=${width}x${height}:r=15:d=${Math.ceil(meta.duration)}`, '-map', '1:v', '-map', '0:a', '-sn', '-vf', 'ass=subs.ass', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-tune', 'stillimage', '-shortest');
       args.push('-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-f', 'mp4', `${out}.part`);
       await run(this.ffmpeg, args, {
         cwd: dir,

@@ -21,7 +21,7 @@ let H = Int(arg("--height", "1920")) ?? 1920
 let fontSize = CGFloat(Double(arg("--font-size", "64")) ?? 64)
 let duration = Double(arg("--duration", "0")) ?? 0
 let showBoth = arg("--show", "target") == "both"
-let maxLines = Int(arg("--lines", "4")) ?? 4
+let maxLines = Int(arg("--lines", "60")) ?? 60 // cap on stacked cues; the frame height is the real limit
 if outDir.isEmpty || duration <= 0 { fail("usage: --zh file --out dir --duration seconds") }
 
 func parseSRT(_ path: String) -> [(Double, Double, String)] {
@@ -125,6 +125,15 @@ func render(_ state: [(Cue, Bool)], to path: String) {
     draw(attributed(cue, bright: bright, outline: true), top: y + h, height: h, in: ctx)
     draw(fill, top: y + h, height: h, in: ctx)
     y += h + gap
+  }
+  // rows leaving past the top edge dissolve, like the live display
+  let fadeH = fontSize * 1.12 * 0.8
+  let colors = [CGColor(gray: 0, alpha: 1), CGColor(gray: 0, alpha: 0)] as CFArray
+  if let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 1]) {
+    ctx.saveGState()
+    ctx.clip(to: CGRect(x: 0, y: CGFloat(H) - padTop - fadeH, width: CGFloat(W), height: padTop + fadeH))
+    ctx.drawLinearGradient(grad, start: CGPoint(x: 0, y: CGFloat(H) - padTop), end: CGPoint(x: 0, y: CGFloat(H) - padTop - fadeH), options: [.drawsBeforeStartLocation])
+    ctx.restoreGState()
   }
   guard let img = ctx.makeImage(), let png = NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:]) else { fail("png encode failed") }
   do { try png.write(to: URL(fileURLWithPath: path)) } catch { fail("write failed: \(error)") }

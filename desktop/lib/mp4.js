@@ -1,11 +1,13 @@
 'use strict';
 // MP4 export queue: audio + burned-in subtitle frames (rendered by helpers/render-subs.swift) plus
-// selectable Mandarin/Cantonese subtitle tracks. One job at a time, runs in the background.
+// No embedded subtitle tracks: players would switch them on and duplicate the burned-in text.
+// One job at a time, runs in the background.
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const { buildHelper } = require('./helpers');
+const names = require('@subs/core/names');
 
 function probeDuration(file) {
   return new Promise((resolve, reject) => {
@@ -18,7 +20,7 @@ function probeDuration(file) {
 }
 
 class Mp4Queue extends EventEmitter {
-  constructor({ dir, size = '1080x1920', fontSize = 64, show = 'target', fps = 15, encoder = 'libx264', lines = 4, ffmpeg = 'ffmpeg' } = {}) {
+  constructor({ dir, size = '1080x1920', fontSize = 64, show = 'target', fps = 15, encoder = 'libx264', lines = 60, ffmpeg = 'ffmpeg' } = {}) {
     super();
     this.dir = dir;
     const m = /^(\d+)x(\d+)$/.exec(size) || [null, 1080, 1920];
@@ -74,10 +76,10 @@ class Mp4Queue extends EventEmitter {
 
   async _run(base) {
     const t0 = Date.now();
-    const mp3 = path.join(this.dir, `${base}.mp3`);
-    if (!fs.existsSync(mp3)) throw new Error(`${base}.mp3 not found`);
-    const zh = path.join(this.dir, `${base}.zh.srt`);
-    const yue = path.join(this.dir, `${base}.yue.srt`);
+    const mp3 = names.filePath(this.dir, base, 'mp3');
+    if (!fs.existsSync(mp3)) throw new Error(`${path.basename(mp3)} not found`);
+    const zh = names.filePath(this.dir, base, 'zh');
+    const yue = names.filePath(this.dir, base, 'yue');
     const hasZh = fs.existsSync(zh);
     const hasYue = fs.existsSync(yue);
     if (!hasZh && !hasYue) throw new Error(`${base} has no subtitle files`);
@@ -103,19 +105,14 @@ class Mp4Queue extends EventEmitter {
       this.emit('log', `${base}: ${summary.frames || '?'} subtitle frames for ${summary.cues || '?'} cues`);
 
       this._set('encoding video', 0);
-      const out = path.join(this.dir, `${base}.mp4`);
-      const part = path.join(this.dir, `${base}.mp4.part`);
+      const out = names.filePath(this.dir, base, 'mp4');
+      const part = `${out}.part`;
       const ff = ['-y', '-hide_banner', '-loglevel', 'error', '-nostats', '-progress', 'pipe:1',
         '-f', 'concat', '-safe', '0', '-i', path.join(tmp, 'concat.txt'), '-i', mp3];
-      const maps = ['-map', '0:v', '-map', '1:a'];
-      let si = 2;
-      const meta = [];
-      if (hasZh) { ff.push('-i', zh); maps.push('-map', `${si}:s`); meta.push(`-metadata:s:s:${si - 2}`, 'language=zho', `-metadata:s:s:${si - 2}`, 'title=中文'); si++; }
-      if (hasYue) { ff.push('-i', yue); maps.push('-map', `${si}:s`); meta.push(`-metadata:s:s:${si - 2}`, 'language=yue', `-metadata:s:s:${si - 2}`, 'title=粤语'); si++; }
-      ff.push(...maps, '-t', duration.toFixed(3), '-vf', `fps=${this.fps},format=yuv420p`);
+      ff.push('-map', '0:v', '-map', '1:a', '-sn', '-t', duration.toFixed(3), '-vf', `fps=${this.fps},format=yuv420p`);
       if (this.encoder === 'h264_videotoolbox') ff.push('-c:v', 'h264_videotoolbox', '-b:v', '1500k');
       else ff.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-tune', 'stillimage', '-g', String(this.fps * 10));
-      ff.push('-c:a', 'aac', '-b:a', '128k', '-c:s', 'mov_text', ...meta, '-movflags', '+faststart', '-f', 'mp4', part);
+      ff.push('-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-f', 'mp4', part);
       await new Promise((resolve, reject) => {
         const p = spawn(this.ffmpeg, ff, { stdio: ['ignore', 'pipe', 'pipe'] });
         let errText = '';
@@ -131,10 +128,10 @@ class Mp4Queue extends EventEmitter {
         p.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited ${code}: ${errText.trim().slice(-300)}`))));
       });
       fs.renameSync(part, out);
-      return { base, file: `${base}.mp4`, bytes: fs.statSync(out).size, seconds: Math.round((Date.now() - t0) / 1000) };
+      return { base, file: path.basename(out), bytes: fs.statSync(out).size, seconds: Math.round((Date.now() - t0) / 1000) };
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
-      fs.rmSync(path.join(this.dir, `${base}.mp4.part`), { force: true });
+      fs.rmSync(`${names.filePath(this.dir, base, 'mp4')}.part`, { force: true });
     }
   }
 }

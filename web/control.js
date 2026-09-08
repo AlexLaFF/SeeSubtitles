@@ -16,6 +16,8 @@
   $('btnReconnect').addEventListener('click', () => Sub.post('/api/reconnect').then((r) => { if (r && r.error) alert(r.error); }));
   $('btnDisplay').addEventListener('click', () => window.open('/', '_blank'));
   $('btnTranscript').addEventListener('click', () => window.open('/api/transcript', '_blank'));
+  $('btnPlainSource').addEventListener('click', () => CleanDownloads.live('source'));
+  $('btnPlainTarget').addEventListener('click', () => CleanDownloads.live('target'));
   $('btnPlayback').addEventListener('click', () => window.open('/playback', '_blank'));
   document.addEventListener('keydown', (e) => { if (Sub.keyAction(e)) e.preventDefault(); });
 
@@ -46,7 +48,7 @@
     } else rows.push(['Status', 'idle']);
     for (const [k, v] of rows) { kv.appendChild(el('dt', {}, k)); kv.appendChild(el('dd', {}, String(v))); }
     if (recWasOn !== on) { recWasOn = on; loadRecordings(); }
-    const mp4Key = JSON.stringify(rc && Sub.status.mp4);
+    const mp4Key = JSON.stringify([Sub.status.mp4, Sub.status.summary]);
     if (mp4Key !== renderRecorder.mp4Key) { renderRecorder.mp4Key = mp4Key; loadRecordings(); }
   }
   function loadRecordings() {
@@ -64,11 +66,32 @@
         a(r.mp3, 'mp3');
         if (r.zh) a(r.zh, 'zh.srt');
         if (r.yue) a(r.yue, 'yue.srt');
+        for (const [lang, label] of [['yue', 'Plain text · original'], ['zh', 'Plain text · translation']]) {
+          if (!r[lang]) continue;
+          const b = el('button', {}, label);
+          b.addEventListener('click', () => CleanDownloads.recording(r, lang));
+          links.appendChild(b);
+        }
         const mp4st = (Sub.status && Sub.status.mp4) || {};
         if (r.mp4) a(r.mp4, `mp4 (${Sub.fmtBytes(r.mp4Bytes)})`);
         else if (mp4st.current && mp4st.current.base === r.base) links.appendChild(el('span', { class: 'muted' }, `mp4: ${mp4st.current.stage} ${mp4st.current.percent}%`));
         else if ((mp4st.queue || []).includes(r.base)) links.appendChild(el('span', { class: 'muted' }, 'mp4: queued'));
         else if (r.zh || r.yue) { const b = el('button', {}, 'Make MP4'); b.addEventListener('click', () => Sub.post('/api/recordings/mp4', { base: r.base }).then((x) => { if (x && x.error) alert(x.error); })); links.appendChild(b); }
+        // AI learning summary (manual)
+        const sm = (Sub.status && Sub.status.summary) || {};
+        links.appendChild(document.createTextNode('  '));
+        if (sm.current && sm.current.base === r.base) links.appendChild(el('span', { class: 'muted' }, `AI summary: ${sm.current.stage}${sm.current.chars ? ` — ${sm.current.chars} chars written so far` : ''}…`));
+        else if ((sm.queue || []).includes(r.base)) links.appendChild(el('span', { class: 'muted' }, 'AI summary: queued'));
+        else {
+          if (r.summary) { const a2 = el('a', { href: `/summary?rec=${encodeURIComponent(r.base)}`, target: '_blank' }, '📘 AI summary'); links.appendChild(a2); links.appendChild(document.createTextNode('  ')); }
+          if (r.summaryPdf) a(r.summaryPdf, 'summary PDF');
+          else if (r.summary) { const bp = el('button', {}, 'Make PDF'); bp.addEventListener('click', () => Sub.post('/api/recordings/summary-pdf', { base: r.base }).then((x) => { if (x && x.error) alert(x.error); })); links.appendChild(bp); links.appendChild(document.createTextNode('  ')); }
+          if (r.zh || r.yue) {
+            const b = el('button', { title: sm.configured ? `Generate a learning summary with ${sm.model}` : 'Add your Anthropic API key in Settings → AI summaries' }, r.summary ? 'Regenerate summary' : 'Generate AI summary');
+            b.addEventListener('click', () => { if (r.summary && !confirm('Regenerate the AI summary? The current one will be replaced.')) return; Sub.post('/api/recordings/summary', { base: r.base }).then((x) => { if (x && x.error) alert(x.error); }); });
+            links.appendChild(b);
+          }
+        }
         p.appendChild(links);
         box.appendChild(p);
       }

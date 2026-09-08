@@ -1,5 +1,5 @@
 {
-  "name": "subtitle-platform",
+  "name": "transcriptionApp",
   "private": true,
   "description": "Live and offline Cantonese/Mandarin subtitles: macOS desktop app + hosted web app",
   "workspaces": ["core", "server", "desktop"],

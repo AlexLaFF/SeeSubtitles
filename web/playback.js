@@ -38,6 +38,14 @@
     if (!zh.length && yue.length) cues = yue.map((c) => ({ ...c, zh: '', yue: c.text }));
     $('info').textContent = `${r.base} · ${Sub.fmtBytes(r.bytes)} · ${cues.length} cues${r.mp4 ? ' · ' : ''}`;
     if (r.mp4) { const a = document.createElement('a'); a.href = `/recordings/${encodeURIComponent(r.mp4)}`; a.download = r.mp4; a.textContent = 'download mp4'; $('info').appendChild(a); }
+    if (r.summary) { $('info').appendChild(document.createTextNode(' · ')); const a = document.createElement('a'); a.href = `/summary?rec=${encodeURIComponent(r.base)}`; a.target = '_blank'; a.textContent = '📘 AI summary'; $('info').appendChild(a); }
+    for (const [lang, label] of [['yue', 'Plain text · original'], ['zh', 'Plain text · translation']]) {
+      if (!r[lang]) continue;
+      const b = document.createElement('button'); b.textContent = label;
+      b.onclick = () => CleanDownloads.recording(r, lang); $('info').appendChild(b);
+    }
+    const seek = Number(new URLSearchParams(location.search).get('t'));
+    if (seek > 0) { const jump = () => { audio.currentTime = seek; sync(true); }; if (audio.readyState >= 1) jump(); else audio.addEventListener('loadedmetadata', jump, { once: true }); }
     for (const [i, c] of cues.entries()) {
       const p = document.createElement('div');
       p.className = 'p cue';

@@ -1,4 +1,4 @@
-# Subtitle platform
+# transcriptionApp
 
 Live Cantonese → Mandarin subtitles for venue screens, remote displays in any browser, and
 upload-a-video subtitling — built on Tencent Cloud speech services. Successor of the localhost tool in
@@ -38,6 +38,57 @@ unreachable the local display and recording are unaffected.
 Distribution: to ship a DMG that opens without right-click → Open, create a *Developer ID Application*
 certificate in the Apple developer portal and set `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`
 for notarization (electron-builder picks them up).
+
+## Local-tool update sync (0.2.0)
+
+Ported the local-tool commits after `3cff4b8`, through `2be9fbc` (September 7, 2026):
+
+- AI learning summaries with the latest concise synthesis prompt, progress, Markdown viewing,
+  clickable recording timestamps, and formatted A4 PDF export. Add the Anthropic key in
+  **Settings → AI summaries**; model, language and effort are editable there. PDFs use the app's
+  bundled Chromium, including the app's authenticated local connection.
+- Chinese recording-set filenames with legacy recordings still discoverable and playable.
+  New audio, subtitles, MP4, summaries and PDFs follow the same naming scheme. Existing files
+  are not renamed automatically. Optional migration previews changes before applying them:
+  `npm run rename-recordings -w desktop -- /absolute/recordings/folder` (add `--apply` to rename).
+- A **字幕** menu-bar item to open controls, fill any display, reload/close the overlay, or quit.
+  The overlay does not take keyboard focus from the presentation; the main app keeps its Dock entry
+  for Control and Settings. Closing it keeps capture and recording running.
+- Overlay registration survives pipeline restart; the selected display is highlighted; Close controls
+  and the hidden audience-screen hint match the local tool. Because the app owns the overlay and
+  server in one process, it does not need the standalone overlay's server-loss quit timer.
+- Applying a preset refreshes the initiating browser's controls. Microphone capture ignores unrelated
+  audio-device changes, and Tencent connection retries avoid previously failing edges.
+- MP4 exports carry no embedded subtitle tracks (players would draw a second copy of the burned-in
+  text); the stacked subtitles fill the frame and dissolve at the top edge like the live display.
+  Plain-text downloads (original / translation, text only) for the live transcript and every recording.
+- Recognition tuning in the Input group, applied at the next connection through a graceful rotation:
+  hotwords (`词|权重`, one per line, up to 128), pause that ends a sentence (500–2000 ms), forced split
+  (5–90 s), filler-word filter, noise threshold. Measured on Cantonese: shorter sentences translate more
+  literally and finalize sooner, longer ones read more fluently but get paraphrased. Values that are not
+  URL-safe are signed raw and sent URL-encoded, as the API requires.
+- Behind a VPN the mainland edge is found through Chinese DoH resolvers queried with a mainland
+  client-subnet hint, with a known-good Guangzhou edge as the last resort.
+
+The original localhost checkout, credentials, recordings and running processes are not modified.
+Cloud mirroring and the hosted upload workflow remain available. Summary generation is for desktop
+recordings, matching the local tool; it is not yet part of hosted upload jobs.
+
+### Lightweight web-only test
+
+Use Node 24. In a terminal at the app repository, create a test account and start the web server:
+
+```bash
+export DATA_DIR=/private/tmp/subtitle-web-preview
+node server/cli.js add-user preview@local.test
+HOST=127.0.0.1 PORT=18081 FFMPEG="$PWD/desktop/resources/bin/ffmpeg" FFPROBE="$PWD/desktop/resources/bin/ffprobe" node server/server.js
+```
+
+Open `http://127.0.0.1:18081` and use the password printed by the account command. No Electron window
+or cloud deployment is required. Start with a 30–60 second clip and **no translation**, then edit cues
+and export SRT/VTT/MP4. Actual transcription uses Tencent credentials from the app repo's `.env`;
+translation additionally requires TMT. Long uploads need a publicly reachable backend. Stop this
+preview with Ctrl-C; its files are isolated under `DATA_DIR`.
 
 ## Hosted server (remote displays + upload subtitling)
 

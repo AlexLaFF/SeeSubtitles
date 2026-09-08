@@ -3,7 +3,8 @@
 // backoff, and a seamless rotation to a fresh connection before the 5-hour cap.
 const WebSocket = require('ws');
 const { EventEmitter } = require('node:events');
-const { buildConnection, resolveMainland, pinnedOptions } = require('./tencent');
+const { buildConnection, resolveMainland, forgetMainland, pinnedOptions, hotwordList } = require('./tencent');
+const dns = require('node:dns/promises');
 
 const CHUNK_MS = 200;
 const CHUNK_BYTES = 6400;
@@ -17,6 +18,18 @@ const ACCOUNT_ERRORS = new Set([6002, 6003, 6004, 6005]);
 const ROTATE_GRACE_MS = 5 * 60_000; // wait this long for a sentence boundary before forcing rotation
 const DRAIN_MS = 5000; // how long a retiring socket may wait for its `final`
 
+/** Tencent request parameters derived from the tuning options (omitted when at their defaults). */
+function recognitionParams(opts) {
+  const p = {};
+  const hw = hotwordList(opts.hotwords);
+  if (hw) p.hotword_list = hw;
+  if (opts.vadSilenceTime && Number(opts.vadSilenceTime) !== 1000) p.vad_silence_time = Math.round(Number(opts.vadSilenceTime));
+  if (opts.maxSpeakTime && Number(opts.maxSpeakTime) !== 10) p.max_speak_time = Math.round(Number(opts.maxSpeakTime) * 1000);
+  if (opts.noiseThreshold && Number(opts.noiseThreshold) !== 0) p.noise_threshold = Number(opts.noiseThreshold);
+  if (opts.filterModal && Number(opts.filterModal) !== 0) p.filter_modal = Number(opts.filterModal);
+  return p;
+}
+
 class TranslationStream extends EventEmitter {
   /**
    * @param {{appid:string, secretId:string, secretKey:string}} creds
@@ -28,7 +41,7 @@ class TranslationStream extends EventEmitter {
     this.opts = { source: 'yue', target: 'zh', transModel: 'hunyuan-translation-lite', rotateMs: 290 * 60_000, edge: 'auto', ...opts };
     // edge: 'system' = normal DNS; 'cn' = always connect to the mainland edge (VPN users);
     // 'auto' = system first, switch to mainland after an HTTP 404 from an overseas edge
-    this.mainland = { use: this.opts.edge === 'cn', ip: null, resolving: false };
+    this.mainland = { use: this.opts.edge === 'cn', ip: null, resolving: false, bad: [] }; // bad: edge IPs that answered 404
     this.queue = [];
     this.active = null; // socket receiving audio
     this.pending = null; // replacement socket being opened (rotation)
@@ -123,6 +136,7 @@ class TranslationStream extends EventEmitter {
       source: this.opts.source,
       target: this.opts.target,
       transModel: this.opts.transModel,
+      tuning: recognitionParams(this.opts),
       edge: this.mainland.use ? `mainland${this.mainland.ip ? ` ${this.mainland.ip}` : ''}` : 'system',
     };
   }
@@ -138,7 +152,8 @@ class TranslationStream extends EventEmitter {
       if (this.mainland.resolving) return null;
       this.mainland.resolving = true;
       if (role === 'active') this._setState('connecting');
-      resolveMainland()
+      this._systemIps()
+        .then((sys) => resolveMainland({ force: this.mainland.bad.length > 0, avoid: [...this.mainland.bad, ...sys] }))
         .then((ip) => { this.mainland.ip = ip; this._log(`using mainland edge ${ip}`); })
         .catch((err) => { this.lastError = { message: err.message }; this._log(`✖ ${err.message}`); })
         .finally(() => {
@@ -153,10 +168,14 @@ class TranslationStream extends EventEmitter {
     return this._connectNow(role);
   }
 
+  async _systemIps() {
+    try { return (await dns.resolve4('asr.cloud.tencent.com')); } catch { return []; }
+  }
+
   _connectNow(role) {
     let conn;
     try {
-      conn = buildConnection(this.creds, this.opts);
+      conn = buildConnection(this.creds, { ...this.opts, extra: recognitionParams(this.opts) });
     } catch (err) {
       this.lastError = { message: err.message };
       this._log(`✖ cannot build connection: ${err.message}`);
@@ -189,8 +208,12 @@ class TranslationStream extends EventEmitter {
             this.attempt = 0;
             message += ' — overseas edge has no route for 实时语音翻译 (VPN?), switching to the mainland edge';
           } else if (this.mainland.use) {
-            this.mainland.ip = null; // re-resolve next time
-            message += ' — check APPID (10 digits, not the account UIN) and that the service is activated';
+            if (this.mainland.ip && !this.mainland.bad.includes(this.mainland.ip)) this.mainland.bad.push(this.mainland.ip);
+            this.mainland.ip = null; // re-resolve, skipping edges that answered 404
+            forgetMainland();
+            message += this.mainland.bad.length > 2
+              ? ' — every edge refuses this appid: check APPID (10 digits, not the account UIN) and that 实时语音翻译 is activated'
+              : ` — edge ${this.mainland.bad[this.mainland.bad.length - 1]} has no route; trying another resolver`;
           }
         }
         this.lastError = { message };
@@ -237,6 +260,7 @@ class TranslationStream extends EventEmitter {
       sock.authenticated = true;
       this.accountError = false;
       this.lastError = null;
+      this.mainland.bad = [];
       this._log(`✔ #${sock.id} authenticated`);
       if (sock === this.pending) this._promote(sock);
       else if (sock === this.active) this._setState('ready');
@@ -386,4 +410,4 @@ class TranslationStream extends EventEmitter {
   }
 }
 
-module.exports = { TranslationStream, CHUNK_BYTES, CHUNK_MS };
+module.exports = { TranslationStream, recognitionParams, CHUNK_BYTES, CHUNK_MS };

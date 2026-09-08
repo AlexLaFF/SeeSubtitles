@@ -25,6 +25,18 @@
     { key: 'transModel', group: 'input', label: 'Model', type: 'select', default: 'hunyuan-translation-lite',
       options: [['hunyuan-translation-lite', 'hunyuan-translation-lite (fast)'], ['hunyuan-translation', 'hunyuan-translation (quality)']] },
     { key: 'streaming', group: 'input', label: 'Streaming on', type: 'bool', default: true, persist: false },
+    // recognition tuning (Tencent request parameters; applied at the next connection)
+    { key: 'hotwords', group: 'input', label: 'Hotwords', type: 'textarea', default: '', placeholder: '每行一个：词|权重（1–11，或 100 强制）\n张培光|10\n安利|8',
+      hint: 'Names, brands and terms the recognizer should prefer. One per line as 词|权重. Up to 128.' },
+    { key: 'vadSilenceTime', group: 'input', label: 'Pause that ends a sentence', type: 'range', min: 500, max: 2000, step: 50, unit: 'ms', default: 1000,
+      hint: 'Shorter = sentences finalize sooner after the speaker pauses; longer = fewer, longer sentences.' },
+    { key: 'maxSpeakTime', group: 'input', label: 'Force a split after', type: 'range', min: 5, max: 90, step: 1, unit: 's', default: 10,
+      hint: 'Continuous speech is cut into a sentence after this long.' },
+    { key: 'filterModal', group: 'input', label: 'Filter filler words', type: 'select', default: '0',
+      options: [['0', 'Keep 啊/啦/呢 (default)'], ['1', 'Filter some'], ['2', 'Filter strictly']],
+      hint: 'Drops 语气词 from the recognized text before translation. Cleaner subtitles, slightly less of the speaker\'s tone.' },
+    { key: 'noiseThreshold', group: 'input', label: 'Noise threshold', type: 'range', min: -2, max: 2, step: 0.1, unit: '', default: 0,
+      hint: 'Raise in noisy rooms to ignore more background sound; lower if quiet speech is being dropped.' },
     // output
     { key: 'showMode', group: 'output', label: 'Show', type: 'select', default: 'target',
       options: [['target', 'Translation only'], ['both', 'Translation + original'], ['source', 'Original only']] },
@@ -100,6 +112,9 @@
           break;
         case 'text':
           v = String(v).slice(0, 300);
+          break;
+        case 'textarea':
+          v = String(v).replace(/\r/g, '').slice(0, 6000);
           break;
         case 'device':
           if (v === undefined || v === null || v === '') continue;

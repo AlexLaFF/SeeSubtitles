@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
+const { fromTexts } = require('./plain-text');
 
 class Transcript extends EventEmitter {
   constructor({ logDir, maxLines = 1000 } = {}) {
@@ -64,6 +65,9 @@ class Transcript extends EventEmitter {
       const d = new Date(line.createdAt);
       const file = path.join(this.logDir, `${d.toISOString().slice(0, 10)}.txt`);
       const ts = d.toTimeString().slice(0, 8);
+      for (const [which, text] of [['source', line.sourceText], ['target', line.targetText]]) {
+        if (text) fs.appendFile(file.replace(/\.txt$/, `.${which}.plain.txt`), fromTexts([text]), (err) => { if (err) this.emit('log', `plain transcript log: ${err.message}`); });
+      }
       fs.appendFile(file, `${ts}\t${line.sourceText}\t${line.targetText}\n`, (err) => {
         if (err) this.emit('log', `transcript log: ${err.message}`);
       });

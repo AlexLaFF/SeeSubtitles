@@ -85,7 +85,12 @@
       tr.appendChild(el('td')).appendChild(el('a', { href: `/d/${s.code}`, target: '_blank' }, `/d/${s.code}`));
       tr.appendChild(el('td', {}, s.lines));
       tr.appendChild(el('td')).appendChild(el('span', { class: `pill ${s.ended_at ? '' : 'live'}` }, s.ended_at ? 'ended' : `live · ${s.viewers} viewer${s.viewers === 1 ? '' : 's'}`));
-      tr.appendChild(el('td')).appendChild(el('a', { href: `/api/sessions/${s.id}/transcript` }, 'transcript'));
+      const downloads = tr.appendChild(el('td'));
+      downloads.appendChild(el('a', { href: `/api/sessions/${s.id}/transcript` }, 'transcript'));
+      for (const [which, label] of [['source', 'Plain text · original'], ['target', 'Plain text · translation']]) {
+        downloads.appendChild(document.createElement('br'));
+        downloads.appendChild(el('a', { href: `/api/sessions/${s.id}/transcript?plain=${which}` }, label));
+      }
       tb.appendChild(tr);
     }
   }
