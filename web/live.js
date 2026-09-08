@@ -67,7 +67,7 @@
       <div class="toolbar">
         <button id="btnRec" class="danger">● Start recording</button>
         <button id="btnShare" class="primary">Share link</button>
-        <button id="btnPause">Pause subtitles</button>
+        <button id="btnPause">Start subtitles</button>
         <button id="btnClear">Clear screen</button>
         <span class="muted">Shortcuts: <kbd>⇧⌘R</kbd> record · <kbd>P</kbd> pause · <kbd>X</kbd> clear · <kbd>+</kbd>/<kbd>−</kbd> text size</span>
       </div>
@@ -217,7 +217,7 @@
     let cls = 'warn'; let label = st.state || '…';
     if (s.demo) { cls = 'demo'; label = 'Demo mode'; }
     else if (!s.creds) { cls = 'bad'; label = s.credsError && /log in|not logged/i.test(s.credsError) ? 'Not logged in' : 'No Tencent keys'; }
-    else if (!s.streaming) { cls = 'warn'; label = 'Subtitles paused'; }
+    else if (!s.streaming) { cls = 'warn'; label = 'Subtitles paused · press Start'; }
     else if (st.state === 'ready') { cls = 'ok'; label = `Tencent connected${st.edge ? ` · ${st.edge.replace(/ .*/, '')} edge` : ''}`; }
     else if (st.state === 'reconnecting') { cls = 'bad'; label = `Reconnecting${st.retryAt ? ` in ${Math.max(0, Math.ceil((st.retryAt - (s.now || Date.now())) / 1000))}s` : ''}`; }
     else label = String(st.state || 'connecting').replace(/^\w/, (c) => c.toUpperCase());
@@ -230,7 +230,8 @@
     // toolbar
     $('btnRec').textContent = rc.recording ? '■ Stop recording' : '● Start recording';
     $('btnRec').className = rc.recording ? 'primary' : 'danger';
-    $('btnPause').textContent = s.streaming === false ? 'Resume subtitles' : 'Pause subtitles';
+    $('btnPause').textContent = s.streaming === false ? '▶ Start subtitles' : 'Pause subtitles';
+    $('btnPause').className = s.streaming === false && s.creds ? 'primary' : '';
     const cloud = s.cloud;
     $('btnShare').textContent = cloud && cloud.session ? 'Stop sharing' : 'Share link';
     $('btnShare').className = cloud && cloud.session ? '' : 'primary';

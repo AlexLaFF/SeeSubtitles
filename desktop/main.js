@@ -42,7 +42,7 @@ const DEFAULT_CONFIG = {
   cloudKeysEnc: '', // Tencent keys handed out by the server after login (encrypted JSON), used when no manual keys are set
   summaryKeyEnc: '', summaryModel: 'claude-opus-5', summaryLanguage: 'zh', summaryEffort: 'high',
   recordingsDir: path.join(app.getPath('videos'), 'See Subtitles'),
-  demo: false, audioFile: '', edge: 'auto', bitrate: '128k',
+  demo: false, audioFile: '', edge: 'auto', bitrate: '128k', startPaused: true,
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
   cloud: { url: DEFAULT_CLOUD_URL, email: '', token: '', publish: false },
 };
@@ -138,6 +138,7 @@ async function startCore() {
     token: TOKEN,
     env: {
       TENCENT_EDGE: cfg.edge,
+      START_PAUSED: cfg.startPaused === false ? '0' : '1',
       SUMMARY_MODEL: cfg.summaryModel,
       SUMMARY_LANGUAGE: cfg.summaryLanguage,
       SUMMARY_EFFORT: cfg.summaryEffort,

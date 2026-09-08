@@ -101,7 +101,8 @@ async function createLocalServer(opts) {
     if (err.code !== 'ENOENT') log('warn', `settings.json ignored: ${err.message}`);
     Object.assign(settings, schema.sanitize({ audioDevice: env.AUDIO_DEVICE, transModel: env.TENCENT_TRANS_MODEL }));
   }
-  settings.streaming = true;
+  // START_PAUSED=1: open with subtitles paused so nothing is sent to Tencent until the operator presses Start
+  settings.streaming = !/^(1|true|yes)$/i.test(String(env.START_PAUSED || ''));
   let saveTimer = null;
   function saveSettings() {
     clearTimeout(saveTimer);
@@ -294,6 +295,7 @@ async function createLocalServer(opts) {
   }
   function startRecording() {
     if (!capture) throw new Error('no audio source in demo mode');
+    if (stream && !settings.streaming) { log('info', 'recording started: resuming subtitles'); applySettings({ streaming: true }, null); }
     return recorder.start({ rate: capture.rate, channels: 1 });
   }
   const statusTimer = setInterval(() => broadcast('status', status()), 250);
@@ -581,7 +583,8 @@ async function createLocalServer(opts) {
   log('info', `local server on ${base}${DEMO ? ' (demo)' : ''}`);
 
   if (capture) capture.start();
-  if (stream) stream.start();
+  if (stream && settings.streaming) stream.start();
+  else if (stream) log('info', 'subtitles paused at start — press Start subtitles when the talk begins (Settings › Advanced changes this)');
   if (!DEMO) refreshDevices();
 
   let shuttingDown = null;

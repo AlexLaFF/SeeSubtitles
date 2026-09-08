@@ -103,8 +103,9 @@
 
     // ---- Advanced
     const adv = sec('advanced', 'Advanced');
+    const startPaused = select([['1', 'subtitles paused — nothing goes to Tencent until you press Start (recommended)'], ['0', 'subtitles running right away']], cfg.startPaused === false ? '0' : '1');
     const demo = select([['0', 'off'], ['1', 'on — scripted sentences, no microphone, no Tencent']], cfg.demo ? '1' : '0');
-    adv.append(row('Demo mode', demo), hint('For laying out screens without a talk. Rehearsing with an audio file instead of the microphone is under Live › Source.'));
+    adv.append(row('When the app opens', startPaused), hint('Starting a recording also starts the subtitles.'), row('Demo mode', demo), hint('For laying out screens without a talk. Rehearsing with an audio file instead of the microphone is under Live › Source.'));
 
     // ---- About
     const ab = sec('about', 'About');
@@ -125,6 +126,7 @@
         recordingsDir: dir.value, bitrate: bitrate.value,
         mp4: { auto: mp4auto.value === '1', size: mp4size.value, fontSize: Number(mp4font.value) || 64, show: mp4show.value, encoder: mp4enc.value },
         demo: demo.value === '1',
+        startPaused: startPaused.value === '1',
       });
       secretKey.value = ''; sumKey.value = '';
       const c2 = await d.getConfig(); secretKey.placeholder = c2.secretKeySet ? '•••••••• (saved — leave blank to keep)' : ''; sumKey.placeholder = c2.summaryKeySet ? '•••••••• (saved — leave blank to keep)' : '';
