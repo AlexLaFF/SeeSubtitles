@@ -1,0 +1,368 @@
+{
+  "pages": [
+    {
+      "id": "app",
+      "name": "App"
+    },
+    {
+      "id": "web",
+      "name": "Web"
+    },
+    {
+      "id": "brand",
+      "name": "Brand"
+    },
+    {
+      "id": "considered",
+      "name": "Considered"
+    }
+  ],
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "title": "Start here",
+      "x": 0,
+      "y": 0,
+      "w": 1200,
+      "h": 1400,
+      "page": "app"
+    },
+    {
+      "file": "MarqueeLive.dc.html",
+      "title": "Live · exists today",
+      "x": 1520,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "app"
+    },
+    {
+      "file": "AppFiles.dc.html",
+      "title": "Files · exists today",
+      "x": 3040,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "app"
+    },
+    {
+      "file": "AppRecording.dc.html",
+      "title": "Recording · exists today",
+      "x": 0,
+      "y": 1520,
+      "w": 1440,
+      "h": 900,
+      "page": "app"
+    },
+    {
+      "file": "AppSettings.dc.html",
+      "title": "Settings · exists today",
+      "x": 1520,
+      "y": 1520,
+      "w": 1440,
+      "h": 900,
+      "page": "app"
+    },
+    {
+      "file": "AppDisplay.dc.html",
+      "title": "Display window and its panel · exists today",
+      "x": 3040,
+      "y": 1520,
+      "w": 1280,
+      "h": 720,
+      "page": "app"
+    },
+    {
+      "file": "AppOverlay.dc.html",
+      "title": "Overlay on slides, 字幕 menu bar item · exists today",
+      "x": 0,
+      "y": 2540,
+      "w": 1440,
+      "h": 900,
+      "page": "app"
+    },
+    {
+      "file": "AppQrSheet.dc.html",
+      "title": "QR sheet · exists today",
+      "x": 1520,
+      "y": 2540,
+      "w": 1440,
+      "h": 900,
+      "page": "app"
+    },
+    {
+      "file": "AppFirstRun.dc.html",
+      "title": "First run · new",
+      "x": 3040,
+      "y": 2540,
+      "w": 1440,
+      "h": 900,
+      "page": "app"
+    },
+    {
+      "file": "AppGlossary.dc.html",
+      "title": "Glossary · new",
+      "x": 0,
+      "y": 3560,
+      "w": 1440,
+      "h": 900,
+      "page": "app"
+    },
+    {
+      "file": "AppStates.dc.html",
+      "title": "States · new",
+      "x": 1520,
+      "y": 3560,
+      "w": 1440,
+      "h": 920,
+      "page": "app"
+    },
+    {
+      "file": "AppPoster.dc.html",
+      "title": "QR poster, A4 · new",
+      "x": 3040,
+      "y": 3560,
+      "w": 794,
+      "h": 1123,
+      "page": "app",
+      "print": "fixed"
+    },
+    {
+      "file": "WebHome.dc.html",
+      "title": "seesubtitles.com · home",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 2950,
+      "page": "web"
+    },
+    {
+      "file": "WebHomeMobile.dc.html",
+      "title": "home on a phone",
+      "x": 1520,
+      "y": 0,
+      "w": 390,
+      "h": 2370,
+      "page": "web"
+    },
+    {
+      "file": "WebLogin.dc.html",
+      "title": "Log in · exists today",
+      "x": 1990,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "web"
+    },
+    {
+      "file": "WebSignup.dc.html",
+      "title": "Create account · new",
+      "x": 1990,
+      "y": 1020,
+      "w": 1440,
+      "h": 900,
+      "page": "web"
+    },
+    {
+      "file": "WebReset.dc.html",
+      "title": "Password reset · new",
+      "x": 1990,
+      "y": 2040,
+      "w": 1440,
+      "h": 900,
+      "page": "web"
+    },
+    {
+      "file": "WebDashboard.dc.html",
+      "title": "Overview · exists today (dashboard)",
+      "x": 3510,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "web"
+    },
+    {
+      "file": "WebJob.dc.html",
+      "title": "Job editor · exists today",
+      "x": 3510,
+      "y": 1020,
+      "w": 1440,
+      "h": 900,
+      "page": "web"
+    },
+    {
+      "file": "WebAccount.dc.html",
+      "title": "Account and team · new",
+      "x": 3510,
+      "y": 2040,
+      "w": 1440,
+      "h": 900,
+      "page": "web"
+    },
+    {
+      "file": "WebSummary.dc.html",
+      "title": "Learning summary · exists today",
+      "x": 5030,
+      "y": 0,
+      "w": 1440,
+      "h": 1100,
+      "page": "web"
+    },
+    {
+      "file": "MarqueePhone.dc.html",
+      "title": "Attendee page · exists today",
+      "x": 5030,
+      "y": 1220,
+      "w": 390,
+      "h": 844,
+      "page": "web"
+    },
+    {
+      "file": "WebPhoneMenu.dc.html",
+      "title": "Attendee controls · new",
+      "x": 5500,
+      "y": 1220,
+      "w": 390,
+      "h": 844,
+      "page": "web"
+    },
+    {
+      "file": "WebPhoneEnded.dc.html",
+      "title": "Talk ended · new",
+      "x": 5970,
+      "y": 1220,
+      "w": 390,
+      "h": 844,
+      "page": "web"
+    },
+    {
+      "file": "MarqueeBrand.dc.html",
+      "title": "A · Marquee · brand",
+      "x": 0,
+      "y": 0,
+      "w": 1200,
+      "h": 2030,
+      "page": "brand"
+    },
+    {
+      "file": "Icons.dc.html",
+      "title": "App icon · final",
+      "x": 1280,
+      "y": 0,
+      "w": 1200,
+      "h": 1430,
+      "page": "brand"
+    },
+    {
+      "file": "Principles.dc.html",
+      "title": "Principles · every screen follows these",
+      "x": 2560,
+      "y": 0,
+      "w": 1200,
+      "h": 2130,
+      "page": "brand"
+    },
+    {
+      "file": "Gap.dc.html",
+      "title": "What category leaders have",
+      "x": 3840,
+      "y": 0,
+      "w": 1200,
+      "h": 1530,
+      "page": "brand"
+    },
+    {
+      "file": "Current.dc.html",
+      "title": "The app today · Live",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 900,
+      "page": "considered"
+    },
+    {
+      "file": "DaylightBrand.dc.html",
+      "title": "B · Daylight · brand",
+      "x": 0,
+      "y": 1020,
+      "w": 1200,
+      "h": 2020,
+      "page": "considered"
+    },
+    {
+      "file": "DaylightLive.dc.html",
+      "title": "B · Daylight · Live",
+      "x": 1280,
+      "y": 1020,
+      "w": 1440,
+      "h": 900,
+      "page": "considered"
+    },
+    {
+      "file": "DaylightPhone.dc.html",
+      "title": "B · Daylight · phone",
+      "x": 2800,
+      "y": 1020,
+      "w": 390,
+      "h": 844,
+      "page": "considered"
+    },
+    {
+      "file": "SignalBrand.dc.html",
+      "title": "C · Signal · brand",
+      "x": 0,
+      "y": 3190,
+      "w": 1200,
+      "h": 2050,
+      "page": "considered"
+    },
+    {
+      "file": "SignalLive.dc.html",
+      "title": "C · Signal · Live",
+      "x": 1280,
+      "y": 3190,
+      "w": 1440,
+      "h": 900,
+      "page": "considered"
+    },
+    {
+      "file": "SignalPhone.dc.html",
+      "title": "C · Signal · phone",
+      "x": 2800,
+      "y": 3190,
+      "w": 390,
+      "h": 844,
+      "page": "considered"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "note-app",
+      "page": "app",
+      "x": 0,
+      "y": 1424,
+      "w": 460,
+      "text": "Titles say whether a screen exists today or is new. The Live screen at the top right is the one from round one, now with the on-air dot in the mark."
+    },
+    {
+      "id": "note-web",
+      "page": "web",
+      "x": 1520,
+      "y": 2394,
+      "w": 390,
+      "text": "The site is dark like the app, with paper sections for reading. No prices are shown: accounts are created by the team, so the page asks for a request instead."
+    },
+    {
+      "id": "note-considered",
+      "page": "considered",
+      "x": 1520,
+      "y": 0,
+      "w": 380,
+      "text": "Kept for reference: today's Live view, and the two directions not chosen. Any of the three marks still works in Marquee's colours."
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "app"
+  }
+}

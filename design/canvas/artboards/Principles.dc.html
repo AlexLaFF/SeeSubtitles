@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+
+*{box-sizing:border-box} body{margin:0}
+.nb{--bg:#f7f6f3;--surface:#ffffff;--surface-2:#efede8;--line:#dedbd3;--line-strong:#c2beb4;--fg:#1a1918;--fg-2:#5d5a54;--fg-3:#8f8b83;--ok:#1f9a4a;--warn:#c76a00;--bad:#c62828;--rec:#d3232a;--ui:-apple-system,system-ui,"Helvetica Neue","PingFang TC","Noto Sans TC",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace;background:var(--bg);color:var(--fg);font:14px/1.5 var(--ui);padding:56px 64px 64px;display:flex;flex-direction:column;gap:36px;-webkit-font-smoothing:antialiased}
+.nb h1{margin:0;font:600 34px/1.15 var(--ui);letter-spacing:-.02em}
+.nb .lead{font-size:17px;color:var(--fg-2);max-width:820px;line-height:1.5}
+.nb h2{margin:0;font:600 12px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3);padding-bottom:10px;border-bottom:1px solid var(--line)}
+.nb .sec{display:flex;flex-direction:column;gap:14px}
+.nb p{margin:0}
+.nb ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.nb .hint{color:var(--fg-3);font-size:12.5px}
+.nb .mono{font-family:var(--mono);font-size:12px;color:var(--fg-3)}
+.nb .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+
+.nb{width:1200px;min-height:1620px}
+.ba{display:grid;grid-template-columns:1fr;gap:22px}
+.ba .cap{font:600 11.5px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--fg-3);margin-bottom:10px}
+.mini{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface);font-size:12px;max-width:1000px}
+.mini .r{display:flex;align-items:center;gap:8px;padding:10px 12px}
+.mini .r + .r{border-top:1px solid var(--line)}
+.mini .h{font-weight:600;font-size:14px}
+.mini .c{padding:2px 8px;border-radius:9px;background:#e6e4de;color:#333}
+.mini .c.g{background:#1e8e3e;color:#fff} .mini .c.r{background:#b3261e;color:#fff}
+.mini .b{padding:4px 9px;border-radius:5px;background:#e6e4de;color:#1a1918;font-weight:500}
+.mini .b.blue{background:#0a84ff;color:#fff} .mini .b.red{background:#b3261e;color:#fff} .mini .b.ghost{background:transparent;border:1px solid #c2beb4}
+.mini .b.rec{background:var(--rec);color:#fff;font-weight:600} .mini .b.line{background:transparent;border:1px solid var(--line-strong)}
+.mini .sp{flex:1}
+.mini .s{display:flex;align-items:center;gap:6px;color:var(--fg-2)}
+.mini .foot{color:var(--fg-3);background:var(--bg)}
+.mini .sec{padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#9a9a9f;display:flex;align-items:center;gap:6px}
+.mini .sec i{width:14px;height:14px;border-radius:50%;background:#e6e4de;color:#333;font:600 9px/14px var(--ui);text-align:center;font-style:normal}
+.mini .lab{color:#5d5a54;font-size:12px;width:96px} .mini .in{flex:1;height:22px;border:1px solid var(--line);border-radius:5px;background:var(--surface-2)}
+.mini .sec2{padding:10px 12px 6px;font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px}
+.mini .sec2 i{width:18px;height:18px;border-radius:50%;background:var(--fg);color:#fff;font:700 10px/18px var(--ui);text-align:center;font-style:normal}
+.tiers{display:grid;grid-template-columns:170px 150px 1fr;gap:8px 20px;align-items:baseline;border-top:1px solid var(--line)}
+.tiers > *{padding:8px 0;border-bottom:1px solid var(--line)}
+.tiers .k{font:11.5px var(--mono);color:var(--fg-3)}
+.stack{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.stack .cell{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--surface);display:flex;flex-direction:column;gap:2px}
+.stack .cell b{font-weight:500;font-size:13.5px} .stack .cell span{color:var(--fg-3);font-size:12px}
+.stack .cell .what{margin-top:8px;font:11px var(--mono);color:var(--fg-3)}
+.ladder{display:flex;gap:10px;align-items:stretch}
+.ladder div{flex:1;border:1px solid var(--line);border-radius:8px;padding:12px;font-size:12px;color:var(--fg-2)} .ladder b{display:block;color:var(--fg);font-weight:600;margin-bottom:2px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px}
+.scale{display:flex;gap:10px;align-items:flex-end} .scale i{display:block;background:var(--fg);border-radius:2px} .scale span{font:11px var(--mono);color:var(--fg-3);display:flex;flex-direction:column;align-items:center;gap:6px}
+.radii{display:flex;gap:14px} .radii span{display:flex;flex-direction:column;align-items:center;gap:6px;font:11px var(--mono);color:var(--fg-3)} .radii i{display:block;width:44px;height:44px;border:1.5px solid var(--fg)}
+.ctrl{display:flex;gap:14px;align-items:flex-end} .ctrl span{display:flex;flex-direction:column;align-items:center;gap:6px;font:11px var(--mono);color:var(--fg-3)} .ctrl i{display:block;width:84px;border:1.5px solid var(--fg);border-radius:6px}
+.status{display:flex;gap:24px;flex-wrap:wrap} .status span{display:flex;align-items:center;gap:7px;font-size:13px}
+
+  </style>
+</helmet>
+<div class="nb">
+  <div class="sec" style="gap:12px">
+    <h1>What every direction shares</h1>
+    <p class="lead">The app exists so that anyone can use subtitles as an assist, in any room: a hall, a meeting, a video on a laptop. That asks four things of the interface.</p>
+    <ul style="max-width:860px">
+      <li><b>The subtitles are the show.</b> The operator's window is calm and mostly monochrome so the stage preview, the status and the one thing to do next stand out.</li>
+      <li><b>Legible before pretty.</b> Body text never below 13 px, secondary text never below 12, contrast that holds up on a projector-lit laptop at the back of a room.</li>
+      <li><b>Setup is a sequence.</b> Source, look, where it shows, recording: numbered, in that order, with the rarely-used controls folded away.</li>
+      <li><b>Bilingual by design.</b> Every primary line can carry a quieter second line: the translation and the original, the name and its role, the state and its detail.</li>
+    </ul>
+  </div>
+
+  <div class="sec"><h2>Hierarchy · the Live header, today and after</h2>
+    <div class="ba">
+      <div><div class="cap">Today</div><div class="mini">
+        <div class="r"><span class="h">Live</span><span class="c g">● Tencent connected · ap-guangzhou edge</span><span class="c">Mic ▮▮▮▯ −23 dB</span><span class="c r">● Recording 12:04</span><span class="sp"></span><span class="b ghost">Display window</span><span class="b ghost">Overlay window</span></div>
+        <div class="r"><span class="b red">● Start recording</span><span class="b blue">Share link</span><span class="b">Pause subtitles</span><span class="b">Clear screen</span><span style="color:#9a9a9f">Shortcuts: ⇧⌘R record · P pause · X clear · +/− text size</span></div>
+        <div class="sec"><i>1</i>SOURCE</div>
+        <div class="r" style="padding-top:0"><span class="lab">Audio device</span><span class="in"></span></div>
+      </div>
+      <p class="hint" style="margin-top:10px">Two filled colours compete on one row. Status chips are styled like buttons. The section title (11 px caps, grey) is smaller than the labels under it. Shortcut help sits where actions belong.</p></div>
+      <div><div class="cap">After</div><div class="mini">
+        <div class="r"><span class="h">Live</span><span class="s"><i class="dot" style="background:var(--ok)"></i>Connected · Guangzhou edge</span><span class="s">Mic −23 dB</span><span class="s" style="color:var(--rec)"><i class="dot" style="background:var(--rec)"></i>Recording 12:04</span><span class="sp"></span><span class="b line">Display window</span><span class="b line">Overlay window</span></div>
+        <div class="r"><span class="b rec">● Stop recording</span><span class="b line">Stop sharing</span><span class="b line">Pause subtitles</span><span class="b line">Clear screen</span></div>
+        <div class="sec2"><i>1</i>Source</div>
+        <div class="r" style="padding-top:0"><span class="lab">Microphone</span><span class="in"></span></div>
+        <div class="r foot">⇧⌘R record · P pause · X clear · + − text size</div>
+      </div>
+      <p class="hint" style="margin-top:10px">Status reads as one sentence in text colour; only recording keeps its colour. One filled button. Section titles are the biggest text in a panel. Shortcuts live in a footer.</p></div>
+    </div>
+    <div class="tiers">
+      <span class="k">tier</span><span class="k">size / weight</span><span class="k">used for</span>
+      <span>View title</span><span>20 / 600</span><span>Live, Files, Settings, a recording's name</span>
+      <span>Section</span><span>14 / 600</span><span>numbered steps, panel titles; the step numeral is the one place the accent appears in text</span>
+      <span>Body</span><span>13 / 400</span><span>fields, table cells, transcript, buttons (12.5 / 500)</span>
+      <span>Secondary</span><span>12.5 / 400 · fg-2</span><span>labels, the quieter line of a stack, status sentence</span>
+      <span>Hint</span><span>12 / 400 · fg-3</span><span>explanations under a row, footer, timestamps (mono, tabular)</span>
+    </div>
+  </div>
+
+  <div class="sec"><h2>The stack · one pattern for every row</h2>
+    <div class="stack">
+      <div class="cell"><b>Files</b><span>⌘2</span><span class="what">nav item</span></div>
+      <div class="cell"><b>2026-09-08 字幕與共融 講座</b><span>recording · 粵語 → 中文 · 47:12</span><span class="what">file row</span></div>
+      <div class="cell"><b>Tencent Cloud</b><span>實時語音翻譯 · keys from seesubtitles.com</span><span class="what">settings section</span></div>
+      <div class="cell"><b>今天我們會講一下如何用字幕。</b><span>今日我哋會講吓點樣用字幕。</span><span class="what">transcript, cue, stage</span></div>
+    </div>
+    <p class="hint">Primary line in fg at body size, secondary line in fg-3 one step smaller, 2 px apart. Chinese terms go on the secondary line in the UI (Tencent Cloud / 實時語音翻譯), never inline in an English sentence.</p>
+  </div>
+
+  <div class="two">
+    <div class="sec"><h2>Colour rules</h2>
+      <div class="ladder"><div><b>bg</b>the window</div><div><b>side</b>sidebar, footer</div><div><b>surface</b>panels, buttons</div><div><b>surface-2</b>inputs, hover</div><div><b>line</b>the only border</div></div>
+      <ul>
+        <li>The accent appears in three places: the primary action, the active nav item, the step numerals. Nothing else.</li>
+        <li>Status is a dot and a word, and the word stays in text colour except recording. Hues are fixed across directions.</li>
+        <li>No shadows inside the window; elevation is a border. Menus and the QR sheet are the only floating surfaces.</li>
+      </ul>
+      <div class="status"><span><i class="dot" style="background:var(--ok)"></i>Ready · connected</span><span><i class="dot" style="background:var(--warn)"></i>Attention · reconnecting, paused</span><span><i class="dot" style="background:var(--bad)"></i>Error · not logged in</span><span><i class="dot" style="background:var(--rec)"></i>Recording</span></div>
+    </div>
+    <div class="sec"><h2>Scale</h2>
+      <div class="scale"><span><i style="width:4px;height:4px"></i>4</span><span><i style="width:8px;height:8px"></i>8</span><span><i style="width:12px;height:12px"></i>12</span><span><i style="width:16px;height:16px"></i>16</span><span><i style="width:24px;height:24px"></i>24</span><span><i style="width:32px;height:32px"></i>32</span><span class="hint" style="margin-left:8px;align-self:center">spacing</span></div>
+      <div class="radii"><span><i style="border-radius:4px"></i>4 · tags</span><span><i style="border-radius:6px"></i>6 · buttons, fields</span><span><i style="border-radius:10px"></i>10 · panels</span><span><i style="border-radius:14px"></i>14 · sheets</span></div>
+      <div class="ctrl"><span><i style="height:24px"></i>24 · small</span><span><i style="height:28px"></i>28 · default</span><span><i style="height:32px"></i>32 · primary</span></div>
+      <p class="hint">Sidebar 200, label column 128, left column 600. Eight-point grid with 4 for the tightest gaps.</p>
+    </div>
+  </div>
+
+  <div class="sec"><h2>Words</h2>
+    <ul>
+      <li>Sentence case everywhere, including buttons and menu items that are not macOS menu bar items.</li>
+      <li>Say what happened, in a sentence: "Connected · Guangzhou edge", "Reconnecting in 12 s", "Recording 12:04". No exclamation marks, no "successfully".</li>
+      <li>Numbers are tabular; times are monospaced; sizes carry a unit in fg-3.</li>
+      <li>Keyboard shortcuts appear once, in the footer of the view, and next to nav items.</li>
+    </ul>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

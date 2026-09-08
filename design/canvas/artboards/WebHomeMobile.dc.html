@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <style>
+
+*{box-sizing:border-box} body{margin:0}
+.web{width:1440px;background:var(--bg);color:var(--fg);font:15px/1.55 var(--ui);-webkit-font-smoothing:antialiased;--bg:#191816;--side:#131210;--surface:#21201d;--surface-2:#2b2926;--line:#35322d;--line-strong:#4a463f;--fg:#f1ece2;--fg-2:#aca496;--fg-3:#7d766c;--accent:#f5c518;--accent-fg:#1a1500;--accent-soft:rgba(245,197,24,.14);--accent-text:#f5c518;--ok:#3ec26a;--warn:#ff8f1f;--bad:#ff5a5a;--rec:#ff453a;--stage:#000000;--ui:"Instrument Sans", -apple-system, system-ui, "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:"Instrument Serif", "Noto Sans TC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;}
+.web a{color:var(--fg);text-decoration:none} .web a:hover{color:var(--accent)}
+.nav{display:flex;align-items:center;gap:28px;padding:0 64px;height:68px;border-bottom:1px solid var(--line)}
+.nav .brand{display:flex;align-items:center;gap:10px;margin-right:auto} .nav .brand svg{width:26px;height:26px;border-radius:6px;box-shadow:0 0 0 1px var(--line)} .nav .brand .w{font:italic 400 22px var(--display)}
+.nav a{font-size:14px;color:var(--fg-2)}
+.btn{height:36px;padding:0 16px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);color:var(--fg);font:500 14px/1 var(--ui);display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-weight:600} .btn.ghost{background:transparent} .btn.big{height:44px;padding:0 20px;font-size:15px}
+.hero{display:grid;grid-template-columns:1.05fr 1fr;gap:48px;padding:88px 64px 80px;align-items:center}
+.hero h1{margin:0 0 20px;font:600 58px/1.05 var(--ui);letter-spacing:-.025em} .hero h1 em{font:italic 400 1em var(--display);color:var(--accent)}
+.hero p{margin:0 0 28px;font-size:18px;color:var(--fg-2);max-width:560px}
+.hero .cta{display:flex;gap:12px;align-items:center} .hero .fine{margin-top:14px;color:var(--fg-3);font-size:13px}
+.vis{position:relative;height:420px}
+.vis .stage{position:absolute;left:0;top:20px;width:560px;aspect-ratio:16/9;background:#000;border-radius:12px;border:1px solid var(--line-strong);display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:8px;padding:20px 28px;font-family:var(--cjk);font-weight:700;color:#fff;text-align:center;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.vis .stage .l{font-size:30px;line-height:1.25} .vis .stage .l.old{opacity:.5} .vis .stage .s{display:block;font-size:14px;font-weight:500;opacity:.72}
+.vis .phone{position:absolute;right:0;bottom:0;width:190px;height:380px;background:#000;border-radius:28px;border:6px solid #2b2926;display:flex;flex-direction:column;justify-content:flex-end;padding:16px 14px 22px;gap:10px;font-family:var(--cjk);font-weight:700;color:#fff;text-align:center;box-shadow:0 30px 60px rgba(0,0,0,.6)}
+.vis .phone .l{font-size:17px;line-height:1.3} .vis .phone .l.old{opacity:.5} .vis .phone .s{display:block;font-size:10px;font-weight:500;opacity:.72}
+.vis .phone .hd{position:absolute;top:14px;left:14px;right:14px;display:flex;align-items:center;gap:6px;font:500 9px var(--ui);color:rgba(255,255,255,.7)} .vis .phone .hd svg{width:12px;height:12px}
+.vis .qr{position:absolute;right:210px;bottom:0;background:#fff;border-radius:10px;padding:8px;display:flex;flex-direction:column;align-items:center;gap:4px;font:600 10px var(--ui);color:#111}
+.sec{padding:80px 64px} .sec.paper{background:var(--bg);color:var(--fg);--bg:#f5f2eb;--side:#ede9e0;--surface:#fffdf7;--surface-2:#f2eee5;--line:#e0dbcf;--line-strong:#c4bdae;--fg:#1c1a16;--fg-2:#6a6458;--fg-3:#948d80;--accent:#f5c518;--accent-fg:#1a1500;--accent-soft:rgba(245,197,24,.22);--accent-text:#8f6a00;--ok:#1f9a4a;--warn:#c76a00;--bad:#c62828;--rec:#d3232a;--stage:#000000;--ui:"Instrument Sans", -apple-system, system-ui, "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:"Instrument Serif", "Noto Sans TC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;}
+.sec h2{margin:0 0 10px;font:600 36px/1.15 var(--ui);letter-spacing:-.02em} .sec .sub{margin:0 0 40px;color:var(--fg-2);font-size:17px;max-width:680px}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.steps .n{width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--accent-fg);font:700 15px/34px var(--ui);text-align:center;margin-bottom:14px}
+.steps h3{margin:0 0 8px;font:600 20px/1.2 var(--ui)} .steps p{margin:0;color:var(--fg-2);font-size:15px}
+.cards4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.cards4 div{border:1px solid var(--line);border-radius:12px;padding:22px;background:var(--surface)} .cards4 h3{margin:0 0 8px;font:600 17px/1.2 var(--ui)} .cards4 h3 small{display:block;font:500 13px var(--cjk);color:var(--fg-3);margin-top:3px} .cards4 p{margin:0;color:var(--fg-2);font-size:14px}
+.feat{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 48px}
+.feat div{display:grid;grid-template-columns:22px 1fr;gap:12px;font-size:15px;color:var(--fg-2)} .feat b{color:var(--fg);font-weight:600;display:block} .feat i{width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;font-size:13px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.cues{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:6px 14px;font-family:var(--cjk)} .cues > div{display:grid;grid-template-columns:70px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px} .cues > div:last-child{border-bottom:0} .cues span{font:11.5px var(--mono);color:var(--fg-3);padding-top:2px} .cues small{display:block;color:var(--fg-3);font-size:12px}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:640px} .form .field{height:40px;border:1px solid var(--line-strong);background:var(--surface);border-radius:7px;padding:0 12px;display:flex;align-items:center;color:var(--fg-3);font-size:14px} .form .field.wide{grid-column:1/-1}
+.foot{display:flex;align-items:center;gap:28px;padding:32px 64px;border-top:1px solid var(--line);color:var(--fg-3);font-size:13px} .foot .brand{display:flex;align-items:center;gap:10px;margin-right:auto;color:var(--fg)} .foot .brand svg{width:22px;height:22px} .foot .lang span{padding:0 6px} .foot .lang span.on{color:var(--fg)}
+
+.web{width:390px;font-size:15px} .nav{padding:0 20px;height:58px;gap:14px} .nav a,.nav .btn{display:none} .nav .brand .w{font-size:20px} .nav .burger{width:22px;height:2px;background:var(--fg);box-shadow:0 7px 0 var(--fg),0 -7px 0 var(--fg);display:block}
+.hero{grid-template-columns:1fr;padding:40px 20px 36px;gap:28px} .hero h1{font-size:38px} .hero p{font-size:16px} .hero .cta{flex-direction:column;align-items:stretch} .hero .cta .btn{justify-content:center}
+.vis{height:auto} .vis .stage{position:static;width:100%;padding:14px 16px} .vis .stage .l{font-size:19px} .vis .stage .s{font-size:11px} .vis .phone,.vis .qr{display:none}
+.sec{padding:44px 20px} .sec h2{font-size:28px} .sec .sub{font-size:15px;margin-bottom:24px}
+.steps,.cards4,.feat,.two{grid-template-columns:1fr;gap:22px}
+.form{grid-template-columns:1fr} .form .field.wide{grid-column:auto}
+.foot{flex-wrap:wrap;gap:14px 20px;padding:24px 20px} .foot .brand{width:100%}
+  </style>
+</helmet>
+<div class="web">
+  <div class="nav"><div class="brand"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824"><g><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></g></svg><span class="w">See Subtitles</span></div><i class="burger"></i></div>
+  <div class="hero"><div><h1>Subtitles for <em>everyone</em> in the room.</h1><p>Cantonese speech becomes Mandarin subtitles as it is spoken: on the screen, over the slides, and on every phone that scans a code.</p><div class="cta"><span class="btn primary big">Download for macOS</span><span class="btn ghost big">Open the web app</span></div></div>
+    <div class="vis"><div class="stage"><div class="l old">首先是現場的觀眾，他們可以用手機掃二維碼。</div><div class="l">今天我們會講一下如何用字幕幫助更多人參與會議。<span class="s">今日我哋會講吓點樣用字幕幫助更多人參與會議。</span></div></div></div></div>
+  <div class="sec paper"><h2>How it works</h2><div class="steps"><div><div class="n">1</div><h3>Speak</h3><p>A microphone on the speaker; each sentence comes back translated as it finishes.</p></div><div><div class="n">2</div><h3>Show</h3><p>Display window, overlay on the slides, or the share link for phones.</p></div><div><div class="n">3</div><h3>Keep</h3><p>The recording, complete subtitles, an MP4 and a summary.</p></div></div></div>
+  <div class="sec"><h2>Where it helps</h2><div class="cards4"><div><h3>Conferences and talks<small>會議・講座</small></h3><p>Screen, slides and every phone, from one laptop.</p></div><div><h3>Classes and workshops<small>課堂・工作坊</small></h3><p>Students follow on their own screens.</p></div><div><h3>Video and audio files<small>影片・錄音</small></h3><p>Subtitles in minutes, export SRT, VTT, text or MP4.</p></div></div></div>
+  <div class="sec paper"><h2>Get started</h2><p class="sub">Accounts are created by the team that runs See Subtitles.</p><div class="form"><span class="field">Name</span><span class="field">Email</span><span class="field">What will you subtitle?</span><span class="btn" style="justify-content:center">Request an account</span></div></div>
+  <div class="foot"><div class="brand"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824"><g><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></g></svg><span>See Subtitles · 睇字幕</span></div><a>Download</a><a>Web app</a><a>Privacy</a><span class="lang"><span class="on">EN</span>·<span>繁</span>·<span>简</span></span></div>
+</div>
+</x-dc>
+</body>
+</html>

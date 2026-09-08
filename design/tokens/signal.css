@@ -1,0 +1,75 @@
+/* See Subtitles · direction C · Signal
+   The on-air light. Cool neutrals, a grotesk built for signage, and one coral accent that is also the recording colour.
+   Designed light-first; the other appearance follows the system. Fonts: https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap */
+:root {
+  --bg: #f1f2f4;
+  --side: #e8eaed;
+  --surface: #ffffff;
+  --surface-2: #f4f5f7;
+  --line: #d8dbe0;
+  --line-strong: #b8bdc6;
+  --fg: #15181d;
+  --fg-2: #596170;
+  --fg-3: #8b93a1;
+  --accent: #ff5a36;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(255,90,54,.12);
+  --accent-text: #d9401f;
+  --ok: #159a48;
+  --warn: #d98a00;
+  --bad: #b5122e;
+  --rec: #ff5a36;
+  --stage: #000000;
+  --ui: Archivo, -apple-system, system-ui, "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;
+  --cjk: "Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;
+  --display: Archivo, "Noto Sans TC", serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --r-sm: 4px; --r-md: 6px; --r-lg: 10px; --r-xl: 14px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
+  --control-sm: 24px; --control: 28px; --control-lg: 32px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-appearance="light"]) {
+  --bg: #131518;
+  --side: #0e1013;
+  --surface: #1b1e23;
+  --surface-2: #242830;
+  --line: #2f343c;
+  --line-strong: #454b55;
+  --fg: #eef0f3;
+  --fg-2: #a2aab5;
+  --fg-3: #6e7683;
+  --accent: #ff6b4a;
+  --accent-fg: #1a0a06;
+  --accent-soft: rgba(255,107,74,.16);
+  --accent-text: #ff7a5c;
+  --ok: #3ecf72;
+  --warn: #ffab2e;
+  --bad: #ff5c7a;
+  --rec: #ff6b4a;
+  --stage: #000000;
+    color-scheme: dark;
+  }
+}
+:root[data-appearance="dark"] {
+  --bg: #131518;
+  --side: #0e1013;
+  --surface: #1b1e23;
+  --surface-2: #242830;
+  --line: #2f343c;
+  --line-strong: #454b55;
+  --fg: #eef0f3;
+  --fg-2: #a2aab5;
+  --fg-3: #6e7683;
+  --accent: #ff6b4a;
+  --accent-fg: #1a0a06;
+  --accent-soft: rgba(255,107,74,.16);
+  --accent-text: #ff7a5c;
+  --ok: #3ecf72;
+  --warn: #ffab2e;
+  --bad: #ff5c7a;
+  --rec: #ff6b4a;
+  --stage: #000000;
+  color-scheme: dark;
+}
