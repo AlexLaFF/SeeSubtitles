@@ -1,4 +1,5 @@
 'use strict';
+const { fromTexts } = require('@subs/core/plain-text');
 // Live session mirror: the desktop app posts settings/line/clear events; browsers at /d/<code> follow them over SSE.
 // State per session is kept in memory (latest settings + the most recent lines) and every event is appended
 // to sessions/<id>.jsonl so a session can be reviewed or exported afterwards.
@@ -65,7 +66,11 @@ class LiveSessions {
       if (!e || typeof e.ev !== 'string') continue;
       if (this._apply(st, e.ev, e.data, true)) { out.push(JSON.stringify({ t: Date.now(), ev: e.ev, data: e.data })); n++; }
     }
-    if (out.length) fs.appendFile(st.file, `${out.join('\n')}\n`, (err) => { if (err) this.log('error', `session log ${id}: ${err.message}`); });
+    // Synchronous append: keeps batches in arrival order (concurrent async appends may complete out of
+    // order) and makes transcript() see the event as soon as ingest() returns. Batches are a few KB at most.
+    if (out.length) {
+      try { fs.appendFileSync(st.file, `${out.join('\n')}\n`); } catch (err) { this.log('error', `session log ${id}: ${err.message}`); }
+    }
     st.lastEventAt = Date.now();
     if (n) this.db.run('UPDATE live_sessions SET lines = ? WHERE id = ?', st.byId.size, id);
     return n;
@@ -135,7 +140,7 @@ class LiveSessions {
       .map((r) => ({ ...r, viewers: this.active.has(r.id) ? this.active.get(r.id).clients.size : 0 }));
   }
 
-  transcript(id) {
+  transcript(id, plain = null) {
     const st = this._state(id);
     if (!st) return null;
     const rows = [];
@@ -149,6 +154,7 @@ class LiveSessions {
           if (e.ev === 'line') { if (byId.has(e.data.id)) Object.assign(byId.get(e.data.id), e.data); else byId.set(e.data.id, { ...e.data }); }
         } catch { /* skip */ }
       }
+      if (plain) return fromTexts([...byId.values()].filter(l => l.ended).map(l => plain === 'source' ? l.sourceText : l.targetText));
       for (const l of byId.values()) if (l.ended) rows.push(`${new Date(l.wallStart || 0).toISOString().slice(11, 19)}  ${l.targetText || ''}\n          ${l.sourceText || ''}`);
     } catch { /* none */ }
     return rows.join('\n');

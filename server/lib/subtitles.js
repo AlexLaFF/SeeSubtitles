@@ -133,4 +133,81 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   return head + lines.join('\n') + '\n';
 }
 
-module.exports = { buildCues, alignWords, toSrt, toVtt, toTxt, toAss, isCjkText };
+/**
+ * Stacked layout for audio-only renders: the frame fills with sentences like the live display —
+ * newest bright at the bottom, earlier ones dimmed, dissolving at the top edge. One Dialogue per
+ * (time segment, visible cue) with explicit positions; line counts are estimated from glyph widths
+ * (CJK = 1 em, Latin ≈ 0.55 em) so the stack stays consistent across the whole render.
+ */
+function toStackedAss(cues, { which = 'trans', width = 1080, height = 1920, fontSize = 0, font = 'Noto Sans CJK SC', maxStack = 60 } = {}) {
+  const fs = fontSize || Math.round(height / 30);
+  const sub = Math.round(fs * 0.55);
+  const padX = Math.round(width * 0.05);
+  const padBottom = Math.round(height * 0.08);
+  const padTop = Math.round(height * 0.03);
+  const textW = width - 2 * padX;
+  const lineH = (size) => Math.round(size * 1.25);
+  const gap = Math.round(fs * 0.5);
+  const esc = (t) => String(t).replace(/\\/g, '\\\\').replace(/\{/g, '(').replace(/\}/g, ')').replace(/\n/g, '\\N');
+  const charW = (ch, size) => (/[⺀-鿿豈-﫿＀-￯　-〿]/.test(ch) ? size : size * 0.55);
+  const linesFor = (text, size) => {
+    let lines = 1;
+    let w = 0;
+    for (const ch of String(text)) {
+      if (ch === '\n') { lines++; w = 0; continue; }
+      const cw = charW(ch, size);
+      if (w + cw > textW) { lines++; w = cw; } else w += cw;
+    }
+    return lines;
+  };
+  const mainOf = (c) => (which === 'text' ? c.text : (c.trans || c.text));
+  const bilingual = (c) => which === 'both' && c.trans && c.text;
+  const blockH = (c) => linesFor(mainOf(c), fs) * lineH(fs) + (bilingual(c) ? linesFor(c.text, sub) * lineH(sub) : 0);
+  const hex = (a) => a.toString(16).toUpperCase().padStart(2, '0');
+  const textOf = (c, alpha) => {
+    const main = `{\\alpha&H${hex(alpha)}&}${esc(mainOf(c))}`;
+    return bilingual(c) ? `${main}\\N{\\fs${sub}\\alpha&H${hex(Math.min(255, alpha + 0x30))}&}${esc(c.text)}` : main;
+  };
+
+  const head = `[Script Info]
+ScriptType: v4.00+
+PlayResX: ${width}
+PlayResY: ${height}
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Stack,${font},${fs},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,${Math.max(2, Math.round(fs / 16))},0,2,${padX},${padX},0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+  const sorted = [...cues].filter((c) => mainOf(c)).sort((a, b) => a.start - b.start);
+  const heights = sorted.map(blockH);
+  const times = new Set([0]);
+  for (const c of sorted) { times.add(c.start); times.add(c.end); }
+  const ts = [...times].sort((a, b) => a - b);
+  const events = [];
+  let firstVisible = 0;
+  for (let k = 0; k + 1 < ts.length; k++) {
+    const t = ts[k];
+    const next = ts[k + 1];
+    if (next - t < 0.001) continue;
+    let last = firstVisible;
+    while (last < sorted.length && sorted[last].start <= t + 1e-6) last++;
+    const from = Math.max(0, last - maxStack);
+    let y = height - padBottom; // bottom edge of the newest block
+    for (let i = last - 1; i >= from; i--) {
+      const top = y - heights[i];
+      if (y <= padTop) { firstVisible = Math.max(firstVisible, i + 1); break; }
+      let alpha = sorted[i].end <= t + 1e-6 ? 0x73 : 0x00; // earlier sentences at ~55 %
+      if (top < padTop + lineH(fs)) alpha = Math.max(alpha, 0xB0); // dissolving at the top edge
+      events.push(`Dialogue: 0,${assTime(t)},${assTime(next)},Stack,,0,0,0,,{\\an2\\pos(${Math.round(width / 2)},${Math.round(y)})}${textOf(sorted[i], alpha)}`);
+      y = top - gap;
+    }
+  }
+  return head + events.join('\n') + '\n';
+}
+
+module.exports = { buildCues, alignWords, toSrt, toVtt, toTxt, toAss, toStackedAss, isCjkText };

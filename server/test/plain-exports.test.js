@@ -1,0 +1,22 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const {openDb}=require('../lib/db');const {JobRunner}=require('../lib/jobs');const {LiveSessions}=require('../lib/live');
+test('old jobs get plain exports without replacing existing files; editing regenerates clean text',t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'plain-jobs-'));const db=openDb(root);
+ t.after(()=>{db.close();fs.rmSync(root,{recursive:true,force:true});});
+ db.run('INSERT INTO users(id,email,pass_hash,created_at) VALUES(1,?,?,?)','fixture','unused',0);
+ const jobs=new JobRunner({db,dir:path.join(root,'jobs'),creds:null});
+ const j=jobs.create(1,{filename:'talk.mp4',sourceLang:'en',targetLang:'zh'});
+ const dir=jobs.jobDir(j.id);const cues=[{id:1,start:1000,end:2000,text:'Hello at 12:34.',trans:'你好。'}];
+ fs.writeFileSync(path.join(dir,'cues.json'),JSON.stringify({cues}));fs.writeFileSync(path.join(dir,'existing.srt'),'keep me');
+ assert.equal(jobs.backfillPlainExports(),1);
+ assert.equal(fs.readFileSync(path.join(dir,'existing.srt'),'utf8'),'keep me');
+ assert.equal(fs.readFileSync(path.join(dir,'talk.original.en.plain.txt'),'utf8'),'Hello at 12:34.\n');
+ assert.equal(fs.readFileSync(path.join(dir,'talk.translated.zh.plain.txt'),'utf8'),'你好。\n');
+ jobs.saveCues(j.id,[{...cues[0],text:'Edited.',trans:'改好了。'}]);
+ assert.equal(fs.readFileSync(path.join(dir,'talk.original.en.plain.txt'),'utf8'),'Edited.\n');
+ const live=new LiveSessions({db,dir:path.join(root,'sessions'),log(){}});const s=live.create(1,'fixture');
+ live.ingest(s.id,[{ev:'line',data:{id:'a',sourceText:'partial',targetText:'未完',ended:false}},{ev:'line',data:{id:'a',sourceText:'Final.',targetText:'完成。',ended:true}}]);
+ assert.equal(live.transcript(s.id,'source'),'Final.\n');assert.equal(live.transcript(s.id,'target'),'完成。\n');
+});

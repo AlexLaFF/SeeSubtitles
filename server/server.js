@@ -39,6 +39,7 @@ const live = new LiveSessions({ db, dir: path.join(DATA_DIR, 'sessions'), log })
 let creds = null;
 try { creds = getCredentials(); } catch (err) { log('error', `${err.message} — upload jobs will fail until the Tencent keys are set`); }
 const jobs = new JobRunner({ db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tmtRegion: process.env.TMT_REGION || 'ap-hongkong', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe' });
+log('info', `clean transcripts ready for ${jobs.backfillPlainExports()} existing jobs`);
 const jobClients = new Map(); // job id -> Set<res>
 jobs.on('update', (j) => {
   const set = jobClients.get(j.id);
@@ -124,7 +125,11 @@ async function api(req, res, url, user) {
     if (live.owner(id) !== user.id) return fail(res, 404, 'no such session');
     if (action === 'events' && req.method === 'POST') { const body = await readJson(req, 5e6); return send(res, 200, { ok: true, applied: live.ingest(id, body.events) }); }
     if (action === 'end' && req.method === 'POST') { live.end(id); return send(res, 200, { ok: true }); }
-    if (action === 'transcript') return send(res, 200, live.transcript(id) || '', MIME['.txt'], { 'content-disposition': `attachment; filename="session-${id}.txt"` });
+    if (action === 'transcript') {
+      const which = url.searchParams.get('plain');
+      if (which && !['source', 'target'].includes(which)) return fail(res, 400, 'plain must be source or target');
+      return send(res, 200, live.transcript(id, which) || '', MIME['.txt'], { 'content-disposition': `attachment; filename="session-${id}${which ? `-${which}.plain` : ''}.txt"` });
+    }
   }
 
   // jobs

@@ -32,7 +32,10 @@
   function renderFiles() {
     const box = $('files');
     box.innerHTML = '';
-    for (const f of job.files || []) box.appendChild(el('a', { href: `/jobs/${id}/files/${encodeURIComponent(f)}?download` }, f));
+    for (const f of job.files || []) {
+      const m = /\.(original|translated)\.([^.]+)\.plain\.txt$/.exec(f);
+      box.appendChild(el('a', { href: `/jobs/${id}/files/${encodeURIComponent(f)}?download` }, m ? `Plain text · ${m[1] === 'original' ? 'original' : 'translation'} (${m[2]})` : f));
+    }
     if (!(job.files || []).length) box.appendChild(el('span', { class: 'muted' }, 'none yet'));
   }
 

@@ -14,6 +14,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const names = require('./names');
+const { fromTexts } = require('./plain-text');
 
 const GAP_PAD_MS = 1500; // pad silence when the audio falls this far behind the wall clock
 const LAG_SETTLE_MS = 2000; // measure the pipeline's normal lag after this long
@@ -135,6 +136,9 @@ class Recorder extends EventEmitter {
     const cue = (n, text) => `${n}\n${srtTime(Math.max(0, start))} --> ${srtTime(Math.max(end, start + 300))}\n${text}\n\n`;
     if (line.targetText) fs.appendFile(rec.srt.zh, cue(++rec.cues.zh, line.targetText), (err) => { if (err) this.emit('log', `srt: ${err.message}`); });
     if (line.sourceText) fs.appendFile(rec.srt.yue, cue(++rec.cues.yue, line.sourceText), (err) => { if (err) this.emit('log', `srt: ${err.message}`); });
+    for (const [language, text] of [['zh', line.targetText], ['yue', line.sourceText]]) {
+      if (text) fs.appendFile(rec.srt[language].replace(/\.srt$/i, '.plain.txt'), fromTexts([text]), (err) => { if (err) this.emit('log', `plain transcript: ${err.message}`); });
+    }
   }
 
   /** Finish: flush the encoder, close the file. Resolves with info about the recording. */

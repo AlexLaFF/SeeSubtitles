@@ -48,6 +48,8 @@ test('records a playable MP3 and appends SRT cues', { skip: !hasFfmpeg && 'ffmpe
   assert.ok(Math.abs(Number(probed) - 1) < 0.25, `duration ${probed}`);
   assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'zh')), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好\n\n');
   assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'yue')), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好呀\n\n');
+  assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'zh').replace('.srt', '.plain.txt')), 'utf8'), '你好\n');
+  assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'yue').replace('.srt', '.plain.txt')), 'utf8'), '你好呀\n');
   assert.equal(r.list()[0].base, 'unit');
   fs.rmSync(dir, { recursive: true, force: true });
 });

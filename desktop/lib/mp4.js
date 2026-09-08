@@ -1,6 +1,7 @@
 'use strict';
 // MP4 export queue: audio + burned-in subtitle frames (rendered by helpers/render-subs.swift) plus
-// selectable Mandarin/Cantonese subtitle tracks. One job at a time, runs in the background.
+// No embedded subtitle tracks: players would switch them on and duplicate the burned-in text.
+// One job at a time, runs in the background.
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn, execFile } = require('node:child_process');
@@ -19,7 +20,7 @@ function probeDuration(file) {
 }
 
 class Mp4Queue extends EventEmitter {
-  constructor({ dir, size = '1080x1920', fontSize = 64, show = 'target', fps = 15, encoder = 'libx264', lines = 4, ffmpeg = 'ffmpeg' } = {}) {
+  constructor({ dir, size = '1080x1920', fontSize = 64, show = 'target', fps = 15, encoder = 'libx264', lines = 60, ffmpeg = 'ffmpeg' } = {}) {
     super();
     this.dir = dir;
     const m = /^(\d+)x(\d+)$/.exec(size) || [null, 1080, 1920];
@@ -108,15 +109,10 @@ class Mp4Queue extends EventEmitter {
       const part = `${out}.part`;
       const ff = ['-y', '-hide_banner', '-loglevel', 'error', '-nostats', '-progress', 'pipe:1',
         '-f', 'concat', '-safe', '0', '-i', path.join(tmp, 'concat.txt'), '-i', mp3];
-      const maps = ['-map', '0:v', '-map', '1:a'];
-      let si = 2;
-      const meta = [];
-      if (hasZh) { ff.push('-i', zh); maps.push('-map', `${si}:s`); meta.push(`-metadata:s:s:${si - 2}`, 'language=zho', `-metadata:s:s:${si - 2}`, 'title=中文'); si++; }
-      if (hasYue) { ff.push('-i', yue); maps.push('-map', `${si}:s`); meta.push(`-metadata:s:s:${si - 2}`, 'language=yue', `-metadata:s:s:${si - 2}`, 'title=粤语'); si++; }
-      ff.push(...maps, '-t', duration.toFixed(3), '-vf', `fps=${this.fps},format=yuv420p`);
+      ff.push('-map', '0:v', '-map', '1:a', '-sn', '-t', duration.toFixed(3), '-vf', `fps=${this.fps},format=yuv420p`);
       if (this.encoder === 'h264_videotoolbox') ff.push('-c:v', 'h264_videotoolbox', '-b:v', '1500k');
       else ff.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-tune', 'stillimage', '-g', String(this.fps * 10));
-      ff.push('-c:a', 'aac', '-b:a', '128k', '-c:s', 'mov_text', ...meta, '-movflags', '+faststart', '-f', 'mp4', part);
+      ff.push('-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-f', 'mp4', part);
       await new Promise((resolve, reject) => {
         const p = spawn(this.ffmpeg, ff, { stdio: ['ignore', 'pipe', 'pipe'] });
         let errText = '';

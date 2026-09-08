@@ -16,6 +16,8 @@
   $('btnReconnect').addEventListener('click', () => Sub.post('/api/reconnect').then((r) => { if (r && r.error) alert(r.error); }));
   $('btnDisplay').addEventListener('click', () => window.open('/', '_blank'));
   $('btnTranscript').addEventListener('click', () => window.open('/api/transcript', '_blank'));
+  $('btnPlainSource').addEventListener('click', () => CleanDownloads.live('source'));
+  $('btnPlainTarget').addEventListener('click', () => CleanDownloads.live('target'));
   $('btnPlayback').addEventListener('click', () => window.open('/playback', '_blank'));
   document.addEventListener('keydown', (e) => { if (Sub.keyAction(e)) e.preventDefault(); });
 
@@ -64,6 +66,12 @@
         a(r.mp3, 'mp3');
         if (r.zh) a(r.zh, 'zh.srt');
         if (r.yue) a(r.yue, 'yue.srt');
+        for (const [lang, label] of [['yue', 'Plain text · original'], ['zh', 'Plain text · translation']]) {
+          if (!r[lang]) continue;
+          const b = el('button', {}, label);
+          b.addEventListener('click', () => CleanDownloads.recording(r, lang));
+          links.appendChild(b);
+        }
         const mp4st = (Sub.status && Sub.status.mp4) || {};
         if (r.mp4) a(r.mp4, `mp4 (${Sub.fmtBytes(r.mp4Bytes)})`);
         else if (mp4st.current && mp4st.current.base === r.base) links.appendChild(el('span', { class: 'muted' }, `mp4: ${mp4st.current.stage} ${mp4st.current.percent}%`));
