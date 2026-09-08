@@ -7,6 +7,7 @@ const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { getCredentials } = require('@subs/core');
 const { createLocalServer } = require('./local-server');
+const { DEFAULT_URL: DEFAULT_CLOUD_URL } = require('./cloud');
 const helpers = require('./lib/helpers');
 const { CloudLink } = require('./cloud');
 
@@ -86,7 +87,6 @@ const { ResubtitleQueue } = require('./lib/resubtitle');
 const resubtitle = new ResubtitleQueue({ cloud, log: (level, text) => core && core.log(level, text) });
 const { Updater } = require('./lib/updater');
 const updater = new Updater({ cloud, log: (level, text) => (core ? core.log(level, `updates: ${text}`) : consoleLog(level, `updates: ${text}`)), packaged: PACKAGED });
-const { DEFAULT_URL: DEFAULT_CLOUD_URL } = require('./cloud');
 
 function consoleLog(level, text) {
   const ts = new Date().toTimeString().slice(0, 8);
