@@ -69,6 +69,46 @@ class CloudLink {
     } finally { clearTimeout(t); }
   }
 
+  // ---- upload jobs (used by "Re-subtitle this recording")
+  createJob({ filename, size, sourceLang, targetLang }) {
+    return this._fetch('/api/jobs', { filename, size, sourceLang, targetLang });
+  }
+  getJob(id) {
+    return this._fetch(`/api/jobs/${id}`, null, { method: 'GET' });
+  }
+  /** Stream a file into a job (PUT). onProgress(bytesSent). No overall timeout: recordings can be hours long. */
+  async uploadJob(id, file, onProgress) {
+    if (!this.cfg.url) throw new Error('cloud server URL is not set');
+    if (!this.cfg.token) throw new Error('not logged in');
+    const { Readable } = require('node:stream');
+    const fs = require('node:fs');
+    let sent = 0;
+    const src = fs.createReadStream(file, { highWaterMark: 1 << 20 });
+    src.on('data', (d) => { sent += d.length; if (onProgress) onProgress(sent); });
+    const res = await fetch(`${this.cfg.url.replace(/\/$/, '')}/api/jobs/${id}/upload`, {
+      method: 'PUT', duplex: 'half',
+      headers: { authorization: `Bearer ${this.cfg.token}`, 'content-type': 'application/octet-stream' },
+      body: Readable.toWeb(src),
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch { /* non-JSON */ }
+    if (!res.ok) throw new Error((json && json.error) || `upload failed: ${res.status} ${res.statusText}`);
+    return json;
+  }
+  /** Download one of a job's output files to `dest` (written as dest.part, then renamed). */
+  async downloadJobFile(id, name, dest) {
+    if (!this.cfg.token) throw new Error('not logged in');
+    const fs = require('node:fs');
+    const { pipeline } = require('node:stream/promises');
+    const { Readable } = require('node:stream');
+    const res = await fetch(`${this.cfg.url.replace(/\/$/, '')}/jobs/${id}/files/${encodeURIComponent(name)}`, { headers: { authorization: `Bearer ${this.cfg.token}` } });
+    if (!res.ok) throw new Error(`download ${name}: ${res.status} ${res.statusText}`);
+    await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(`${dest}.part`));
+    fs.renameSync(`${dest}.part`, dest);
+    return dest;
+  }
+
   async login(url, email, password) {
     const clean = String(url || '').trim().replace(/\/$/, '');
     if (!/^https?:\/\//.test(clean)) throw new Error('server URL must start with http:// or https://');

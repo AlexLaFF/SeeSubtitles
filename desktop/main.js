@@ -60,6 +60,8 @@ const cloudConfig = (cfg) => ({ ...cfg.cloud, token: decryptSecret(cfg.cloud.tok
 let core = null;
 let port = 0;
 const cloud = new CloudLink({ log: (level, text) => core && core.log(level, `cloud: ${text}`) });
+const { ResubtitleQueue } = require('./lib/resubtitle');
+const resubtitle = new ResubtitleQueue({ cloud, log: (level, text) => core && core.log(level, text) });
 
 function consoleLog(level, text) {
   const ts = new Date().toTimeString().slice(0, 8);
@@ -107,6 +109,7 @@ async function startCore() {
     onCloseOverlay: closeOverlay,
     onCloud: (body) => cloudAction(body),
     cloudStatus: () => cloud.status(),
+    resubtitle,
     consoleLog,
   });
   port = core.port;

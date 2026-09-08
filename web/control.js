@@ -48,7 +48,7 @@
     } else rows.push(['Status', 'idle']);
     for (const [k, v] of rows) { kv.appendChild(el('dt', {}, k)); kv.appendChild(el('dd', {}, String(v))); }
     if (recWasOn !== on) { recWasOn = on; loadRecordings(); }
-    const mp4Key = JSON.stringify([Sub.status.mp4, Sub.status.summary]);
+    const mp4Key = JSON.stringify([Sub.status.mp4, Sub.status.summary, Sub.status.resubtitle, Sub.status.cloud && Sub.status.cloud.loggedIn]);
     if (mp4Key !== renderRecorder.mp4Key) { renderRecorder.mp4Key = mp4Key; loadRecordings(); }
   }
   function loadRecordings() {
@@ -77,6 +77,25 @@
         else if (mp4st.current && mp4st.current.base === r.base) links.appendChild(el('span', { class: 'muted' }, `mp4: ${mp4st.current.stage} ${mp4st.current.percent}%`));
         else if ((mp4st.queue || []).includes(r.base)) links.appendChild(el('span', { class: 'muted' }, 'mp4: queued'));
         else if (r.zh || r.yue) { const b = el('button', {}, 'Make MP4'); b.addEventListener('click', () => Sub.post('/api/recordings/mp4', { base: r.base }).then((x) => { if (x && x.error) alert(x.error); })); links.appendChild(b); }
+        // Re-subtitle via the cloud (desktop app only): complete, higher-quality subtitles for the whole recording
+        const rs = (Sub.status && Sub.status.resubtitle) || null;
+        const cloud = Sub.status ? Sub.status.cloud : undefined;
+        if (rs) {
+          links.appendChild(document.createTextNode('  '));
+          if (rs.current && rs.current.base === r.base) links.appendChild(el('span', { class: 'muted' }, `Re-subtitle: ${rs.current.stage} ${rs.current.percent}%`));
+          else if ((rs.queue || []).includes(r.base)) links.appendChild(el('span', { class: 'muted' }, 'Re-subtitle: queued'));
+          else {
+            const loggedIn = !!(cloud && cloud.loggedIn);
+            const b = el('button', { title: loggedIn ? 'Upload the recording to the cloud server for complete subtitles of the whole talk (fills gaps from connection drops, better translation). The live subtitles are kept as .live.srt files.' : 'Log in to the cloud server in Settings → Cloud first' }, 'Re-subtitle via cloud');
+            if (!loggedIn) b.disabled = true;
+            b.addEventListener('click', () => {
+              if ((r.zh || r.yue) && !confirm('Replace the live subtitles of this recording with a complete set from the cloud? The live files are kept as .live.srt.')) return;
+              Sub.post('/api/recordings/resubtitle', { base: r.base }).then((x) => { if (x && x.error) alert(x.error); });
+            });
+            links.appendChild(b);
+            if (rs.last && rs.last.base === r.base && !rs.last.ok) links.appendChild(el('span', { class: 'muted' }, ` ⚠ ${rs.last.error}`));
+          }
+        }
         // AI learning summary (manual)
         const sm = (Sub.status && Sub.status.summary) || {};
         links.appendChild(document.createTextNode('  '));

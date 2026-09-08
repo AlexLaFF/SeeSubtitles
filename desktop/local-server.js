@@ -48,6 +48,7 @@ function readJson(req) {
  * @param {function} [opts.onOpenOverlay]
  * @param {function} [opts.onCloud]      (body) => result, for POST /api/cloud
  * @param {function} [opts.cloudStatus]  () => object merged into status()
+ * @param {object}   [opts.resubtitle]   ResubtitleQueue (needs the cloud login) for POST /api/recordings/resubtitle
  * @param {function} [opts.consoleLog]   (level, text) — defaults to console
  */
 async function createLocalServer(opts) {
@@ -166,6 +167,10 @@ async function createLocalServer(opts) {
   mp4.on('status', () => broadcast('status', status()));
   mp4.on('done', (r) => log('info', `mp4 ready: ${r.file} (${(r.bytes / 1e6).toFixed(1)} MB, took ${r.seconds} s)`));
   mp4.on('error', (e) => log('error', `mp4 ${e.base}: ${e.error}`));
+  if (opts.resubtitle) {
+    opts.resubtitle.on('status', () => broadcast('status', status()));
+    opts.resubtitle.on('done', ({ base }) => { if (MP4_AUTO) { mp4.add(base); log('info', `re-rendering the MP4 for ${base} with the complete subtitles`); } });
+  }
   const summaries = new SummaryQueue({
     dir: opts.recordingsDir,
     apiKey: (opts.summaryApiKey || '').trim(),
@@ -247,6 +252,7 @@ async function createLocalServer(opts) {
       mp4: mp4.status(),
       summary: summaries.status(),
       cloud: opts.cloudStatus ? opts.cloudStatus() : null,
+      resubtitle: opts.resubtitle ? opts.resubtitle.status() : null,
       now: Date.now(),
     };
   }
@@ -398,6 +404,22 @@ async function createLocalServer(opts) {
           (err) => log('error', `summary PDF ${base}: ${err.message}`),
         );
         return send(res, 200, { ok: true });
+      }
+      case '/api/recordings/resubtitle': {
+        const base = String(body.base || '');
+        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
+        if (!opts.resubtitle) return send(res, 400, { error: 'cloud link not available' });
+        const cloud = opts.cloudStatus ? opts.cloudStatus() : null;
+        if (!cloud || !cloud.loggedIn) return send(res, 400, { error: 'Log in to the cloud server in Settings → Cloud first' });
+        // live codes → the cloud's upload languages (ENGINES / TARGETS in server/lib/jobs.js)
+        const SOURCE = { yue: 'yue', zh: 'zh', zh_en: 'mixed', en: 'en', ja: 'ja', ko: 'ko' };
+        const TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko' };
+        const sourceLang = SOURCE[settings.source];
+        if (!sourceLang) return send(res, 400, { error: `the cloud does not transcribe "${settings.source}" uploads yet` });
+        const targetLang = TARGET[settings.target] || 'none';
+        const queued = opts.resubtitle.add({ base, dir: opts.recordingsDir, sourceLang, targetLang });
+        log('info', queued ? `re-subtitle requested for ${base} (${sourceLang} → ${targetLang})` : `re-subtitle for ${base} already in progress`);
+        return send(res, 200, { ok: true, queued, resubtitle: opts.resubtitle.status() });
       }
       case '/api/recordings/mp4': {
         const base = String(body.base || '');

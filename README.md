@@ -35,6 +35,12 @@ transcript and look settings are mirrored to a live session; the share link `htt
 shows the subtitles in any browser (venue screens, phones). Audio never leaves the laptop; if the server is
 unreachable the local display and recording are unaffected.
 
+**Re-subtitle via cloud** (next to each recording on the Control page): uploads the recording's MP3 to the
+hosted server as a job (whole-file 录音文件识别 + 混元翻译) and replaces the live subtitles with the complete
+set, which fills the holes a connection drop leaves and reads better. The live files are kept as
+`…中文字幕.zh.live.srt` / `…粤语字幕.yue.live.srt`, a stale MP4 as `…录音＋字幕.live.mp4`, and the MP4 is
+re-rendered automatically when MP4 auto-export is on.
+
 Distribution: to ship a DMG that opens without right-click → Open, create a *Developer ID Application*
 certificate in the Apple developer portal and set `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`
 for notarization (electron-builder picks them up).
