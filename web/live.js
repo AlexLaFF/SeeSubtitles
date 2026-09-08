@@ -167,6 +167,24 @@
     box.appendChild(el('div', { class: 'hint' }, 'A 16 kHz mono WAV is looped through Tencent exactly like the microphone. Demo mode (no Tencent at all) is under Settings → Advanced.'));
   }
 
+  /** SVG markup of a QR code for `text` (error correction M, so a projected code still scans from a phone). */
+  function qrSvg(text, cellSize) {
+    try { const q = qrcode(0, 'M'); q.addData(text); q.make(); return q.createSvgTag({ cellSize, margin: 2, scalable: true }); } catch (err) { return `<span class="muted">QR unavailable: ${err.message}</span>`; }
+  }
+  /** Full-window QR + link, for holding the laptop up or mirroring to the venue screen. Click or Esc closes. */
+  function showQr(url) {
+    const ov = el('div', { class: 'qr-overlay' });
+    const card = el('div', { class: 'qr-card' });
+    const q = el('div', { class: 'qr-big' }); q.innerHTML = qrSvg(url, 8);
+    card.append(q, el('div', { class: 'qr-url' }, url.replace(/^https?:\/\//, '')), el('div', { class: 'muted' }, 'Scan to follow the subtitles on a phone · click anywhere to close'));
+    ov.appendChild(card);
+    const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    ov.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(ov);
+  }
+
   function toggleRecording() {
     const on = Sub.status.recorder && Sub.status.recorder.recording;
     if (on && !confirm('Stop the recording?')) return;
@@ -232,12 +250,18 @@
     const sr = $('shareRow'); sr.innerHTML = '';
     if (!cloud || !cloud.loggedIn) { const b = el('button', { class: 'small' }, 'Log in to share'); b.addEventListener('click', () => App.go('settings')); sr.appendChild(b); }
     else if (cloud.session) {
-      const w2 = el('div', { style: 'display:flex;gap:6px;align-items:center' });
-      w2.appendChild(el('input', { type: 'text', readonly: 'readonly', value: cloud.shareUrl, style: 'flex:1' }));
-      const cp = el('button', { class: 'small' }, 'Copy'); cp.addEventListener('click', () => navigator.clipboard.writeText(cloud.shareUrl).then(() => { cp.textContent = 'Copied'; setTimeout(() => { cp.textContent = 'Copy'; }, 1200); }).catch(() => {})); w2.appendChild(cp);
-      const stop = el('button', { class: 'small' }, 'Stop'); stop.addEventListener('click', toggleShare); w2.appendChild(stop);
+      const w2 = el('div', { style: 'display:flex;gap:10px;align-items:flex-start' });
+      const qrBox = el('div', { class: 'qr', title: 'Scan to open the share link' }); qrBox.innerHTML = qrSvg(cloud.shareUrl, 3); qrBox.addEventListener('click', () => showQr(cloud.shareUrl));
+      const right = el('div', { style: 'flex:1;display:flex;flex-direction:column;gap:6px;min-width:0' });
+      const line = el('div', { style: 'display:flex;gap:6px;align-items:center' });
+      line.appendChild(el('input', { type: 'text', readonly: 'readonly', value: cloud.shareUrl, style: 'flex:1' }));
+      const cp = el('button', { class: 'small' }, 'Copy'); cp.addEventListener('click', () => navigator.clipboard.writeText(cloud.shareUrl).then(() => { cp.textContent = 'Copied'; setTimeout(() => { cp.textContent = 'Copy'; }, 1200); }).catch(() => {})); line.appendChild(cp);
+      const big = el('button', { class: 'small' }, 'Show QR large'); big.addEventListener('click', () => showQr(cloud.shareUrl)); line.appendChild(big);
+      const stop = el('button', { class: 'small' }, 'Stop'); stop.addEventListener('click', toggleShare); line.appendChild(stop);
+      right.appendChild(line);
+      right.appendChild(el('div', { class: 'hint' }, `${cloud.sent} events sent${cloud.queued ? `, ${cloud.queued} queued` : ''}${cloud.error ? ` · ⚠ ${cloud.error}` : ''} · attendees scan the code or type the link`));
+      w2.append(qrBox, right);
       sr.appendChild(w2);
-      sr.appendChild(el('div', { class: 'hint' }, `${cloud.sent} events sent${cloud.queued ? `, ${cloud.queued} queued` : ''}${cloud.error ? ` · ⚠ ${cloud.error}` : ''}`));
     } else { const b = el('button', { class: 'small primary' }, 'Start sharing'); b.addEventListener('click', toggleShare); sr.appendChild(b); sr.appendChild(el('span', { class: 'muted', style: 'margin-left:8px' }, `as ${cloud.email}`)); }
     // recording
     const rr = $('recRow'); rr.innerHTML = '';

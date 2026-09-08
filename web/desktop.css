@@ -83,3 +83,11 @@ body.shell { margin: 0; padding: 0; background: #111; color: #e8e8e8; font: 13px
 .shell .stage-p .l.old { opacity: .55; }
 .shell .stage-p .l .s { display: block; font-size: 13px; font-weight: 500; opacity: .72; }
 .shell .cue textarea { overflow: hidden; }
+.shell .qr { width: 96px; height: 96px; flex: none; background: #fff; border-radius: 6px; padding: 4px; box-sizing: border-box; cursor: zoom-in; }
+.shell .qr svg { width: 100%; height: 100%; display: block; }
+.shell .qr-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.85); z-index: 50; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+.shell .qr-card { background: #fff; color: #111; border-radius: 16px; padding: 28px 32px; display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: min(90vw, 620px); }
+.shell .qr-big { width: min(70vh, 480px); height: min(70vh, 480px); }
+.shell .qr-big svg { width: 100%; height: 100%; display: block; }
+.shell .qr-url { font-size: 26px; font-weight: 600; letter-spacing: .01em; word-break: break-all; text-align: center; }
+.shell .qr-card .muted { color: #666; }
