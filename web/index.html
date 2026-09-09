@@ -4,12 +4,20 @@
 <meta charset="utf-8">
 <title data-i18n="brand">See Subtitles</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body class="display">
 <div id="stage"><div id="lines"></div></div>
 <div id="status" hidden></div>
 <div id="hint" data-i18n="disp.hint">C = controls · + / − = size</div>
+<div id="remoteHead" hidden><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span class="w">See Subtitles</span><span class="name" id="remoteName"></span><span class="state" id="remoteState"></span></div>
+<div id="remoteBar" hidden>
+  <div class="seg" id="segShow"><button data-m="target">中文</button><button data-m="source">粤语</button><button data-m="both" data-i18n="disp.remote.both">Both</button></div>
+  <div class="seg"><button id="szDown" data-i18n-title="disp.remote.smaller" title="smaller text">A−</button><button id="szUp" data-i18n-title="disp.remote.larger" title="larger text">A+</button></div>
+  <button id="btnAwake" data-i18n="disp.remote.awake" data-i18n-title="disp.remote.awakeTitle" title="keep the screen on">Keep awake</button>
+</div>
+<div id="ended" hidden><div class="card"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><h1>这场讲座已经结束</h1><p data-i18n="disp.remote.endedText">This talk has ended. Thank you for following along.</p><p class="m" id="endedMeta"></p></div></div>
 <div id="panel" class="ui" hidden>
   <div class="btns">
     <button id="btnClear" data-i18n="disp.clear">Clear</button>

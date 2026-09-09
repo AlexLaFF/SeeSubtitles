@@ -135,6 +135,7 @@
 
   function togglePanel(force) {
     panel.hidden = force === undefined ? !panel.hidden : !force;
+    document.body.classList.toggle('panel-open', !panel.hidden); // the stage reflows beside the panel (style.css)
   }
   function toggleFullscreen() {
     if (document.fullscreenElement) document.exitFullscreen();
@@ -205,6 +206,34 @@
   Sub.on('presets', Controls.setPresets);
   Sub.on('overlay', Controls.setOverlay);
   Sub.on('disconnected', () => { statusEl.textContent = `● ${t('disp.status.offline')}`; statusEl.hidden = Sub.settings.showStatus === false; });
+  // ---- attendee page (remote mode): header, controls, ended state
+  if (Sub.remote) {
+    $('remoteHead').hidden = false; $('remoteBar').hidden = false;
+    const fs = SCHEMA.byKey.fontSize;
+    const step = (dir) => Sub.update({ fontSize: Math.round(Math.min(fs.max, Math.max(fs.min, (Number(Sub.settings.fontSize) || fs.default) * (dir > 0 ? 1.15 : 1 / 1.15)))) });
+    $('szUp').addEventListener('click', () => step(1));
+    $('szDown').addEventListener('click', () => step(-1));
+    for (const b of $('segShow').querySelectorAll('button')) b.addEventListener('click', () => Sub.update({ showMode: b.dataset.m }));
+    let lock = null;
+    const renderRemote = () => {
+      for (const b of $('segShow').querySelectorAll('button')) b.classList.toggle('on', b.dataset.m === (Sub.settings.showMode || 'target'));
+      $('btnAwake').classList.toggle('on', !!lock);
+      const s = Sub.status || {};
+      const ended = s.live === false;
+      $('remoteState').textContent = ended ? t('disp.remote.ended') : t('disp.remote.live');
+      $('remoteState').classList.toggle('ended', ended);
+      $('ended').hidden = !ended;
+      if (ended) $('endedMeta').textContent = [Sub.session && Sub.session.name, s.lastEventAt ? new Date(s.lastEventAt).toLocaleString() : ''].filter(Boolean).join(' · ');
+    };
+    $('btnAwake').addEventListener('click', async () => {
+      if (lock) { await lock.release().catch(() => {}); lock = null; }
+      else if (navigator.wakeLock) { try { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; renderRemote(); }); } catch { lock = null; } }
+      renderRemote();
+    });
+    Sub.on('init', (d) => { Sub.session = d.session || null; $('remoteName').textContent = Sub.session && Sub.session.name ? `· ${Sub.session.name}` : ''; renderRemote(); });
+    Sub.on('status', renderRemote); Sub.on('settings', renderRemote); Sub.on('local', renderRemote);
+    I18n.onChange(renderRemote);
+  }
   window.__display = { lines, byId, render };
   Sub.connect();
 })();

@@ -25,12 +25,14 @@ npm run dist -w desktop                 # DMG in desktop/dist (unsigned unless a
 ```
 
 The app is one window with a sidebar: **Live** (a talk happening now), **Files** (recordings from Live and
-files you add, each with playback, editable subtitles, exports, MP4 and AI summary) and **Settings**. First
-launch asks you to log in to seesubtitles.com (Settings › Account); the app then fetches its Tencent keys from
-the server, so no keys are typed. Live is arranged in the order you set up a talk: source, subtitle look,
-where it shows (Display window ⌘3, transparent Overlay window ⌘4 placeable on any display including
-BetterDisplay virtual screens, and the share link for phones), recording (⇧⌘R). The menu bar mirrors
-everything: File › Add File… (⌘O), View › Live / Files (⌘1 / ⌘2), Display / Overlay windows, Demo Mode.
+files you add, each with playback, editable subtitles, exports, MP4 and AI summary) and **Settings**. The first
+launch shows three cards: log in to seesubtitles.com (the app then fetches its Tencent keys from the server, so
+no keys are typed), pick the microphone with a live level meter, choose the languages, then Live or Files.
+Live is arranged in the order you set up a talk: source (with the **Glossary**: names and terms the recogniser
+should favour, kept with the account and applied at the next connection), subtitle look, where it shows
+(Display window ⌘3, transparent Overlay window ⌘4 placeable on any display including BetterDisplay virtual
+screens, and the share link for phones with a QR code and a printable A4 poster), recording (⇧⌘R). The menu bar
+mirrors everything: File › Add File… (⌘O), View › Live / Files (⌘1 / ⌘2), Display / Overlay windows, Demo Mode.
 The MP4 with burned-in subtitles is produced when a recording stops.
 
 **Re-subtitle via cloud** (Files › a recording): uploads the recording's MP3 to the
@@ -105,9 +107,20 @@ docker compose -f deploy/docker-compose.yml exec app node server/cli.js add-user
 ```
 
 Accounts: `SIGNUP_MODE=closed` (default) means only `cli.js add-user` creates accounts; `invite` shows a
-sign-up form that needs a code from `cli.js add-invite`; `open` lets anyone sign up. Every user only sees their
-own jobs and live sessions; `cli.js set-role <email> admin` marks administrators for future admin pages. Login
-and sign-up are rate-limited per IP and per email.
+sign-up form that needs a code from `cli.js add-invite` or from the Account page; `open` lets anyone sign up.
+Every user only sees their own jobs and live sessions. `cli.js set-role <email> admin` marks administrators:
+their **Account** page (`/account`) adds a Team section with the members, invite codes, password reset links
+(`/reset/<token>`, valid 24 h, used once; the server never sends mail, you hand the link over) and the
+account requests that arrive from the website's form. Everyone's Account page has the password change, the
+signed-in devices, the glossary shared with the desktop app and the usage tiles. Login and sign-up are
+rate-limited per IP and per email. Logged-out visitors to `/` see the website (`web/site.html`); `/poster?url=…`
+prints an A4 QR poster for a share link.
+
+The dashboard shows Tencent usage for the month (`asr:GetUsageByDate`, allowed by the ASR policy the keys already
+have) and, with `TENCENT_PACK=<hours>h@<purchase date>`, what is left of the 实时语音翻译 resource pack; Tencent has no
+API for a pack's remaining quota, so the pack size comes from you. `TENCENT_BILLING_SECRET_ID/KEY`, a separate key
+with `billing:DescribeAccountBalance` (preset `QcloudFinanceBillReadOnlyAccess`), adds the account balance; keep it
+off the main key, which is handed to desktop apps.
 
 Caddy obtains the TLS certificate for `DOMAIN` automatically. Data (SQLite, uploads, session logs) lives in
 the `subs-data` volume; back it up with `docker run --rm -v subs-data:/data -v $PWD:/out alpine tar czf /out/subs-data.tgz /data`.

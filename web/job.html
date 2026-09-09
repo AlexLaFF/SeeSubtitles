@@ -4,40 +4,42 @@
 <meta charset="utf-8">
 <title data-i18n="web.jobTitle">See Subtitles — Job</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body class="control app">
-<div class="topbar"><a href="/" data-i18n="web.back">← See Subtitles</a><h1 id="title" data-i18n="web.job">Job</h1><span class="spacer"></span><span class="muted" id="who"></span></div>
+<div class="topbar"><a class="brand" href="/"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><h1 data-i18n="brand">See Subtitles</h1></a><a href="/" data-i18n="web.overview">Overview</a><a href="/account" data-i18n="web.account">Account</a><span class="spacer"></span><span class="muted" id="who"></span><a href="#" data-lang="en" data-i18n="web.langEn">English</a><a href="#" data-lang="zh" data-i18n="web.langZh">中文</a></div>
 <main>
 <div class="alert" id="alert" hidden></div>
-<div class="ui" id="progressBox">
-  <div id="statusText"></div>
-  <div class="bar" style="margin-top:6px"><i id="bar"></i></div>
-</div>
+<div class="top"><h1><span class="crumb" data-i18n="files.crumb">Files ›</span> <span id="title" data-i18n="web.job">Job</span></h1><div class="chips"><span class="chip" id="statusText"></span></div></div>
+<div class="ui" id="progressBox"><div class="bar"><i id="bar"></i></div></div>
 <div class="jobwrap" id="work" hidden>
-  <div>
-    <div class="ui">
+  <div class="col">
+    <div class="ui" style="padding:10px">
       <video id="video" controls playsinline></video>
       <div class="subs" id="subs"></div>
     </div>
     <div class="ui">
       <h2 data-i18n="web.downloads">Downloads</h2>
       <div class="files" id="files"></div>
-      <h2 style="margin-top:14px" data-i18n="web.burn">Burn subtitles into the video</h2>
+    </div>
+    <div class="ui">
+      <h2 data-i18n="web.burn">Burn subtitles into the video</h2>
       <div class="btns">
         <select id="mp4which"><option value="trans" data-i18n="web.which.trans">translation</option><option value="both" data-i18n="web.which.both">translation + original</option><option value="text" data-i18n="web.which.text">original</option></select>
         <button id="btnMp4" data-i18n="web.renderMp4">Render MP4</button>
-        <span class="muted" id="mp4Text"></span>
+        <span class="hint" id="mp4Text" style="margin:0"></span>
       </div>
     </div>
   </div>
   <div class="ui">
     <div class="sticky btns">
-      <h2 style="display:inline;margin-right:10px" data-i18n="web.cues">Cues</h2>
+      <h2 style="display:inline;margin:0 auto 0 0" data-i18n="web.cues">Cues</h2>
       <button class="primary" id="btnSave" disabled data-i18n="files.save">Save changes</button>
       <button id="btnShift" data-i18n="files.shiftAll">Shift all…</button>
-      <span class="muted" id="saveText"></span>
+      <span class="hint" id="saveText" style="margin:0"></span>
     </div>
     <div class="cues" id="cues"></div>
   </div>

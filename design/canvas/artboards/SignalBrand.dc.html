@@ -1,0 +1,216 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+.board{--bg:#f1f2f4;--side:#e8eaed;--surface:#ffffff;--surface-2:#f4f5f7;--line:#d8dbe0;--line-strong:#b8bdc6;--fg:#15181d;--fg-2:#596170;--fg-3:#8b93a1;--accent:#ff5a36;--accent-fg:#ffffff;--accent-soft:rgba(255,90,54,.12);--accent-text:#d9401f;--ok:#159a48;--warn:#d98a00;--bad:#b5122e;--rec:#ff5a36;--stage:#000000;--ui:Archivo, -apple-system, system-ui, "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:Archivo, "Noto Sans TC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;}
+*{box-sizing:border-box}
+body{margin:0}
+.win{position:relative;width:1440px;height:900px;display:flex;background:var(--bg);color:var(--fg);font:13px/1.45 var(--ui);overflow:hidden;-webkit-font-smoothing:antialiased}
+.tl{position:absolute;left:14px;top:14px;display:flex;gap:8px;z-index:2}
+.tl i{width:12px;height:12px;border-radius:50%;display:block}
+.side{width:200px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;padding:46px 10px 10px}
+.brand{display:flex;align-items:center;gap:9px;padding:0 8px 16px}
+.brand svg{width:22px;height:22px;flex:none;border-radius:5px;box-shadow:0 0 0 1px var(--line)}
+.brand .w{font-weight:600;font-size:14px;letter-spacing:-.01em;color:var(--fg)}
+.nav{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;color:var(--fg-2);font-size:13.5px;font-weight:500}
+.nav svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.nav .k{margin-left:auto;font-size:11px;color:var(--fg-3)}
+.nav.active{background:var(--accent-soft);color:var(--accent-text)}
+.grow{flex:1}
+.account{border-top:1px solid var(--line);padding:10px 8px 2px;font-size:11.5px;color:var(--fg-3);display:flex;flex-direction:column;gap:2px}
+.account b{color:var(--fg-2);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{display:flex;align-items:center;gap:16px;padding:14px 24px 6px;min-height:52px}
+.top h1{margin:0;font:600 20px/1.2 var(--ui);letter-spacing:-.01em}
+.status{display:flex;align-items:center;gap:14px;color:var(--fg-2);font-size:12.5px}
+.status .s{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.meter{width:72px;height:6px;border-radius:3px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+.meter i{display:block;height:100%;width:62%;background:var(--ok)}
+.actions{margin-left:auto;display:flex;gap:8px}
+.toolbar{display:flex;gap:8px;padding:2px 24px 12px;align-items:center}
+.btn{height:28px;padding:0 12px;border-radius:6px;border:1px solid var(--line-strong);background:var(--surface);color:var(--fg);font:500 12.5px/1 var(--ui);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn.ghost{background:transparent}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-weight:600}
+.btn.rec{background:var(--rec);color:#fff;border-color:transparent;font-weight:600}
+.btn.rec .dot{background:#fff}
+.btn.small{height:24px;padding:0 9px;font-size:12px}
+.body{display:flex;gap:16px;padding:0 24px 12px;flex:1;min-height:0}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
+.col.l{width:600px;flex:none;overflow:hidden}
+.col.r{flex:1}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px;flex:none}
+.panel h3{display:flex;align-items:center;gap:10px;margin:0 0 8px;font:600 14px/1.3 var(--ui);color:var(--fg)}
+.n{width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-fg);font:700 11px/20px var(--ui);text-align:center;flex:none}
+.row{display:grid;grid-template-columns:128px 1fr;gap:8px 10px;align-items:center;margin:4px 0}
+.row label{color:var(--fg-2);font-size:12.5px}
+.row .v{display:flex;align-items:center;gap:8px;min-width:0}
+.field{height:28px;border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:0 10px;display:flex;align-items:center;gap:8px;color:var(--fg);font-size:13px;flex:1;min-width:0;white-space:nowrap}
+.field .sub{color:var(--fg-3);font-size:12px}
+.field.sel::after{content:"";width:6px;height:6px;border-right:1.5px solid var(--fg-3);border-bottom:1.5px solid var(--fg-3);transform:rotate(45deg);margin-left:auto;margin-top:-3px;flex:none}
+.slider{flex:1;height:4px;border-radius:2px;background:var(--line-strong);position:relative}
+.slider i{position:absolute;left:0;top:0;height:100%;width:58%;background:var(--accent);border-radius:2px}
+.slider b{position:absolute;left:58%;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:1px solid var(--line-strong);transform:translate(-50%,-50%);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.num{width:64px;flex:none}
+.unit{color:var(--fg-3);font-size:12px}
+.check{width:15px;height:15px;border-radius:4px;border:1px solid var(--line-strong);background:var(--surface-2);flex:none}
+.check.on{background:var(--accent);border-color:transparent;position:relative}
+.check.on::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border-right:2px solid var(--accent-fg);border-bottom:2px solid var(--accent-fg);transform:rotate(45deg)}
+.fold{display:flex;align-items:center;gap:7px;color:var(--fg-2);font-size:12px;margin-top:6px}
+.fold::before{content:"";width:6px;height:6px;border-right:1.5px solid var(--fg-3);border-bottom:1.5px solid var(--fg-3);transform:rotate(-45deg);flex:none}
+.hint{color:var(--fg-3);font-size:12px;line-height:1.4}
+.hint.ind{margin-left:138px}
+.tag{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:500;background:var(--surface-2);color:var(--fg-2);border:1px solid var(--line);white-space:nowrap}
+.tag.ok{color:var(--ok)} .tag.warn{color:var(--warn)} .tag.rec{color:var(--rec)} .tag.bad{color:var(--bad)}
+.qr{width:66px;height:66px;background:#fff;border-radius:6px;padding:4px;flex:none}
+.qr svg{width:58px;height:58px;display:block}
+.stagebox{background:var(--stage);border-radius:10px;aspect-ratio:16/9;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:14px 26px;gap:8px;overflow:hidden;font-family:var(--cjk);font-weight:700;color:#fff;text-align:center}
+.stagebox .l{font-size:27px;line-height:1.25} .stagebox .l.old{opacity:.5} .stagebox .l .s{display:block;font-size:13px;font-weight:500;opacity:.7;margin-top:2px}
+.transcript{flex:1;display:flex;flex-direction:column;min-height:0}
+.transcript .list{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.p{display:grid;grid-template-columns:58px 1fr;gap:3px 12px;padding:9px 0;border-bottom:1px solid var(--line);font-family:var(--cjk)}
+.p .t{color:var(--fg-3);font-size:11.5px;font-family:var(--mono);font-variant-numeric:tabular-nums;padding-top:3px}
+.p .zh{font-size:14.5px;color:var(--fg);line-height:1.4} .p .yue{font-size:12.5px;color:var(--fg-3);grid-column:2}
+.p.partial{opacity:.55}
+.log{display:flex;align-items:center;gap:8px;color:var(--fg-3);font-size:12px}
+.foot{display:flex;gap:18px;padding:7px 24px;border-top:1px solid var(--line);color:var(--fg-3);font-size:11.5px;align-items:center}
+kbd{font-family:var(--ui);font-size:11px;border:1px solid var(--line-strong);border-radius:4px;padding:0 5px;color:var(--fg-2);margin-right:3px}
+.sp{flex:1}
+
+.brand .w{font-weight:800;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase}
+.top h1{font:800 22px/1.1 var(--ui);letter-spacing:-.01em;text-transform:uppercase}
+.panel{border-radius:8px}
+.panel h3{flex-direction:column;align-items:flex-start;gap:3px;margin-bottom:12px}
+.n{width:auto;height:auto;border-radius:0;background:transparent;color:var(--accent-text);font:700 10.5px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase}
+.btn{border-radius:5px}
+.tag{border-radius:4px;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:700}
+.status .s{font-weight:500}
+.nav{font-weight:600}
+
+.board{width:1200px;min-height:1740px;background:var(--bg);color:var(--fg);font:13px/1.5 var(--ui);padding:56px 64px 64px;display:flex;flex-direction:column;gap:40px;-webkit-font-smoothing:antialiased}
+.hd{display:flex;flex-direction:column;gap:12px}
+.hd .letter{font:600 12px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3)}
+.hd h1{margin:0;font:600 40px/1.1 var(--ui);letter-spacing:-.02em}
+.hd .idea{font-size:17px;color:var(--fg-2);max-width:760px;line-height:1.45}
+.hd .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:6px}
+.hd .two div{font-size:13px;color:var(--fg-2);line-height:1.5;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.hd .two b{display:block;color:var(--fg);font-weight:600;margin-bottom:3px}
+.sec{display:flex;flex-direction:column;gap:14px}
+.sec > h2{margin:0;font:600 12px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3);padding-bottom:10px;border-bottom:1px solid var(--line)}
+.markrow{display:flex;align-items:flex-end;gap:36px;padding:24px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.tile{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--fg-3);font-size:11.5px}
+.tile svg{display:block}
+.menubar{display:flex;align-items:center;gap:14px;height:28px;padding:0 12px;border-radius:6px;font:500 12.5px -apple-system,system-ui,sans-serif}
+.menubar svg{display:block}
+.menubar.lt{background:#ececee;color:#111} .menubar.dk{background:#2c2c2f;color:#f0f0f0}
+.wm{display:flex;align-items:center;gap:40px}
+.wm .big{font-size:56px;line-height:1;letter-spacing:-.02em}
+.wm .lock{display:flex;align-items:center;gap:14px}
+.wm .lock svg{width:44px;height:44px}
+.wm .lock .t{display:flex;flex-direction:column;line-height:1.1}
+.wm .lock .t .en{font-size:20px}
+.wm .lock .t .zh{font-size:15px;color:var(--fg-2);font-family:var(--cjk);margin-top:3px}
+.sws{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:10px}
+.sw .chip{height:64px;border-radius:8px;border:1px solid var(--line);display:flex;align-items:flex-end;padding:8px;font-size:11px;font-weight:500}
+.sw .hex{font:11px/1 var(--mono);color:var(--fg-3);margin-top:6px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.mode{border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--bg);color:var(--fg)}
+.mode h4{margin:0 0 12px;font:600 13px var(--ui);color:var(--fg-2)}
+.statusrow{display:flex;gap:22px;flex-wrap:wrap}
+.statusrow .s{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--fg-2)}
+.type{display:grid;grid-template-columns:150px 1fr;gap:14px 24px;align-items:baseline}
+.type .lab{font:11.5px/1.3 var(--mono);color:var(--fg-3)}
+.cjk{font-family:var(--cjk)}
+.comps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 32px}
+.comp{display:flex;flex-direction:column;gap:10px}
+.comp .lab{font:11.5px/1 var(--mono);color:var(--fg-3)}
+.comp .rowx{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.comp .rowx .field{flex:0 0 auto}
+.comp .rowx .slider{flex:0 0 130px}
+.filerow{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.filerow .name{font-weight:500} .filerow .sub{color:var(--fg-3);font-size:12px;margin-top:1px}
+.filerow .meta{color:var(--fg-2);font-size:12px;font-variant-numeric:tabular-nums}
+.strip{display:flex;align-items:center;gap:10px;padding:12px;border-radius:10px;border:1px solid var(--line)}
+
+  </style>
+</helmet>
+<div class="board">
+  <header class="hd">
+    <div class="letter">Direction C</div>
+    <h1 style="font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:44px">Signal</h1>
+    <div class="idea">The on-air light. Cool neutrals, a grotesk built for signage, and one coral accent that is also the recording colour.</div>
+    <div class="two"><div><b>Best when</b>Work files and the hosted web app as much as the venue: a contemporary product feel, equally at home light or dark.</div><div><b>Watch out</b>The most conventional "modern app" of the three; coral must stay away from error red, so errors always carry an icon and a word.</div></div>
+  </header>
+
+  <section class="sec"><h2>Mark</h2>
+    <div class="markrow">
+      <div class="tile"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824" width="160" height="160"><g><rect width="824" height="824" rx="185" fill="#15181d"/><circle cx="196" cy="196" r="46" fill="#ff5a36"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#ffffff"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#ffffff"/></g></svg><span>1024 (app icon)</span></div>
+      <div class="tile"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824" width="64" height="64"><g><rect width="824" height="824" rx="185" fill="#15181d"/><circle cx="196" cy="196" r="46" fill="#ff5a36"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#ffffff"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#ffffff"/></g></svg><span>64</span></div>
+      <div class="tile"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824" width="32" height="32"><g><rect width="824" height="824" rx="185" fill="#15181d"/><circle cx="196" cy="196" r="46" fill="#ff5a36"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#ffffff"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#ffffff"/></g></svg><span>32</span></div>
+      <div class="tile"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824" width="16" height="16"><g><rect width="824" height="824" rx="185" fill="#15181d"/><circle cx="196" cy="196" r="46" fill="#ff5a36"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#ffffff"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#ffffff"/></g></svg><span>16</span></div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-left:12px">
+        <div class="menubar lt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="18" height="18"><rect x="3" y="9.5" width="16" height="3.4" rx="1.7" fill="#000"/><rect x="5.5" y="14.5" width="11" height="2.6" rx="1.3" fill="#000"/></svg><span>字幕</span><span style="opacity:.55">Wed 14:02</span></div>
+        <div class="menubar dk"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="18" height="18"><rect x="3" y="9.5" width="16" height="3.4" rx="1.7" fill="#fff"/><rect x="5.5" y="14.5" width="11" height="2.6" rx="1.3" fill="#fff"/></svg><span>字幕</span><span style="opacity:.55">Wed 14:02</span></div>
+        <div class="hint">Menu bar: a template icon replaces the text-only item, the 字幕 word can stay beside it.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec"><h2>Wordmark</h2>
+    <div class="wm">
+      <div class="big" style="font:800 44px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase">See Subtitles</div>
+      <div class="lock"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824"><g><rect width="824" height="824" rx="185" fill="#15181d"/><circle cx="196" cy="196" r="46" fill="#ff5a36"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#ffffff"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#ffffff"/></g></svg><div class="t"><span class="en" style="font:800 15px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase">See Subtitles</span><span class="zh" style="font:900 15px/1 var(--cjk);letter-spacing:.2em">看字幕</span></div></div>
+    </div>
+    <div class="hint">The Chinese name is 看字幕 (kàn zìmù, "see the subtitles"); it reads the same in Traditional and Simplified.</div>
+  </section>
+
+  <section class="sec"><h2>Colour</h2>
+    <div class="modes">
+      <div class="mode" style="--bg:#f1f2f4;--side:#e8eaed;--surface:#ffffff;--surface-2:#f4f5f7;--line:#d8dbe0;--line-strong:#b8bdc6;--fg:#15181d;--fg-2:#596170;--fg-3:#8b93a1;--accent:#ff5a36;--accent-fg:#ffffff;--accent-soft:rgba(255,90,54,.12);--accent-text:#d9401f;--ok:#159a48;--warn:#d98a00;--bad:#b5122e;--rec:#ff5a36;--stage:#000000;--ui:Archivo, -apple-system, system-ui, "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:Archivo, "Noto Sans TC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;"><h4>Light · default</h4>
+        <div class="sws"><div class="sw"><div class="chip" style="background:#f1f2f4;color:#15181d"><span>bg</span></div><div class="hex">#f1f2f4</div></div><div class="sw"><div class="chip" style="background:#e8eaed;color:#15181d"><span>side</span></div><div class="hex">#e8eaed</div></div><div class="sw"><div class="chip" style="background:#ffffff;color:#15181d"><span>surface</span></div><div class="hex">#ffffff</div></div><div class="sw"><div class="chip" style="background:#f4f5f7;color:#15181d"><span>surface-2</span></div><div class="hex">#f4f5f7</div></div><div class="sw"><div class="chip" style="background:#d8dbe0;color:#15181d"><span>line</span></div><div class="hex">#d8dbe0</div></div><div class="sw"><div class="chip" style="background:#15181d;color:#f1f2f4"><span>fg</span></div><div class="hex">#15181d</div></div><div class="sw"><div class="chip" style="background:#596170;color:#f1f2f4"><span>fg-2</span></div><div class="hex">#596170</div></div><div class="sw"><div class="chip" style="background:#8b93a1;color:#f1f2f4"><span>fg-3</span></div><div class="hex">#8b93a1</div></div><div class="sw"><div class="chip" style="background:#ff5a36;color:#ffffff"><span>accent</span></div><div class="hex">#ff5a36</div></div></div>
+        <div class="statusrow" style="margin-top:16px"><span class="s"><i class="dot" style="background:#159a48"></i>Ready</span><span class="s"><i class="dot" style="background:#d98a00"></i>Attention</span><span class="s"><i class="dot" style="background:#b5122e"></i>Error</span><span class="s"><i class="dot" style="background:#ff5a36"></i>Recording</span><span class="s"><span class="tag">Demo</span></span></div>
+      </div>
+      <div class="mode" style="--bg:#131518;--side:#0e1013;--surface:#1b1e23;--surface-2:#242830;--line:#2f343c;--line-strong:#454b55;--fg:#eef0f3;--fg-2:#a2aab5;--fg-3:#6e7683;--accent:#ff6b4a;--accent-fg:#1a0a06;--accent-soft:rgba(255,107,74,.16);--accent-text:#ff7a5c;--ok:#3ecf72;--warn:#ffab2e;--bad:#ff5c7a;--rec:#ff6b4a;--stage:#000000;--ui:Archivo, -apple-system, system-ui, "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:Archivo, "Noto Sans TC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;"><h4>Dark · follows the system</h4>
+        <div class="sws"><div class="sw"><div class="chip" style="background:#131518;color:#eef0f3"><span>bg</span></div><div class="hex">#131518</div></div><div class="sw"><div class="chip" style="background:#0e1013;color:#eef0f3"><span>side</span></div><div class="hex">#0e1013</div></div><div class="sw"><div class="chip" style="background:#1b1e23;color:#eef0f3"><span>surface</span></div><div class="hex">#1b1e23</div></div><div class="sw"><div class="chip" style="background:#242830;color:#eef0f3"><span>surface-2</span></div><div class="hex">#242830</div></div><div class="sw"><div class="chip" style="background:#2f343c;color:#eef0f3"><span>line</span></div><div class="hex">#2f343c</div></div><div class="sw"><div class="chip" style="background:#eef0f3;color:#131518"><span>fg</span></div><div class="hex">#eef0f3</div></div><div class="sw"><div class="chip" style="background:#a2aab5;color:#131518"><span>fg-2</span></div><div class="hex">#a2aab5</div></div><div class="sw"><div class="chip" style="background:#6e7683;color:#131518"><span>fg-3</span></div><div class="hex">#6e7683</div></div><div class="sw"><div class="chip" style="background:#ff6b4a;color:#1a0a06"><span>accent</span></div><div class="hex">#ff6b4a</div></div></div>
+        <div class="statusrow" style="margin-top:16px"><span class="s"><i class="dot" style="background:#3ecf72"></i>Ready</span><span class="s"><i class="dot" style="background:#ffab2e"></i>Attention</span><span class="s"><i class="dot" style="background:#ff5c7a"></i>Error</span><span class="s"><i class="dot" style="background:#ff6b4a"></i>Recording</span><span class="s"><span class="tag">Demo</span></span></div>
+      </div>
+    </div>
+    <div class="hint">Three surfaces (window, sidebar, panel) plus one input fill and one line colour. The accent is for the primary action, selection and the step numerals only; status is always a dot and a word. Demo mode is an outlined chip, not a fifth colour.</div>
+  </section>
+
+  <section class="sec"><h2>Type</h2>
+    <div class="type">
+      <span class="lab">wordmark · Archivo 800</span><span style="font:800 44px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;font-size:30px">See Subtitles</span>
+      <span class="lab">view title</span><span class="top" style="padding:0;min-height:0"><h1 style="font-size:20px">Files</h1></span>
+      <span class="lab">section</span><span class="panel" style="padding:0;border:0;background:transparent"><h3 style="margin:0"><span class="n">Step 2</span><span>Subtitle look</span></h3></span>
+      <span class="lab">body · 13</span><span>Recording never depends on the network. Finished recordings appear under Files.</span>
+      <span class="lab">secondary · 12.5</span><span style="color:var(--fg-2);font-size:12.5px">recording · 粵語 → 中文 · 47:12 · 512 cues</span>
+      <span class="lab">hint · 12</span><span class="hint">Phones and venue screens open the link and follow along. Audio stays on this Mac.</span>
+      <span class="lab">mono · times</span><span style="font-family:var(--mono);font-size:12px;color:var(--fg-2)">00:47:12.480 → 00:47:15.120</span>
+      <span class="lab">chinese · Noto Sans TC</span><span class="cjk" style="font-size:16px">字幕讓每個人都能參與 · 粵語、普通話、英文</span>
+    </div>
+  </section>
+
+  <section class="sec"><h2>Components</h2>
+    <div class="comps">
+      <div class="comp"><span class="lab">buttons · one filled action per view</span><div class="rowx"><span class="btn rec"><i class="dot"></i>Start recording</span><span class="btn primary">+ Add file…</span><span class="btn">Share link</span><span class="btn ghost">Overlay window</span><span class="btn small">Copy</span></div></div>
+      <div class="comp"><span class="lab">status · dot + word, never colour alone</span><div class="rowx"><span class="tag ok"><i class="dot" style="background:var(--ok)"></i>Connected</span><span class="tag warn"><i class="dot" style="background:var(--warn)"></i>Reconnecting in 12 s</span><span class="tag bad"><i class="dot" style="background:var(--bad)"></i>Not logged in</span><span class="tag rec"><i class="dot" style="background:var(--rec)"></i>Recording 12:04</span><span class="tag">Demo mode</span></div></div>
+      <div class="comp"><span class="lab">fields</span><div class="rowx"><span class="field sel" style="width:170px">粵語 <span class="sub">Cantonese</span></span><span class="field" style="width:190px">seesubtitles.com/d/K7Q2</span><span class="slider"><i></i><b></b></span><span class="field num">140</span><span class="check on"></span></div></div>
+      <div class="comp"><span class="lab">navigation · rest and active</span><div class="rowx" style="flex-direction:column;align-items:stretch;gap:2px;max-width:200px;background:var(--side);padding:8px;border-radius:8px;border:1px solid var(--line)"><div class="nav active"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg><span>Live</span><span class="k">⌘1</span></div><div class="nav"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v4h4"></path><path d="M9 13h6M9 17h6"></path></svg><span>Files</span><span class="k">⌘2</span></div></div></div>
+      <div class="comp"><span class="lab">file row · the stack: a line and a quieter line</span><div class="filerow"><div><div class="name cjk">2026-09-08 字幕與共融 講座</div><div class="sub">recording · 粵語 → 中文 · cloud subtitles</div></div><span class="meta">47:12</span><span class="tag ok">complete</span></div></div>
+      <div class="comp"><span class="lab">section with fold and hint</span><div class="panel" style="padding:12px 14px"><h3><span class="n">Step 4</span><span>Recording</span></h3><div class="row"><label>Saves to</label><div class="v"><span class="hint">~/Movies/See Subtitles</span></div></div><div class="fold">MP4 and encoder options</div></div></div>
+    </div>
+    <div class="strip" style="--bg:#131518;--side:#0e1013;--surface:#1b1e23;--surface-2:#242830;--line:#2f343c;--line-strong:#454b55;--fg:#eef0f3;--fg-2:#a2aab5;--fg-3:#6e7683;--accent:#ff6b4a;--accent-fg:#1a0a06;--accent-soft:rgba(255,107,74,.16);--accent-text:#ff7a5c;--ok:#3ecf72;--warn:#ffab2e;--bad:#ff5c7a;--rec:#ff6b4a;--stage:#000000;--ui:Archivo, -apple-system, system-ui, "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:Archivo, "Noto Sans TC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;;background:var(--bg);color:var(--fg);margin-top:6px"><div class="nav active" style="width:150px"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v4h4"></path><path d="M9 13h6M9 17h6"></path></svg><span>Files</span><span class="k">⌘2</span></div><span class="btn rec"><i class="dot"></i>Start recording</span><span class="btn primary">+ Add file…</span><span class="btn">Share link</span><span class="field sel" style="flex:none;width:170px">Landscape bar</span><span class="tag ok"><i class="dot" style="background:var(--ok)"></i>Connected</span><span class="hint" style="margin-left:auto">the same components in the other appearance</span></div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>

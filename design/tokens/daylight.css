@@ -1,0 +1,75 @@
+/* See Subtitles · direction B · Daylight
+   The page. Warm paper and ink, serif titles, no brand colour at all: colour is reserved for status.
+   Designed light-first; the other appearance follows the system. Fonts: https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+TC:wght@400;500;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Noto+Serif+TC:wght@500;700&display=swap */
+:root {
+  --bg: #f4f1ea;
+  --side: #ece8de;
+  --surface: #fbf9f4;
+  --surface-2: #f1ede4;
+  --line: #dcd6c8;
+  --line-strong: #b9b2a3;
+  --fg: #1a1815;
+  --fg-2: #5f5a50;
+  --fg-3: #8d8779;
+  --accent: #1a1815;
+  --accent-fg: #fbf9f4;
+  --accent-soft: rgba(26,24,21,.08);
+  --accent-text: #1a1815;
+  --ok: #2f7d3a;
+  --warn: #b26200;
+  --bad: #b3261e;
+  --rec: #d3232a;
+  --stage: #000000;
+  --ui: "IBM Plex Sans", -apple-system, system-ui, "IBM Plex Sans TC", "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;
+  --cjk: "IBM Plex Sans TC", "Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;
+  --display: Newsreader, "Noto Serif TC", serif;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --r-sm: 4px; --r-md: 6px; --r-lg: 10px; --r-xl: 14px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px;
+  --control-sm: 24px; --control: 28px; --control-lg: 32px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-appearance="light"]) {
+  --bg: #1b1a17;
+  --side: #151412;
+  --surface: #23221e;
+  --surface-2: #2c2a26;
+  --line: #3a3731;
+  --line-strong: #57534a;
+  --fg: #ece7dc;
+  --fg-2: #a49d90;
+  --fg-3: #756f64;
+  --accent: #ece7dc;
+  --accent-fg: #1b1a17;
+  --accent-soft: rgba(236,231,220,.1);
+  --accent-text: #ece7dc;
+  --ok: #4cbf6a;
+  --warn: #ffa03a;
+  --bad: #ff6b6b;
+  --rec: #ff5252;
+  --stage: #000000;
+    color-scheme: dark;
+  }
+}
+:root[data-appearance="dark"] {
+  --bg: #1b1a17;
+  --side: #151412;
+  --surface: #23221e;
+  --surface-2: #2c2a26;
+  --line: #3a3731;
+  --line-strong: #57534a;
+  --fg: #ece7dc;
+  --fg-2: #a49d90;
+  --fg-3: #756f64;
+  --accent: #ece7dc;
+  --accent-fg: #1b1a17;
+  --accent-soft: rgba(236,231,220,.1);
+  --accent-text: #ece7dc;
+  --ok: #4cbf6a;
+  --warn: #ffa03a;
+  --bad: #ff6b6b;
+  --rec: #ff5252;
+  --stage: #000000;
+  color-scheme: dark;
+}

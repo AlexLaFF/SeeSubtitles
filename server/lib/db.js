@@ -54,10 +54,33 @@ CREATE TABLE IF NOT EXISTS invites (
   used_by INTEGER REFERENCES users(id),
   used_at INTEGER
 );
+CREATE TABLE IF NOT EXISTS resets (          -- password reset links handed out by an administrator
+  token TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  used_at INTEGER
+);
+CREATE TABLE IF NOT EXISTS requests (        -- "request an account" from the website
+  id INTEGER PRIMARY KEY,
+  name TEXT,
+  email TEXT NOT NULL,
+  org TEXT,
+  note TEXT,
+  created_at INTEGER NOT NULL,
+  handled_at INTEGER,
+  handled_by INTEGER REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS glossary (        -- per-user hotword list shared between the app and the web
+  user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  items TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 `;
 // Columns added after the first release (CREATE TABLE IF NOT EXISTS does not alter existing tables).
 const MIGRATIONS = [
   ['users', 'role', "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'"], // user | admin
+  ['live_sessions', 'peak_viewers', 'ALTER TABLE live_sessions ADD COLUMN peak_viewers INTEGER NOT NULL DEFAULT 0'],
+  ['live_sessions', 'total_viewers', 'ALTER TABLE live_sessions ADD COLUMN total_viewers INTEGER NOT NULL DEFAULT 0'],
 ];
 
 function openDb(dataDir) {

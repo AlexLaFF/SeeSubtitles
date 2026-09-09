@@ -207,7 +207,7 @@
       const o = Controls.overlay;
       if (!o || !o.present || !(o.displays || []).length) {
         box.appendChild(el('div', { class: 'muted' }, o && o.present ? t('ctl.overlayNoDisplays') : t('ctl.overlayClosed')));
-        const b = el('button', { class: 'primary' }, t('ctl.openOverlay'));
+        const b = el('button', { class: 'small' }, t('ctl.openOverlay'));
         b.addEventListener('click', () => Sub.post('/api/overlay/open').then((r) => { if (r && r.error) alert(r.error); }));
         box.appendChild(b);
         continue;
@@ -222,7 +222,7 @@
         ? t('ctl.filling', { label: filled.label })
         : on ? t('ctl.onNotFilling', { label: on.label, w: b.width, h: b.height })
           : t('ctl.fillPrompt')));
-      const closeBtn = el('button', { class: 'danger' }, t('ctl.closeOverlay'));
+      const closeBtn = el('button', { class: 'small' }, t('ctl.closeOverlay'));
       closeBtn.addEventListener('click', () => Sub.post('/api/overlay/close'));
       box.appendChild(closeBtn);
       for (const d of o.displays || []) {

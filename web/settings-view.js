@@ -9,15 +9,15 @@
 
   const SECTIONS = ['general', 'account', 'tencent', 'summaries', 'recording', 'advanced', 'about'];
   const row = (label, ...content) => { const r = el('div', { class: 'row wide' }); r.appendChild(el('label', {}, label)); const w = el('div', { style: 'display:flex;gap:6px;align-items:center;min-width:0' }); for (const c of content) w.appendChild(typeof c === 'string' ? el('span', {}, c) : c); r.appendChild(w); return r; };
-  const hint = (text) => el('div', { class: 'hint', style: 'margin-left:138px' }, text);
+  const hint = (text) => el('div', { class: 'hint', style: 'margin-left:160px' }, text);
   const input = (attrs) => el('input', { type: 'text', ...attrs });
   const select = (options, value) => { const s = el('select'); for (const [v, l] of options) s.appendChild(el('option', { value: v }, l)); if (value != null) s.value = value; return s; };
 
   view.render = async function (root) {
     Controls.reset();
     mounted = true;
-    root.innerHTML = `<div class="top"><h1>${t('settings.title')}</h1><span class="muted">${t('settings.menuHint')}</span></div>
-      <div class="body"><div class="snav" id="snav"></div><div class="col scroll" id="sbody" style="flex:1"></div></div>`;
+    root.innerHTML = `<div class="top"><h1>${t('settings.title')}</h1><div class="chips"><span class="chip">${t('settings.menuHint')}</span></div></div>
+      <div class="body set"><div class="snav" id="snav"></div><div class="col scroll" id="sbody" style="flex:1"></div></div>`;
     for (const id of SECTIONS) { const n = el('div', { class: 'nav', 'data-s': id }, t(`settings.sec.${id}`)); n.addEventListener('click', () => { const x = $(`sec-${id}`); if (x) x.scrollIntoView({ behavior: 'smooth', block: 'start' }); }); $('snav').appendChild(n); }
     const d = App.desktop();
     const body = $('sbody');
@@ -43,7 +43,7 @@
     const toggle = el('a', { href: '#' }, t('settings.toggleSignup'));
     const rowPass = row(t('settings.password'), pass, btnLogin); const rowInvite = row(t('settings.invite'), invite, btnSignup); rowInvite.hidden = true;
     acc.append(row(t('settings.email'), email), rowPass, rowInvite);
-    const h = el('div', { class: 'hint', style: 'margin-left:138px' }); h.append(toggle, t('settings.loginHint')); acc.appendChild(h);
+    const h = el('div', { class: 'hint', style: 'margin-left:160px' }); h.append(toggle, t('settings.loginHint')); acc.appendChild(h);
     acc.appendChild(row(t('settings.status'), status, btnLogout));
     let creating = false;
     toggle.addEventListener('click', (e) => { e.preventDefault(); creating = !creating; rowInvite.hidden = !creating; btnLogin.hidden = creating; toggle.textContent = creating ? t('settings.toggleLogin') : t('settings.toggleSignup'); pass.autocomplete = creating ? 'new-password' : 'current-password'; });
@@ -124,8 +124,8 @@
     ab.append(row(t('settings.version'), ver, btnUpd), hint(t('settings.aboutHint')));
 
     // ---- Save bar
-    const bar = el('div', { class: 'ui', style: 'display:flex;gap:10px;align-items:center;justify-content:flex-end' });
-    const saved = el('span', { class: 'muted' });
+    const bar = el('div', { class: 'savebar' });
+    const saved = el('span', { class: 'hint', style: 'margin:0' });
     const btnSave = el('button', { class: 'primary' }, t('settings.save'));
     btnSave.addEventListener('click', async () => {
       btnSave.disabled = true; saved.textContent = t('settings.saving');

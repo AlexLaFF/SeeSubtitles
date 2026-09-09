@@ -1,7 +1,7 @@
 'use strict';
 // Subtitles desktop app (macOS). Owns the local pipeline server, the Control / Display / Overlay windows,
 // the Settings window (Tencent keys in the Keychain via safeStorage) and the optional cloud mirror.
-const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell, Tray, nativeImage, clipboard } = require('electron');
+const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell, Tray, nativeImage, nativeTheme, clipboard } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -49,6 +49,8 @@ const DEFAULT_CONFIG = {
   demo: false, audioFile: '', edge: 'auto', bitrate: '128k', startPaused: true,
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
   cloud: { url: DEFAULT_CLOUD_URL, email: '', token: '', publish: false },
+  glossary: [],        // [{term, weight, note}] → the pipeline's hotwords; synced with the account (Live › Glossary)
+  firstRunDone: null,  // null = never decided (older configs): settled at start-up from what the config already holds
 };
 function loadConfig() {
   try {
@@ -232,6 +234,11 @@ async function cloudAction(body) {
       else await cloud.stopSession();
       return { ok: true, cloud: cloud.status() };
     }
+    case 'glossary': {
+      // { items } stores the list on the account; without items it fetches the account's list
+      if (Array.isArray(body.items)) return { ok: true, ...(await cloud._fetch('/api/glossary', { items: body.items }, { method: 'PUT' })) };
+      return { ok: true, ...(await cloud._fetch('/api/glossary', null, { method: 'GET' })) };
+    }
     default:
       throw new Error('unknown cloud action');
   }
@@ -252,7 +259,7 @@ function focusOr(name, create) {
 
 function openControl() {
   return focusOr('control', () => {
-    const w = new BrowserWindow({ width: 1320, height: 860, minWidth: 980, minHeight: 600, title: 'See Subtitles', titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 }, backgroundColor: '#111111', webPreferences: SHELL_PREFS });
+    const w = new BrowserWindow({ width: 1320, height: 860, minWidth: 980, minHeight: 600, title: 'See Subtitles', titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 }, backgroundColor: nativeTheme.shouldUseDarkColors ? '#191816' : '#f5f2eb', webPreferences: SHELL_PREFS }); // Marquee window colours (web/tokens.css)
     w.loadURL(core.pageUrl('/control'));
     w.on('enter-full-screen', reportDisplay); w.on('leave-full-screen', reportDisplay);
     return w;
@@ -357,7 +364,9 @@ async function toggleRecording() {
 let tray = null;
 function rebuildTray() {
   if (!tray) {
-    tray = new Tray(nativeImage.createEmpty());
+    const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png')); // the stack mark; macOS tints template images itself
+    icon.setTemplateImage(true);
+    tray = new Tray(icon);
     tray.setTitle('字幕');
     tray.setToolTip('See Subtitles');
   }
@@ -481,12 +490,14 @@ ipcMain.handle('updates:status', () => updater.status());
 // ------------------------------------------------------------------ lifecycle
 app.whenReady().then(async () => {
   const cfg = loadConfig();
+  // an install that already has an account or keys never sees the first-run cards
+  if (cfg.firstRunDone == null) { cfg.firstRunDone = !!(cfg.cloud.token || resolveKeys(cfg) || cfg.demo); saveConfig(cfg); }
   if (!cfg.demo && process.platform === 'darwin') {
     try { await systemPreferences.askForMediaAccess('microphone'); } catch { /* prompt not available */ }
   }
   await startCore();
   openControl();
-  if (!cfg.demo && !resolveKeys(cfg)) openSettings();
+  if (!cfg.demo && !resolveKeys(cfg) && cfg.firstRunDone) openSettings();
   // keys from the server: refresh once a day; updates: check shortly after launch and every 6 h
   const keys = resolveKeys(cfg);
   if (cfg.cloud.token && (!keys || !cloudKeys(cfg).tokenhubKey || (keys.source === 'cloud' && Date.now() - (keys.fetchedAt || 0) > 24 * 3600_000))) {
@@ -494,6 +505,7 @@ app.whenReady().then(async () => {
   }
   setTimeout(() => updater.check().catch(() => {}), 15_000);
   setInterval(() => updater.check().catch(() => {}), 6 * 3600_000).unref();
+  if (!app.isPackaged && process.platform === 'darwin' && app.dock) app.dock.setIcon(path.join(__dirname, 'build', 'icon.png')); // packaged builds get it from the icns
   rebuildTray();
   screen.on('display-added', rebuildTray);
   screen.on('display-removed', rebuildTray);

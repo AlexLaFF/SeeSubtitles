@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <style>
+
+*{box-sizing:border-box} body{margin:0}
+.nb{--bg:#f7f6f3;--surface:#ffffff;--surface-2:#efede8;--line:#dedbd3;--line-strong:#c2beb4;--fg:#1a1918;--fg-2:#5d5a54;--fg-3:#8f8b83;--ok:#1f9a4a;--warn:#c76a00;--bad:#c62828;--rec:#d3232a;--ui:-apple-system,system-ui,"Helvetica Neue","PingFang TC","Noto Sans TC",sans-serif;--mono:ui-monospace,"SF Mono",Menlo,monospace;background:var(--bg);color:var(--fg);font:14px/1.5 var(--ui);padding:56px 64px 64px;display:flex;flex-direction:column;gap:36px;-webkit-font-smoothing:antialiased}
+.nb h1{margin:0;font:600 34px/1.15 var(--ui);letter-spacing:-.02em}
+.nb .lead{font-size:17px;color:var(--fg-2);max-width:820px;line-height:1.5}
+.nb h2{margin:0;font:600 12px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--fg-3);padding-bottom:10px;border-bottom:1px solid var(--line)}
+.nb .sec{display:flex;flex-direction:column;gap:14px}
+.nb p{margin:0}
+.nb ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.nb .hint{color:var(--fg-3);font-size:12.5px}
+.nb .mono{font-family:var(--mono);font-size:12px;color:var(--fg-3)}
+.nb .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+
+.nb{width:1200px;min-height:1200px}
+.dec{display:flex;gap:22px;align-items:center;padding:22px 24px;border-radius:14px;background:#191816;color:#f1ece2;border:1px solid #35322d}
+.dec h2{margin:0 0 4px;font:italic 400 30px/1.1 "Instrument Serif", serif;color:#f1ece2;letter-spacing:0;text-transform:none;border:0;padding:0} .dec p{color:#aca496;font-size:14px;max-width:760px}
+.pages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.pages div{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--surface)} .pages b{display:block;font-weight:600;margin-bottom:4px} .pages span{color:var(--fg-2);font-size:13px;line-height:1.5}
+.inv{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.inv h3{margin:0 0 8px;font:600 14px var(--ui)} .inv ul{gap:5px} .inv li{font-size:13.5px} .inv li em{color:var(--fg-3);font-style:normal;font-size:12px}
+
+  </style>
+</helmet>
+<div class="nb">
+  <div class="sec" style="gap:12px"><h1>See Subtitles · design language</h1><p class="lead">Round two. The direction is chosen; this canvas now holds every screen of the product drawn in it, the website, the flows that were missing, and the brand assets, on four pages.</p></div>
+  <div class="dec"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824" width="72" height="72"><g><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></g></svg><div><h2>Marquee, with the on-air light</h2><p>Warm charcoal, the yellow of a cinema subtitle as the one accent, Instrument Sans with an italic serif wordmark. The mark is the bilingual stack with a red dot in the corner, the app's own "recording" light. Light appearance uses the paper tokens.</p></div></div>
+  <div class="sec"><h2>Pages of this canvas</h2><div class="pages"><div><b>App</b><span>Every desktop screen: Live, Files, a recording, Settings, the Display window with its panel, the Overlay on slides with the menu-bar item, the QR sheet; then first run, glossary, states and the printable poster.</span></div><div><b>Web</b><span>seesubtitles.com home (desktop and phone), log in, create account, password reset, the hosted overview, job editor, learning summary, account and team, and the attendee page with its controls and ended state.</span></div><div><b>Brand</b><span>The Marquee brand board, the final app icon at every size, the principles every screen follows, and the gap analysis against Wordly, Interprefy, Otter and Ava.</span></div><div><b>Considered</b><span>The app as it is today and the two directions not chosen, Daylight and Signal, kept for reference.</span></div></div></div>
+  <div class="sec"><h2>Screen inventory</h2><div class="inv">
+    <div><h3>Exists today, redrawn</h3><ul><li>Live</li><li>Files list</li><li>Recording: playback, cues, files, summary tab</li><li>Settings <em>· gains a Glossary section</em></li><li>Display window and its control panel</li><li>Overlay window on slides, 字幕 menu-bar item</li><li>QR sheet for the venue screen</li><li>Attendee page on a phone</li><li>Hosted: log in, overview, job editor, learning summary</li></ul></div>
+    <div><h3>New, and where the idea comes from</h3><ul><li>First run: log in, microphone, languages <em>· every mature desktop app</em></li><li>Printable QR poster (A4) <em>· Wordly and Interprefy hand organisers signage</em></li><li>Glossary manager, shared with the team <em>· Wordly boost/block, Interprefy pre-loaded terms, Otter custom vocabulary</em></li><li>"This talk" stats on a recording: phones followed, peak <em>· Wordly session reports</em></li><li>Hosted overview with usage and resource pack <em>· Wordly balance, Otter minute pools</em></li><li>Account, security, team and invite codes <em>· Otter workspaces; today this is a CLI</em></li><li>Attendee controls: translation / original / both, text size, high contrast, keep awake; ended state <em>· Ava, Wordly language picker</em></li><li>Create account, forgot password, check email, new password</li><li>States drawn once: not logged in, refused, reconnecting, paused, demo, empty, update</li><li>Website: home for desktop and phone, request an account</li></ul></div></div></div>
+  <div class="sec"><h2>Applying it</h2><ul><li>Tokens: <code>design/tokens/marquee.css</code> replaces the hard-coded colours in style.css, desktop.css and app.css; the light appearance follows the system.</li><li>Icon: <code>design/icons/app-marquee.svg</code> rasterised to 1024 for electron-builder; <code>tray-stack.svg</code> as the menu-bar template in place of the empty image.</li><li>Screens in the order they are used: Live, Files, recording, Settings; then the hosted pages; then the new flows.</li><li>Not drawn here: menus and dialogs macOS provides, and the print theme of the PDF summary, which keeps white paper and black ink.</li></ul><p class="hint">Sample names, numbers and sentences on the screens are illustrative. The Chinese name is 看字幕.</p></div>
+</div>
+</x-dc>
+</body>
+</html>

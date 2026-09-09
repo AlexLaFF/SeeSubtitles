@@ -21,8 +21,9 @@
     const pct = j.status === 'done' ? 100 : j.progress;
     $('bar').style.width = `${pct}%`;
     const stage = I18n.has(`status.${j.status}`) ? t(`status.${j.status}`) : j.status;
-    $('statusText').textContent = `${stage}${j.status !== 'done' && j.status !== 'failed' ? ` · ${Math.round(pct)}%` : ''}${j.error ? ` — ${j.error}` : ''}${j.duration ? t('web.min', { n: (j.duration / 60).toFixed(1) }) : ''} · ${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}`;
-    $('progressBox').className = `ui ${j.status === 'failed' ? 'bad' : ''}`;
+    const chip = $('statusText'); chip.className = `chip ${j.status === 'done' ? 'ok' : j.status === 'failed' ? 'bad' : 'warn'}`; chip.innerHTML = '';
+    chip.append(el('span', { class: 'dot' }), `${stage.replace(/^\w/, (c) => c.toUpperCase())}${j.status !== 'done' && j.status !== 'failed' ? ` · ${Math.round(pct)}%` : ''}${j.error ? ` — ${j.error}` : ''}${j.cues ? ` · ${t('web.cuesCount', { n: j.cues })}` : ''}${j.duration ? t('web.min', { n: (j.duration / 60).toFixed(1) }) : ''} · ${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}`);
+    $('progressBox').hidden = j.status === 'done' || j.status === 'failed';
     if (j.status === 'done') {
       $('work').hidden = false;
       if (!loadedCues) { loadedCues = true; loadCues(); }

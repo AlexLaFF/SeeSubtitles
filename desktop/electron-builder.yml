@@ -10,6 +10,7 @@ files:
   - local-server.js
   - cloud.js
   - lib/**
+  - assets/**
   - package.json
 extraResources:
   - from: ../web
@@ -24,6 +25,7 @@ publish:
   provider: generic
   url: https://seesubtitles.com/updates
 mac:
+  icon: build/icon.png
   category: public.app-category.productivity
   target:
     - target: dmg

@@ -58,7 +58,7 @@
       tr.appendChild(el('td')).appendChild(el('a', { href: `/jobs/${j.id}` }, j.filename));
       tr.appendChild(el('td', {}, `${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}`));
       const st = el('td');
-      st.appendChild(el('span', { class: `pill ${j.status}` }, I18n.has(`status.${j.status}`) ? t(`status.${j.status}`) : j.status));
+      const pill = el('span', { class: `pill ${j.status}` }); pill.append(el('span', { class: 'dot' }), I18n.has(`status.${j.status}`) ? t(`status.${j.status}`) : j.status); st.appendChild(pill);
       if (j.error) st.appendChild(el('div', { class: 'muted' }, j.error));
       tr.appendChild(st);
       const bar = el('div', { class: 'bar' });
@@ -80,14 +80,16 @@
     const list = await api('/api/sessions').catch(() => []);
     const tb = $('sessions').querySelector('tbody');
     tb.innerHTML = '';
-    if (!list.length) tb.appendChild(el('tr')).appendChild(el('td', { colspan: 5, class: 'muted' }, t('web.none')));
+    if (!list.length) tb.appendChild(el('tr')).appendChild(el('td', { colspan: 6, class: 'muted' }, t('web.none')));
     for (const s of list) {
       const tr = el('tr');
       tr.appendChild(el('td', {}, s.name || s.id));
       tr.appendChild(el('td')).appendChild(el('a', { href: `/d/${s.code}`, target: '_blank' }, `/d/${s.code}`));
       tr.appendChild(el('td', {}, s.lines));
-      tr.appendChild(el('td')).appendChild(el('span', { class: `pill ${s.ended_at ? '' : 'live'}` }, s.ended_at ? t('web.ended') : t('web.liveViewers', { n: s.viewers })));
+      tr.appendChild(el('td', {}, s.ended_at ? t('web.peak', { n: s.peak_viewers || 0 }) : t('web.following', { now: s.viewers, peak: s.peak_viewers || 0 })));
+      const lp = el('span', { class: `pill ${s.ended_at ? '' : 'live'}` }); lp.append(el('span', { class: 'dot' }), s.ended_at ? t('web.ended') : t('web.live')); tr.appendChild(el('td')).appendChild(lp);
       const downloads = tr.appendChild(el('td'));
+      if (!s.ended_at) { downloads.appendChild(el('a', { href: `/poster?url=${encodeURIComponent(s.shareUrl)}&name=${encodeURIComponent(s.name || '')}`, target: '_blank' }, t('web.poster'))); downloads.appendChild(document.createElement('br')); }
       downloads.appendChild(el('a', { href: `/api/sessions/${s.id}/transcript` }, t('web.transcript')));
       for (const [which, label] of [['source', t('files.dl.plainYue')], ['target', t('files.dl.plainZh')]]) {
         downloads.appendChild(document.createElement('br'));
@@ -95,6 +97,12 @@
       }
       tb.appendChild(tr);
     }
+  }
+
+  // What the account consumed this month, what is left of the resource pack (if the server knows its size), the balance.
+  async function loadUsage() {
+    const u = await api('/api/usage').catch((e) => ({ errors: { usage: e.message } }));
+    UsageTiles.render($('stats'), $('ovNote'), u);
   }
 
   (async () => {
@@ -109,6 +117,8 @@
     $('targetLang').value = 'zh';
     loadJobs();
     loadSessions();
+    loadUsage();
     setInterval(() => { loadJobs(); loadSessions(); }, 5000);
+    setInterval(loadUsage, 5 * 60_000); // the server caches the Tencent answer for ten minutes
   })();
 })();

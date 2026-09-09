@@ -4,37 +4,43 @@
 <meta charset="utf-8">
 <title data-i18n="brand">See Subtitles</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body class="control app">
-<div class="topbar"><h1 data-i18n="brand">See Subtitles</h1><span class="muted" id="who"></span><span class="spacer"></span><a href="#" data-lang="en">English</a><a href="#" data-lang="zh">中文</a><a href="#" id="logout" data-i18n="web.logout">Log out</a></div>
+<div class="topbar"><a class="brand" href="/"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><h1 data-i18n="brand">See Subtitles</h1></a><a class="on" href="/" data-i18n="web.overview">Overview</a><a href="/account" data-i18n="web.account">Account</a><span class="spacer"></span><span class="muted" id="who"></span><a href="#" data-lang="en" data-i18n="web.langEn">English</a><a href="#" data-lang="zh" data-i18n="web.langZh">中文</a><a href="#" id="logout" data-i18n="web.logout">Log out</a></div>
 <main>
 <div class="alert" id="alert" hidden></div>
-<div class="grid">
+<div class="top"><h1 data-i18n="web.overview">Overview</h1><div class="chips" id="ovNote"></div></div>
+<div class="stats" id="stats" hidden></div>
+<div class="grid2">
   <div class="ui">
     <h2 data-i18n="web.uploadTitle">Upload a video or audio file</h2>
     <div class="drop" id="drop"><span data-i18n="web.dropHint">Drop a file here or click to choose</span><br><span class="muted" data-i18n="web.dropFormats">mp4, mov, mkv, mp3, m4a, wav… up to 5 hours</span></div>
     <input type="file" id="file" hidden accept="video/*,audio/*,.mkv,.mp3,.m4a,.wav,.mp4,.mov,.webm">
     <label><span data-i18n="web.spoken">Spoken language</span> <select id="sourceLang"></select></label>
     <label><span data-i18n="web.translateTo">Translate subtitles to</span> <select id="targetLang"></select></label>
-    <div class="btns"><button class="primary" id="btnUpload" disabled data-i18n="web.uploadBtn">Upload &amp; transcribe</button></div>
-    <div class="muted" id="uploadText"></div>
+    <div class="btns"><button class="primary" id="btnUpload" disabled data-i18n="web.uploadBtn">Upload &amp; transcribe</button><span class="hint" id="uploadText" style="margin:0" data-i18n="web.uploadTime">an hour of speech takes a few minutes</span></div>
     <div class="bar" id="uploadBar" hidden><i></i></div>
   </div>
-  <div class="ui">
-    <h2 data-i18n="web.liveTitle">Live sessions (from the desktop app)</h2>
-    <div class="muted" data-i18n="web.liveHint">Turn on the share link in the See Subtitles app (Live › Where it shows). Open the link on any screen or phone.</div>
-    <table id="sessions"><thead><tr><th data-i18n="web.col.name">Name</th><th data-i18n="web.col.share">Share link</th><th data-i18n="web.col.lines">Lines</th><th data-i18n="web.col.status">Status</th><th></th></tr></thead><tbody></tbody></table>
+  <div class="col">
+    <div class="ui">
+      <h2><span data-i18n="web.liveSessions">Live sessions</span> <span class="hint" data-i18n="web.fromApp">from the desktop app</span></h2>
+      <div class="hint" data-i18n="web.liveHint">Turn on the share link in the See Subtitles app (Live › Where it shows). Open the link on any screen or phone.</div>
+      <table id="sessions"><thead><tr><th data-i18n="web.col.name">Name</th><th data-i18n="web.col.share">Share link</th><th data-i18n="web.col.lines">Lines</th><th data-i18n="web.col.following">Following</th><th data-i18n="web.col.status">Status</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="ui">
+      <h2 data-i18n="web.jobsTitle">Subtitle jobs</h2>
+      <table id="jobs"><thead><tr><th data-i18n="web.col.file">File</th><th data-i18n="web.col.languages">Languages</th><th data-i18n="web.col.status">Status</th><th data-i18n="web.col.progress">Progress</th><th data-i18n="web.col.cues">Cues</th><th data-i18n="web.col.created">Created</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
   </div>
-</div>
-<div class="ui" style="margin-top:14px">
-  <h2 data-i18n="web.jobsTitle">Subtitle jobs</h2>
-  <table id="jobs"><thead><tr><th data-i18n="web.col.file">File</th><th data-i18n="web.col.languages">Languages</th><th data-i18n="web.col.status">Status</th><th data-i18n="web.col.progress">Progress</th><th data-i18n="web.col.cues">Cues</th><th data-i18n="web.col.created">Created</th><th></th></tr></thead><tbody></tbody></table>
 </div>
 </main>
 <script src="/locales.js"></script>
 <script src="/i18n.js"></script>
+<script src="/usage-tiles.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

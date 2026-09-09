@@ -18,7 +18,7 @@ const { Mp4Queue } = require('./lib/mp4');
 const { SummaryQueue } = require('./lib/summary');
 
 const MIME = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.woff2': 'font/woff2',
   '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8',
 };
 
@@ -625,7 +625,7 @@ async function createLocalServer(opts) {
     return fs.createReadStream(file).pipe(res);
   }
 
-  const PAGES = { '/': 'index.html', '/control': 'desktop.html', '/files': 'desktop.html', '/settings': 'desktop.html', '/summary': 'summary.html' };
+  const PAGES = { '/': 'index.html', '/control': 'desktop.html', '/files': 'desktop.html', '/settings': 'desktop.html', '/summary': 'summary.html', '/poster': 'poster.html' };
   function authorised(req, url) {
     if (!opts.token) return true;
     if (url.searchParams.get('token') === opts.token) return true;

@@ -1,0 +1,186 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap">
+  <style>
+.win{--bg:#f1f2f4;--side:#e8eaed;--surface:#ffffff;--surface-2:#f4f5f7;--line:#d8dbe0;--line-strong:#b8bdc6;--fg:#15181d;--fg-2:#596170;--fg-3:#8b93a1;--accent:#ff5a36;--accent-fg:#ffffff;--accent-soft:rgba(255,90,54,.12);--accent-text:#d9401f;--ok:#159a48;--warn:#d98a00;--bad:#b5122e;--rec:#ff5a36;--stage:#000000;--ui:Archivo, -apple-system, system-ui, "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:Archivo, "Noto Sans TC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;}
+*{box-sizing:border-box}
+body{margin:0}
+.win{position:relative;width:1440px;height:900px;display:flex;background:var(--bg);color:var(--fg);font:13px/1.45 var(--ui);overflow:hidden;-webkit-font-smoothing:antialiased}
+.tl{position:absolute;left:14px;top:14px;display:flex;gap:8px;z-index:2}
+.tl i{width:12px;height:12px;border-radius:50%;display:block}
+.side{width:200px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px;padding:46px 10px 10px}
+.brand{display:flex;align-items:center;gap:9px;padding:0 8px 16px}
+.brand svg{width:22px;height:22px;flex:none;border-radius:5px;box-shadow:0 0 0 1px var(--line)}
+.brand .w{font-weight:600;font-size:14px;letter-spacing:-.01em;color:var(--fg)}
+.nav{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;color:var(--fg-2);font-size:13.5px;font-weight:500}
+.nav svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.nav .k{margin-left:auto;font-size:11px;color:var(--fg-3)}
+.nav.active{background:var(--accent-soft);color:var(--accent-text)}
+.grow{flex:1}
+.account{border-top:1px solid var(--line);padding:10px 8px 2px;font-size:11.5px;color:var(--fg-3);display:flex;flex-direction:column;gap:2px}
+.account b{color:var(--fg-2);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{display:flex;align-items:center;gap:16px;padding:14px 24px 6px;min-height:52px}
+.top h1{margin:0;font:600 20px/1.2 var(--ui);letter-spacing:-.01em}
+.status{display:flex;align-items:center;gap:14px;color:var(--fg-2);font-size:12.5px}
+.status .s{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.meter{width:72px;height:6px;border-radius:3px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+.meter i{display:block;height:100%;width:62%;background:var(--ok)}
+.actions{margin-left:auto;display:flex;gap:8px}
+.toolbar{display:flex;gap:8px;padding:2px 24px 12px;align-items:center}
+.btn{height:28px;padding:0 12px;border-radius:6px;border:1px solid var(--line-strong);background:var(--surface);color:var(--fg);font:500 12.5px/1 var(--ui);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn.ghost{background:transparent}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-weight:600}
+.btn.rec{background:var(--rec);color:#fff;border-color:transparent;font-weight:600}
+.btn.rec .dot{background:#fff}
+.btn.small{height:24px;padding:0 9px;font-size:12px}
+.body{display:flex;gap:16px;padding:0 24px 12px;flex:1;min-height:0}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0}
+.col.l{width:600px;flex:none;overflow:hidden}
+.col.r{flex:1}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px;flex:none}
+.panel h3{display:flex;align-items:center;gap:10px;margin:0 0 8px;font:600 14px/1.3 var(--ui);color:var(--fg)}
+.n{width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-fg);font:700 11px/20px var(--ui);text-align:center;flex:none}
+.row{display:grid;grid-template-columns:128px 1fr;gap:8px 10px;align-items:center;margin:4px 0}
+.row label{color:var(--fg-2);font-size:12.5px}
+.row .v{display:flex;align-items:center;gap:8px;min-width:0}
+.field{height:28px;border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:0 10px;display:flex;align-items:center;gap:8px;color:var(--fg);font-size:13px;flex:1;min-width:0;white-space:nowrap}
+.field .sub{color:var(--fg-3);font-size:12px}
+.field.sel::after{content:"";width:6px;height:6px;border-right:1.5px solid var(--fg-3);border-bottom:1.5px solid var(--fg-3);transform:rotate(45deg);margin-left:auto;margin-top:-3px;flex:none}
+.slider{flex:1;height:4px;border-radius:2px;background:var(--line-strong);position:relative}
+.slider i{position:absolute;left:0;top:0;height:100%;width:58%;background:var(--accent);border-radius:2px}
+.slider b{position:absolute;left:58%;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:1px solid var(--line-strong);transform:translate(-50%,-50%);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+.num{width:64px;flex:none}
+.unit{color:var(--fg-3);font-size:12px}
+.check{width:15px;height:15px;border-radius:4px;border:1px solid var(--line-strong);background:var(--surface-2);flex:none}
+.check.on{background:var(--accent);border-color:transparent;position:relative}
+.check.on::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border-right:2px solid var(--accent-fg);border-bottom:2px solid var(--accent-fg);transform:rotate(45deg)}
+.fold{display:flex;align-items:center;gap:7px;color:var(--fg-2);font-size:12px;margin-top:6px}
+.fold::before{content:"";width:6px;height:6px;border-right:1.5px solid var(--fg-3);border-bottom:1.5px solid var(--fg-3);transform:rotate(-45deg);flex:none}
+.hint{color:var(--fg-3);font-size:12px;line-height:1.4}
+.hint.ind{margin-left:138px}
+.tag{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px;border-radius:10px;font-size:11.5px;font-weight:500;background:var(--surface-2);color:var(--fg-2);border:1px solid var(--line);white-space:nowrap}
+.tag.ok{color:var(--ok)} .tag.warn{color:var(--warn)} .tag.rec{color:var(--rec)} .tag.bad{color:var(--bad)}
+.qr{width:66px;height:66px;background:#fff;border-radius:6px;padding:4px;flex:none}
+.qr svg{width:58px;height:58px;display:block}
+.stagebox{background:var(--stage);border-radius:10px;aspect-ratio:16/9;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:14px 26px;gap:8px;overflow:hidden;font-family:var(--cjk);font-weight:700;color:#fff;text-align:center}
+.stagebox .l{font-size:27px;line-height:1.25} .stagebox .l.old{opacity:.5} .stagebox .l .s{display:block;font-size:13px;font-weight:500;opacity:.7;margin-top:2px}
+.transcript{flex:1;display:flex;flex-direction:column;min-height:0}
+.transcript .list{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.p{display:grid;grid-template-columns:58px 1fr;gap:3px 12px;padding:9px 0;border-bottom:1px solid var(--line);font-family:var(--cjk)}
+.p .t{color:var(--fg-3);font-size:11.5px;font-family:var(--mono);font-variant-numeric:tabular-nums;padding-top:3px}
+.p .zh{font-size:14.5px;color:var(--fg);line-height:1.4} .p .yue{font-size:12.5px;color:var(--fg-3);grid-column:2}
+.p.partial{opacity:.55}
+.log{display:flex;align-items:center;gap:8px;color:var(--fg-3);font-size:12px}
+.foot{display:flex;gap:18px;padding:7px 24px;border-top:1px solid var(--line);color:var(--fg-3);font-size:11.5px;align-items:center}
+kbd{font-family:var(--ui);font-size:11px;border:1px solid var(--line-strong);border-radius:4px;padding:0 5px;color:var(--fg-2);margin-right:3px}
+.sp{flex:1}
+
+.brand .w{font-weight:800;font-size:12.5px;letter-spacing:.1em;text-transform:uppercase}
+.top h1{font:800 22px/1.1 var(--ui);letter-spacing:-.01em;text-transform:uppercase}
+.panel{border-radius:8px}
+.panel h3{flex-direction:column;align-items:flex-start;gap:3px;margin-bottom:12px}
+.n{width:auto;height:auto;border-radius:0;background:transparent;color:var(--accent-text);font:700 10.5px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase}
+.btn{border-radius:5px}
+.tag{border-radius:4px;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:700}
+.status .s{font-weight:500}
+.nav{font-weight:600}
+
+  </style>
+</helmet>
+<div class="win">
+<div class="tl"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+<nav class="side">
+  <div class="brand"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824"><g><rect width="824" height="824" rx="185" fill="#15181d"/><circle cx="196" cy="196" r="46" fill="#ff5a36"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#ffffff"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#ffffff"/></g></svg><span class="w">See Subtitles</span></div>
+  <div class="nav active"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg><span>Live</span><span class="k">⌘1</span></div>
+  <div class="nav"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v4h4"></path><path d="M9 13h6M9 17h6"></path></svg><span>Files</span><span class="k">⌘2</span></div>
+  <div class="grow"></div>
+  <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"></path></svg><span>Settings</span><span class="k">⌘,</span></div>
+  <div class="account"><b>alex@seesubtitles.com</b><span>seesubtitles.com · sharing</span></div>
+</nav>
+<main class="main">
+  <div class="top">
+    <h1>Live</h1>
+    <div class="status">
+      <span class="s live"><i class="dot" style="background:var(--ok)"></i>Connected · Guangzhou edge</span>
+      <span class="s"><span class="meter"><i></i></span>Mic −23 dB</span>
+      <span class="s" style="color:var(--rec)"><i class="dot" style="background:var(--rec)"></i>Recording 12:04</span>
+    </div>
+    <div class="actions"><span class="btn ghost"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8"></path></svg>Display window</span><span class="btn ghost"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><rect x="8" y="8" width="13" height="13" rx="2"></rect></svg>Overlay window</span></div>
+  </div>
+  <div class="toolbar">
+    <span class="btn rec"><i class="dot"></i>Stop recording</span>
+    <span class="btn">Stop sharing</span>
+    <span class="btn">Pause subtitles</span>
+    <span class="btn">Clear screen</span>
+  </div>
+  <div class="body">
+    <div class="col l">
+      <section class="panel">
+        <h3><span class="n">Step 1</span><span>Source</span></h3>
+        <div class="row"><label>Microphone</label><div class="v"><span class="field sel">MacBook Pro Microphone</span></div></div>
+        <div class="row"><label>Spoken language</label><div class="v"><span class="field sel">粵語 <span class="sub">Cantonese</span></span></div></div>
+        <div class="row"><label>Subtitles in</label><div class="v"><span class="field sel">中文（简体） <span class="sub">Mandarin</span></span></div></div>
+        <div class="row"><label>Translation model</label><div class="v"><span class="field sel">大模型 <span class="sub">LLM, more fluent</span></span></div></div>
+        <div class="fold">Recognition tuning: hotwords, pause length, forced split, filler words, noise</div>
+        <div class="fold">Rehearse with an audio file instead of the microphone</div>
+        <div class="fold">Connection details</div>
+      </section>
+      <section class="panel">
+        <h3><span class="n">Step 2</span><span>Subtitle look</span></h3>
+        <div class="row"><label>Preset</label><div class="v"><span class="field sel">Landscape bar</span><span class="btn small">Apply</span><span class="btn small">Save current as…</span></div></div>
+        <div class="row"><label>Show</label><div class="v"><span class="field sel">Translation + original</span></div></div>
+        <div class="row"><label>Text size</label><div class="v"><span class="slider"><i></i><b></b></span><span class="field num">140</span><span class="unit">px</span></div></div>
+        <div class="fold">Text, layout and background</div>
+      </section>
+      <section class="panel">
+        <h3><span class="n">Step 3</span><span>Where it shows</span></h3>
+        <div class="row"><label>Display window</label><div class="v"><span class="tag ok">open · full screen</span><span class="btn small">Show</span><span class="btn small">Full screen</span></div></div>
+        <div class="row"><label>Overlay window</label><div class="v"><span class="field sel">Off</span></div></div>
+        <div class="row"><label>Show status</label><div class="v"><span class="check on"></span><span class="hint">a small line on the display when the connection drops</span></div></div>
+        <div class="row" style="align-items:start"><label style="padding-top:5px">Share link</label><div class="v" style="align-items:flex-start;gap:12px">
+          <div class="qr"><svg viewBox="0 0 21 21" shape-rendering="crispEdges"><path fill="#111" d="M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2zM14 0h7v7h-7zM15 1v5h5V1zM16 2h3v3h-3zM0 14h7v7H0zM1 15v5h5v-5zM2 16h3v3H2zM8 0h1v1H8zM10 0h2v2h-2zM8 2h2v1H8zM11 3h1v2h-1zM9 4h1v2H9zM12 5h1v1h-1zM8 7h2v1H8zM11 7h1v1h-1zM13 8h1v1h-1zM0 8h1v1H0zM2 8h2v1H2zM5 8h2v1H5zM9 9h2v1H9zM12 9h2v2h-2zM16 8h1v1h-1zM18 8h2v1h-2zM3 10h1v1H3zM6 10h2v1H6zM15 10h1v1h-1zM17 10h1v2h-1zM19 10h2v1h-2zM1 11h1v1H1zM4 12h2v1H4zM8 11h1v2H8zM10 12h1v1h-1zM13 12h1v2h-1zM15 12h1v1h-1zM19 12h1v1h-1zM9 14h2v1H9zM12 14h1v1h-1zM14 14h2v1h-2zM17 14h2v1h-2zM20 14h1v1h-1zM8 16h1v1H8zM10 16h2v2h-2zM13 16h1v1h-1zM16 16h1v1h-1zM18 16h3v1h-3zM9 18h1v1H9zM12 18h1v1h-1zM14 18h1v2h-1zM17 18h1v1h-1zM19 18h2v1h-2zM8 20h2v1H8zM11 20h2v1h-2zM16 20h1v1h-1zM18 20h1v1h-1z"/></svg></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;min-width:0">
+            <div class="v"><span class="field">seesubtitles.com/d/K7Q2</span><span class="btn small">Copy</span></div>
+            <div class="v"><span class="btn small">Show QR large</span><span class="btn small">Stop sharing</span><span class="hint">1,284 events sent</span></div>
+          </div></div></div>
+      </section>
+      <section class="panel">
+        <h3><span class="n">Step 4</span><span>Recording</span></h3>
+        <div class="row"><label>This talk</label><div class="v"><span class="tag rec"><i class="dot" style="background:var(--rec)"></i>12:04</span><span>18.4 MB · 141 cues</span><span class="btn small">Stop</span></div></div>
+        <div class="row"><label>Saves to</label><div class="v"><span class="hint">~/Movies/See Subtitles · MP4 with burned-in subtitles after recording: on</span></div></div>
+      </section>
+    </div>
+    <div class="col r">
+      <section class="panel" style="padding:10px"><h3 style="margin:2px 0 8px 6px">Now showing</h3>
+        <div class="stagebox">
+          <div class="l old">首先是現場的觀眾，他們可以用手機掃二維碼。</div>
+          <div class="l">今天我們會講一下如何用字幕幫助更多人參與會議。<span class="s">今日我哋會講吓點樣用字幕幫助更多人參與會議。</span></div>
+        </div>
+      </section>
+      <section class="panel transcript"><h3>Transcript</h3>
+        <div class="list">
+          <div class="p"><span class="t">14:01:48</span><span class="zh">大家好，歡迎來到今天的分享。</span><span class="yue">大家好，歡迎嚟到今日嘅分享。</span></div>
+          <div class="p"><span class="t">14:02:11</span><span class="zh">今天我們會講一下如何用字幕幫助更多人參與會議。</span><span class="yue">今日我哋會講吓點樣用字幕幫助更多人參與會議。</span></div>
+          <div class="p"><span class="t">14:02:19</span><span class="zh">首先是現場的觀眾，他們可以用手機掃二維碼。</span><span class="yue">首先係現場嘅觀眾，佢哋可以用手機掃個二維碼。</span></div>
+          <div class="p partial"><span class="t">14:02:27</span><span class="zh">然後我們會演示…</span><span class="yue">然後我哋會示範…</span></div>
+        </div>
+      </section>
+      <section class="panel" style="padding:10px 16px"><div class="log"><span class="fold" style="margin:0">Activity log</span><span class="sp"></span><span>14:02:03 connected to ap-guangzhou</span></div></section>
+    </div>
+  </div>
+  <div class="foot"><span><kbd>⇧⌘R</kbd>record</span><span><kbd>P</kbd>pause</span><span><kbd>X</kbd>clear</span><span><kbd>+</kbd><kbd>−</kbd>text size</span><span class="sp"></span><span>Tencent 實時語音翻譯 · rotation in 24 min</span></div>
+</main>
+</div>
+</x-dc>
+</body>
+</html>

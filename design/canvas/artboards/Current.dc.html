@@ -1,0 +1,114 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+
+*{box-sizing:border-box} body{margin:0}
+.cur{width:1440px;height:900px;display:flex;background:#111;color:#e8e8e8;font:13px/1.45 -apple-system,system-ui,"PingFang SC","Noto Sans TC",sans-serif;overflow:hidden;position:relative;-webkit-font-smoothing:antialiased}
+.cur .tl{position:absolute;left:14px;top:14px;display:flex;gap:8px} .cur .tl i{width:12px;height:12px;border-radius:50%;display:block}
+.cur .side{width:190px;flex:none;background:#161618;border-right:1px solid #2a2a2d;display:flex;flex-direction:column;gap:2px;padding:40px 10px 10px}
+.cur .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;padding:0 10px 14px;color:#fff}
+.cur .nav{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:#c8c8cc;font-size:14px}
+.cur .nav.active{background:#0a84ff26;color:#fff}
+.cur .nav svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cur .grow{flex:1}
+.cur .account{padding:10px;border-top:1px solid #2a2a2d;font-size:12px;color:#9a9a9f;display:flex;flex-direction:column;gap:2px}
+.cur .account b{color:#e8e8e8;font-weight:500}
+.cur .main{flex:1;display:flex;flex-direction:column;min-width:0}
+.cur .top{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid #2a2a2d;min-height:30px}
+.cur .top h1{margin:0;font-size:18px;font-weight:600}
+.cur .chips{display:flex;align-items:center;gap:8px}
+.cur .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:10px;background:#2c2c2e;font-size:12px;white-space:nowrap}
+.cur .chip.ok{background:#1e8e3e} .cur .chip.rec{background:#b3261e}
+.cur .dot{width:8px;height:8px;border-radius:50%;background:#34c759;display:inline-block}
+.cur .chip .bar{display:inline-block;width:70px;height:6px;background:#3a3a3d;border-radius:3px;overflow:hidden}
+.cur .chip .bar i{display:block;height:100%;width:62%;background:linear-gradient(90deg,#1e8e3e,#34c759 55%,#ffd60a 80%,#ff453a)}
+.cur .toolbar{display:flex;gap:8px;padding:12px 20px 0;align-items:center}
+.cur .btn{font:inherit;background:#3a3a3d;color:#fff;border:0;border-radius:6px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.cur .btn.primary{background:#0a84ff} .cur .btn.danger{background:#b3261e} .cur .btn.ghost{background:transparent;border:1px solid #3a3a3d}
+.cur .btn.small{padding:3px 9px;font-size:12px}
+.cur .btn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.cur .muted{color:#9a9a9f}
+.cur kbd{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:#2c2c2e;padding:1px 6px;border-radius:4px}
+.cur .body{display:flex;gap:14px;padding:14px 20px;flex:1;min-height:0;overflow:hidden}
+.cur .col{display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}
+.cur .ui{color:#e8e8e8;background:#1c1c1e;border-radius:12px;padding:12px 14px;flex:none}
+.cur .ui h3{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#9a9a9f;display:flex;align-items:center;gap:8px;font-weight:600}
+.cur .ui h3 .n{width:18px;height:18px;border-radius:50%;background:#2c2c2e;color:#e8e8e8;display:inline-flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:0}
+.cur .row{display:grid;grid-template-columns:130px 1fr;align-items:center;gap:8px;margin:5px 0}
+.cur .row.r4{grid-template-columns:130px 1fr auto auto}
+.cur .row label{color:#c8c8cc}
+.cur .in{font:inherit;color:#eee;background:#2c2c2e;border:1px solid #3a3a3d;border-radius:6px;padding:3px 6px;display:flex;align-items:center;width:100%;height:26px;white-space:nowrap}
+.cur .in.num{width:66px}
+.cur .range{height:4px;background:#3a3a3d;border-radius:2px;position:relative} .cur .range b{position:absolute;left:58%;top:50%;width:14px;height:14px;background:#fff;border-radius:50%;transform:translate(-50%,-50%)}
+.cur .fold{color:#9a9a9f;font-size:12px;display:flex;align-items:center;gap:6px;padding:2px 0;margin:6px 0 2px}
+.cur .fold::before{content:"";width:6px;height:6px;border-right:1.5px solid #9a9a9f;border-bottom:1.5px solid #9a9a9f;transform:rotate(-45deg)}
+.cur .hint{color:#8a8a8f;font-size:11.5px;line-height:1.35;margin:-2px 0 4px}
+.cur .tag{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;background:#2c2c2e;color:#cbd5e1} .cur .tag.done{background:#14532d;color:#bbf7d0}
+.cur .stage{background:#000;border-radius:10px;aspect-ratio:16/9;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:14px 26px;gap:8px;font-family:"PingFang SC","Hiragino Sans GB","Noto Sans TC",sans-serif;font-weight:700;color:#fff;text-align:center;overflow:hidden}
+.cur .stage .l{font-size:27px;line-height:1.25} .cur .stage .l.old{opacity:.55} .cur .stage .l .s{display:block;font-size:13px;font-weight:500;opacity:.72}
+.cur .preview .p{margin:6px 0;padding-bottom:6px;border-bottom:1px solid #2c2c2e;font-size:15px} .cur .preview .s{color:#9a9a9f;font-size:13px} .cur .preview .p.partial{opacity:.7}
+.cur .qr{width:96px;height:96px;background:#fff;border-radius:6px;padding:4px;flex:none}
+.cur .check{width:16px;height:16px;border-radius:3px;background:#0a84ff}
+
+  </style>
+</helmet>
+<div class="cur">
+  <div class="tl"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+  <nav class="side">
+    <div class="brand"><svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:#0a84ff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M7 15h10M7 11h6"></path></svg><span>See Subtitles</span></div>
+    <div class="nav active"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg><span>Live</span></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"></path><path d="M14 3v4h4"></path><path d="M9 13h6M9 17h6"></path></svg><span>Files</span></div>
+    <div class="grow"></div>
+    <div class="nav"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"></path></svg><span>Settings</span></div>
+    <div class="account"><b>alex@seesubtitles.com</b><span>seesubtitles.com · sharing</span></div>
+  </nav>
+  <main class="main">
+    <div class="top"><h1>Live</h1><div class="chips"><span class="chip ok"><i class="dot"></i>Tencent connected · ap-guangzhou edge</span><span class="chip">Mic <span class="bar"><i></i></span> −23 dB</span><span class="chip rec"><i class="dot" style="background:#fff"></i>Recording 12:04</span></div><div class="grow"></div><span class="btn ghost"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8"></path></svg>Display window</span><span class="btn ghost"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"></rect><rect x="8" y="8" width="13" height="13" rx="2"></rect></svg>Overlay window</span></div>
+    <div class="toolbar"><span class="btn primary">■ Stop recording</span><span class="btn">Stop sharing</span><span class="btn">Pause subtitles</span><span class="btn">Clear screen</span><span class="muted">Shortcuts: <kbd>⇧⌘R</kbd> record · <kbd>P</kbd> pause · <kbd>X</kbd> clear · <kbd>+</kbd>/<kbd>−</kbd> text size</span></div>
+    <div class="body">
+      <div class="col" style="width:600px;flex:none">
+        <div class="ui"><h3><span class="n">1</span>Source</h3>
+          <div class="row"><label>Audio device</label><span class="in">MacBook Pro Microphone</span></div>
+          <div class="row"><label>Spoken language</label><span class="in">粤语 (Cantonese)</span></div>
+          <div class="row"><label>Subtitles in</label><span class="in">中文 (简体)</span></div>
+          <div class="row"><label>Translation model</label><span class="in">大模型 (LLM)</span></div>
+          <div class="fold">Recognition tuning: hotwords, pause length, forced split, filler words, noise</div>
+          <div class="fold">Rehearse with an audio file instead of the microphone</div>
+          <div class="fold">Connection details</div></div>
+        <div class="ui"><h3><span class="n">2</span>Subtitle look</h3>
+          <div class="row"><label>Presets</label><div><span class="in">Landscape bar</span><div style="display:flex;gap:6px;margin-top:6px"><span class="btn primary small">Apply</span><span class="btn small">Save current as…</span><span class="btn small">Update</span><span class="btn danger small">Delete</span></div></div></div>
+          <div class="row"><label>Show</label><span class="in">translation + original</span></div>
+          <div class="row r4"><label>Text size</label><span class="range"><b></b></span><span class="in num">140</span><span class="muted">px</span></div>
+          <div class="fold">Text, layout and background</div></div>
+        <div class="ui"><h3><span class="n">3</span>Where it shows</h3>
+          <div class="row"><label>Display window</label><div style="display:flex;gap:6px;align-items:center"><span class="tag done">open · full screen</span><span class="btn small">Show</span><span class="btn small">Full screen</span></div></div>
+          <div class="row"><label>Overlay window</label><span class="in">none</span></div>
+          <div class="row"><label>Show status</label><span class="check"></span></div>
+          <div class="row" style="align-items:start"><label>Share link</label><div style="display:flex;gap:10px"><div class="qr"><svg viewBox="0 0 21 21" width="88" height="88" shape-rendering="crispEdges"><path fill="#111" d="M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2zM14 0h7v7h-7zM15 1v5h5V1zM16 2h3v3h-3zM0 14h7v7H0zM1 15v5h5v-5zM2 16h3v3H2zM8 0h1v1H8zM10 0h2v2h-2zM8 2h2v1H8zM11 3h1v2h-1zM9 4h1v2H9zM12 5h1v1h-1zM8 7h2v1H8zM11 7h1v1h-1zM13 8h1v1h-1zM0 8h1v1H0zM2 8h2v1H2zM5 8h2v1H5zM9 9h2v1H9zM12 9h2v2h-2zM16 8h1v1h-1zM18 8h2v1h-2zM3 10h1v1H3zM6 10h2v1H6zM15 10h1v1h-1zM17 10h1v2h-1zM19 10h2v1h-2zM1 11h1v1H1zM4 12h2v1H4zM8 11h1v2H8zM10 12h1v1h-1zM13 12h1v2h-1zM15 12h1v1h-1zM19 12h1v1h-1zM9 14h2v1H9zM12 14h1v1h-1zM14 14h2v1h-2zM17 14h2v1h-2zM20 14h1v1h-1zM8 16h1v1H8zM10 16h2v2h-2zM13 16h1v1h-1zM16 16h1v1h-1zM18 16h3v1h-3zM9 18h1v1H9zM12 18h1v1h-1zM14 18h1v2h-1zM17 18h1v1h-1zM19 18h2v1h-2zM8 20h2v1H8zM11 20h2v1h-2zM16 20h1v1h-1zM18 20h1v1h-1z"/></svg></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div style="display:flex;gap:6px"><span class="in">https://seesubtitles.com/d/K7Q2</span><span class="btn small">Copy</span><span class="btn small">Show QR large</span><span class="btn small">Stop</span></div><div class="hint">1284 events sent · attendees scan the code or type the link</div></div></div></div>
+          <div class="hint" style="margin-left:138px">Phones and venue screens open the link and follow along. Audio stays on this Mac.</div></div>
+        <div class="ui"><h3><span class="n">4</span>Recording</h3>
+          <div class="row"><label>This talk</label><div style="display:flex;gap:10px;align-items:center"><span class="btn small">■ Stop</span><span>12:04 · 18.4 MB · 141 cues</span></div></div>
+          <div class="row"><label>Saves to</label><span class="muted">/Users/alex/Movies/See Subtitles · MP4 after recording: on</span></div></div>
+      </div>
+      <div class="col" style="flex:1">
+        <div class="ui" style="padding:10px"><h3>Now showing</h3><div class="stage"><div class="l old">首先是現場的觀眾，他們可以用手機掃二維碼。</div><div class="l">今天我們會講一下如何用字幕幫助更多人參與會議。<span class="s">今日我哋會講吓點樣用字幕幫助更多人參與會議。</span></div></div></div>
+        <div class="ui preview" style="flex:1;overflow:hidden"><h3>Transcript</h3><div class="hint">Saved with the recording; download the subtitle files under Files.</div>
+          <div class="p"><div class="s">14:01:48</div><div>大家好，歡迎來到今天的分享。</div><div class="s">大家好，歡迎嚟到今日嘅分享。</div></div>
+          <div class="p"><div class="s">14:02:11</div><div>今天我們會講一下如何用字幕幫助更多人參與會議。</div><div class="s">今日我哋會講吓點樣用字幕幫助更多人參與會議。</div></div>
+          <div class="p"><div class="s">14:02:19</div><div>首先是現場的觀眾，他們可以用手機掃二維碼。</div><div class="s">首先係現場嘅觀眾，佢哋可以用手機掃個二維碼。</div></div>
+          <div class="p partial"><div class="s">14:02:27</div><div>然後我們會演示…</div><div class="s">然後我哋會示範…</div></div></div>
+        <div class="ui" style="padding:8px 14px"><div class="fold" style="margin:0">Activity log <span class="muted" style="margin-left:6px">last: 14:02:03 connected to ap-guangzhou</span></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+</body>
+</html>

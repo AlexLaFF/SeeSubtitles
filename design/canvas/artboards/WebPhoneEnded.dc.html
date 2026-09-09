@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+  <style>
+.ph{--bg:#191816;--side:#131210;--surface:#21201d;--surface-2:#2b2926;--line:#35322d;--line-strong:#4a463f;--fg:#f1ece2;--fg-2:#aca496;--fg-3:#7d766c;--accent:#f5c518;--accent-fg:#1a1500;--accent-soft:rgba(245,197,24,.14);--accent-text:#f5c518;--ok:#3ec26a;--warn:#ff8f1f;--bad:#ff5a5a;--rec:#ff453a;--stage:#000000;--ui:"Instrument Sans", -apple-system, system-ui, "Noto Sans TC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"Noto Sans TC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:"Instrument Serif", "Noto Sans TC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;}
+*{box-sizing:border-box} body{margin:0}
+.ph{width:390px;height:844px;background:#000;color:#fff;display:flex;flex-direction:column;font-family:var(--cjk);overflow:hidden;position:relative;-webkit-font-smoothing:antialiased}
+.hdr{display:flex;align-items:center;gap:8px;padding:58px 18px 10px;font:500 12.5px var(--ui);color:rgba(255,255,255,.72)} .hdr svg{width:18px;height:18px;flex:none} .hdr .w{color:#fff;font:italic 400 17px var(--display)} .hdr .live{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--accent)} .hdr .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.lines{flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:0 20px 28px;gap:16px;text-align:center;font-weight:700} .l{font-size:30px;line-height:1.3} .l.old{opacity:.5} .l.older{opacity:.28} .l .s{display:block;font-size:15px;font-weight:500;opacity:.72;margin-top:4px}
+.bar{display:flex;justify-content:space-between;padding:8px 20px 34px;font:500 12px var(--ui);color:rgba(255,255,255,.5)}
+.sheetbg{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);color:var(--fg);border-radius:18px 18px 0 0;padding:14px 20px 40px;font:13px/1.45 var(--ui);display:flex;flex-direction:column;gap:16px;border-top:1px solid var(--line-strong)}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--line-strong);align-self:center}
+.sheet h2{margin:0;font:600 16px/1.3 var(--cjk)} .sheet .m{color:var(--fg-3);font-size:12px}
+.seg{display:flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden} .seg span{flex:1;text-align:center;padding:10px 0;font-weight:500;color:var(--fg-2)} .seg span.on{background:var(--accent);color:var(--accent-fg)}
+.opt{display:flex;align-items:center;gap:12px;min-height:44px} .opt b{font-weight:500} .opt .m{margin-left:auto}
+.slider{flex:1;height:4px;border-radius:2px;background:var(--line-strong);position:relative} .slider i{position:absolute;left:0;top:0;height:100%;width:55%;background:var(--accent);border-radius:2px} .slider b{position:absolute;left:55%;top:50%;width:22px;height:22px;border-radius:50%;background:#fff;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.tog{width:44px;height:26px;border-radius:13px;background:var(--line-strong);position:relative;margin-left:auto} .tog::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff} .tog.on{background:var(--accent)} .tog.on::after{left:21px}
+.done{height:46px;border-radius:10px;background:var(--fg);color:var(--bg);font:600 15px var(--ui);display:flex;align-items:center;justify-content:center}
+.ended{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 32px;text-align:center;font-family:var(--ui)} .ended h1{margin:0;font:700 28px/1.2 var(--cjk)} .ended p{margin:0;color:rgba(255,255,255,.65);font-size:14px;line-height:1.5} .ended .m{color:rgba(255,255,255,.4);font-size:12px} .ended svg{width:44px;height:44px;border-radius:10px}
+  </style>
+</helmet>
+<div class="ph"><div class="hdr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824"><g><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></g></svg><span class="w">See Subtitles</span><span class="live" style="color:rgba(255,255,255,.5)">ended 14:49</span></div>
+    <div class="ended"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 824 824" width="44" height="44"><g><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></g></svg><h1>這場講座已經結束</h1><p>This talk has ended. Thank you for following along.<br>The organiser can share the recording and the subtitles from See Subtitles.</p><p class="m">字幕與共融 講座 · 8 September · 47 minutes · 1,284 lines</p></div>
+    <div class="bar"><span>seesubtitles.com</span><span>看字幕</span></div>
+  </div>
+</x-dc>
+</body>
+</html>

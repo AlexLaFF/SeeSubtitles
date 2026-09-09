@@ -59,41 +59,41 @@
   view.render = function (root) {
     Controls.reset();
     mounted = true;
+    const inApp = !!App.desktop();
     root.innerHTML = `
       <div id="alert" class="alert" hidden></div>
       <div class="top"><h1>${t('live.title')}</h1><div class="chips" id="chips"></div><div class="grow"></div>
         <button class="ghost" id="btnDisplayWin"></button><button class="ghost" id="btnOverlayWin"></button></div>
       <div class="toolbar">
         <button id="btnRec" class="danger">${t('live.startRecording')}</button>
-        <button id="btnShare" class="primary">${t('live.shareLink')}</button>
+        <button id="btnShare">${t('live.shareLink')}</button>
         <button id="btnPause">${t('live.startSubtitles')}</button>
         <button id="btnClear">${t('live.clearScreen')}</button>
-        <span class="muted">${t('live.shortcutsHint')}</span>
       </div>
       <div class="body">
         <div class="col scroll" style="width:600px;flex:none">
-          <div class="ui"><h3><span class="n">1</span>${t('live.source')}</h3><div id="srcFields"></div><div id="srcFolds"></div></div>
+          <div class="ui logincard" id="loginCard" hidden><b>${t('live.login.title')}</b><p>${t('live.login.body')}</p><button class="primary small" id="btnLoginCard">${t('live.login.btn')}</button></div>
+          <div class="ui"><h3><span class="n">1</span>${t('live.source')}</h3><div id="srcFields"></div><div class="row wide" id="glossRowWrap"><label>${t('live.glossary')}</label><div id="glossRow"></div></div><div id="srcFolds"></div></div>
           <div class="ui"><h3><span class="n">2</span>${t('live.look')}</h3><div id="lookFields"></div><div id="lookFolds"></div></div>
           <div class="ui"><h3><span class="n">3</span>${t('live.where')}</h3>
             <div class="row wide"><label>${t('live.displayWindow')}</label><div id="displayRow"></div></div>
             <div id="overlayFields"></div>
-            <div class="row wide"><label>${t('live.shareLink')}</label><div id="shareRow"></div></div>
-            <div class="hint" style="margin-left:138px">${t('live.shareHint')}</div>
+            <div class="row wide" style="align-items:start"><label style="padding-top:5px">${t('live.shareLink')}</label><div id="shareRow"></div></div>
           </div>
           <div class="ui"><h3><span class="n">4</span>${t('live.recording')}</h3>
             <div class="row wide"><label>${t('live.thisTalk')}</label><div id="recRow"></div></div>
-            <div class="row wide"><label>${t('live.savesTo')}</label><div id="recDir" class="muted"></div></div>
+            <div class="row wide"><label>${t('live.savesTo')}</label><div id="recDir" class="hint" style="margin:0"></div></div>
             <div class="hint" style="margin-left:138px">${t('live.recHint')}</div>
           </div>
         </div>
         <div class="col" style="flex:1">
-          <div class="ui" style="padding:10px"><h3>${t('live.nowShowing')}</h3><div class="stagebox" id="stagebox"><iframe id="stageFrame" src="/?preview=1" title="preview"></iframe></div></div>
+          <div class="ui" style="padding:10px"><h3 style="margin:2px 0 8px 6px">${t('live.nowShowing')}</h3><div class="stagebox" id="stagebox"><iframe id="stageFrame" src="/?preview=1" title="preview"></iframe></div></div>
           <div class="ui" style="flex:1;display:flex;flex-direction:column;min-height:0"><h3>${t('live.transcript')}</h3>
-            <div class="hint" style="margin:-4px 0 8px">${t('live.transcriptHint')}</div>
             <div class="preview" id="preview" style="flex:1;max-height:none"></div></div>
-          <div class="ui" style="padding:8px 14px" id="logPanel"></div>
+          <div class="ui" style="padding:8px 16px" id="logPanel"></div>
         </div>
-      </div>`;
+      </div>
+      <div class="foot"><span><kbd>⇧⌘R</kbd> ${t('live.foot.record')}</span><span><kbd>P</kbd> ${t('live.foot.pause')}</span><span><kbd>X</kbd> ${t('live.foot.clear')}</span><span><kbd>+</kbd><kbd>−</kbd> ${t('live.foot.size')}</span><span class="grow"></span><span id="footRight"></span></div>`;
     $('btnDisplayWin').append(svg('<rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8"></path>'), t('live.displayWindow'));
     $('btnOverlayWin').append(svg('<rect x="3" y="3" width="18" height="18" rx="2"></rect><rect x="8" y="8" width="13" height="13" rx="2"></rect>'), t('live.overlayWindow'));
     $('btnDisplayWin').addEventListener('click', () => Sub.post('/api/display/open'));
@@ -102,10 +102,12 @@
     $('btnShare').addEventListener('click', toggleShare);
     $('btnPause').addEventListener('click', () => Sub.update({ streaming: !Sub.settings.streaming }));
     $('btnClear').addEventListener('click', () => Sub.post('/api/clear'));
-    // 1 Source
+    $('btnLoginCard').addEventListener('click', () => App.go('settings'));
+    // 1 Source — the glossary (app config + account) replaces the hotwords textarea inside the desktop app
     Controls.renderFields($('srcFields'), ['audioDevice', 'source', 'target', 'transModel']);
-    const tune = fold(t('live.tuning'));
-    Controls.renderFields(tune.inner, ['hotwords', 'vadSilenceTime', 'maxSpeakTime', 'filterModal', 'noiseThreshold']);
+    renderGlossaryRow();
+    const tune = fold(inApp ? t('live.tuning2') : t('live.tuning'));
+    Controls.renderFields(tune.inner, inApp ? ['vadSilenceTime', 'maxSpeakTime', 'filterModal', 'noiseThreshold'] : ['hotwords', 'vadSilenceTime', 'maxSpeakTime', 'filterModal', 'noiseThreshold']);
     const reh = fold(t('live.rehearse'));
     reh.inner.id = 'rehearse';
     const conn = fold(t('live.connection'));
@@ -143,6 +145,21 @@
     f.width = 1920; f.height = 1080;
     f.style.width = '1920px'; f.style.height = '1080px'; f.style.transform = `scale(${scale})`;
     box.style.height = `${Math.round(1080 * scale)}px`;
+  }
+
+  /** The glossary lives in the app's config (and on the account); in a plain browser the hotwords textarea stays. */
+  const glossaryLabel = (n) => (n ? t('live.glossaryCount', { n }) : t('live.glossaryBtn'));
+  async function renderGlossaryRow() {
+    const box = $('glossRow'); if (!box) return;
+    if (!App.desktop() || !window.Glossary) { $('glossRowWrap').hidden = true; return; }
+    if (!Glossary.loaded) await Glossary.load();
+    if (!$('glossRow')) return;
+    box.innerHTML = '';
+    const n = Glossary.items.length;
+    const b = el('button', { class: 'small' }, glossaryLabel(n));
+    b.addEventListener('click', () => Glossary.open());
+    box.appendChild(b);
+    box.appendChild(el('span', { class: 'hint', style: 'margin:0 0 0 8px' }, n ? t('live.glossaryHint') : t('live.glossaryHintEmpty')));
   }
 
   async function renderRehearse() {
@@ -217,6 +234,7 @@
     box.append(cp, ci, sp, sj);
     return box;
   }
+  /** Full-window QR + link, for holding the laptop up or mirroring to the venue screen. Click or Esc closes. */
   function showQr(url) {
     const ov = el('div', { class: 'qr-overlay' });
     const card = el('div', { class: 'qr-card' });
@@ -230,6 +248,8 @@
     document.addEventListener('keydown', onKey);
     document.body.appendChild(ov);
   }
+  /** The A4 poster page for the door or the first slide, in its own window (the local server serves it). */
+  const openPoster = (cloud) => window.open(`/poster?url=${encodeURIComponent(cloud.shareUrl)}&name=${encodeURIComponent(cloud.sessionName || '')}`);
 
   function toggleRecording() {
     const on = Sub.status.recorder && Sub.status.recorder.recording;
@@ -246,6 +266,8 @@
     shareBusy = true;
     Sub.post('/api/cloud', { action: 'publish', on: !c.session }).then((r) => { shareBusy = false; if (r && r.error) alert(I18n.err(r)); });
   }
+  /** "ap-guangzhou 106.55.89.122" → "Guangzhou" */
+  const edgeName = (edge) => String(edge || '').replace(/ .*/, '').replace(/^ap-/, '').replace(/^\w/, (c) => c.toUpperCase());
 
   view.update = function () {
     if (!mounted || !$('chips')) return;
@@ -259,29 +281,30 @@
     else if (s.creds && st.state === 'reconnecting' && I18n.has(`billing.${code}`)) text = t('live.alert.billing', { code, reason: t(`billing.${code}`) });
     else if (s.creds && st.state === 'reconnecting' && st.reconnects >= 3 && st.lastError) text = t('live.alert.failing', { message: st.lastError.message });
     alert.textContent = text; alert.hidden = !text;
-    // chips
+    $('loginCard').hidden = !!(s.creds || s.demo || App.offline);
+    // chips: a dot and a word
     const chips = $('chips'); chips.innerHTML = '';
     let cls = 'warn'; let label = st.state || '…';
     if (s.demo) { cls = 'demo'; label = t('live.chip.demo'); }
     else if (!s.creds) { cls = 'bad'; label = s.credsError && /log in|not logged|登录/i.test(s.credsError) ? t('live.chip.notLoggedIn') : t('live.chip.noKeys'); }
     else if (!s.streaming) { cls = 'warn'; label = t('live.chip.paused'); }
-    else if (st.state === 'ready') { cls = 'ok'; label = t('live.chip.connected') + (st.edge ? ` · ${t('live.chip.edge', { edge: st.edge.replace(/ .*/, '') })}` : ''); }
+    else if (st.state === 'ready') { cls = 'ok'; label = t('live.chip.connected') + (st.edge ? ` · ${t('live.chip.edge', { edge: edgeName(st.edge) })}` : ''); }
     else if (st.state === 'reconnecting') { cls = 'bad'; label = st.retryAt ? t('live.chip.reconnectingIn', { s: Math.max(0, Math.ceil((st.retryAt - (s.now || Date.now())) / 1000)) }) : t('live.chip.reconnecting'); }
     else label = t('live.chip.connecting');
-    const c1 = el('span', { class: `chip ${cls}` }); c1.append(el('span', { class: 'dot', style: cls === 'ok' ? '' : 'background:#fff' }), label); chips.appendChild(c1);
+    const c1 = el('span', { class: `chip ${cls}` }); c1.append(el('span', { class: 'dot' }), label); chips.appendChild(c1);
     const db = s.level ? s.level.dbfs : null;
     const pct = db == null ? 0 : Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
-    const c2 = el('span', { class: 'chip', title: cap.device || '' }); const bar = el('span', { class: 'bar' }); bar.appendChild(el('i', { style: `width:${pct}%` })); c2.append(`${t('live.chip.mic')} `, bar, db == null ? ` ${t('live.chip.noAudio')}` : ` ${db.toFixed(0)} dB${db < -50 ? ` · ${t('live.chip.veryQuiet')}` : ''}`); chips.appendChild(c2);
+    const c2 = el('span', { class: 'chip', title: cap.device || '' }); const bar = el('span', { class: 'bar' }); bar.appendChild(el('i', { style: `width:${pct}%` })); c2.append(bar, db == null ? `${t('live.chip.mic')} · ${t('live.chip.noAudio')}` : `${t('live.chip.mic')} ${db.toFixed(0)} dB${db < -50 ? ` · ${t('live.chip.veryQuiet')}` : ''}`); chips.appendChild(c2);
     const rc = s.recorder || {};
-    if (rc.recording && rc.current) { const c3 = el('span', { class: 'chip rec' }); c3.append(el('span', { class: 'dot', style: 'background:#fff' }), t('live.chip.recording', { time: Sub.fmtClock(rc.current.elapsedMs) })); chips.appendChild(c3); }
-    // toolbar
+    if (rc.recording && rc.current) { const c3 = el('span', { class: 'chip rec' }); c3.append(el('span', { class: 'dot' }), t('live.chip.recording', { time: Sub.fmtClock(rc.current.elapsedMs) })); chips.appendChild(c3); }
+    // toolbar: record is the one filled action; Start subtitles fills in only while paused
     $('btnRec').textContent = rc.recording ? t('live.stopRecording') : t('live.startRecording');
-    $('btnRec').className = rc.recording ? 'primary' : 'danger';
+    $('btnRec').className = 'danger';
     $('btnPause').textContent = s.streaming === false ? t('live.startSubtitles') : t('live.pauseSubtitles');
     $('btnPause').className = s.streaming === false && s.creds ? 'primary' : '';
     const cloud = s.cloud;
     $('btnShare').textContent = cloud && cloud.session ? t('live.stopSharing') : t('live.shareLink');
-    $('btnShare').className = cloud && cloud.session ? '' : 'primary';
+    $('btnShare').className = '';
     // connection details
     const now = s.now || Date.now();
     const rows = [[t('live.kv.state'), st.state || '–'], [t('live.kv.connectedFor'), st.connectedAt ? Sub.fmtAgo(now - st.connectedAt) : '–'], [t('live.kv.nextRotation'), st.rotateAt ? t('live.kv.in', { time: Sub.fmtAgo(st.rotateAt - now) }) : '–'], [t('live.kv.reconnects'), st.reconnects ?? 0], [t('live.kv.queue'), t('live.kv.chunks', { queue: st.queue ?? 0, dropped: st.dropped ?? 0 })], [t('live.kv.languages'), st.source ? `${st.source} → ${st.target} · ${st.transModel}` : '–'], [t('live.kv.gateway'), st.edge || '–'], [t('live.kv.mic'), `${cap.device || '–'}${cap.restarts ? t('live.kv.restarts', { n: cap.restarts }) : ''}`], [t('live.kv.lastError'), st.lastError ? `${st.lastError.code ? `${st.lastError.code} ` : ''}${st.lastError.message}` : (cap.lastError || s.credsError || '–')]];
@@ -294,20 +317,24 @@
     const bo = el('button', { class: 'small' }, disp.open ? t('live.display.show') : t('live.display.openBtn')); bo.addEventListener('click', () => Sub.post('/api/display/open')); wrap.appendChild(bo);
     const bf = el('button', { class: 'small' }, t('live.display.fullscreenBtn')); bf.addEventListener('click', () => Sub.post('/api/display/open', { fullscreen: true })); wrap.appendChild(bf);
     dr.appendChild(wrap);
-    // share link
+    // share link: the QR beside the address, then the actions
     const sr = $('shareRow'); sr.innerHTML = '';
     if (!cloud || !cloud.loggedIn) { const b = el('button', { class: 'small' }, t('live.share.login')); b.addEventListener('click', () => App.go('settings')); sr.appendChild(b); }
     else if (cloud.session) {
-      const w2 = el('div', { style: 'display:flex;gap:10px;align-items:flex-start' });
+      const w2 = el('div', { style: 'display:flex;gap:12px;align-items:flex-start' });
       const qrBox = el('div', { class: 'qr', title: t('live.share.qrTitle') }); qrBox.innerHTML = qrSvg(cloud.shareUrl, 3); qrBox.addEventListener('click', () => showQr(cloud.shareUrl));
       const right = el('div', { style: 'flex:1;display:flex;flex-direction:column;gap:6px;min-width:0' });
-      const line = el('div', { style: 'display:flex;gap:6px;align-items:center' });
-      line.appendChild(el('input', { type: 'text', readonly: 'readonly', value: cloud.shareUrl, style: 'flex:1' }));
-      const big = el('button', { class: 'small' }, t('live.share.showQr')); big.addEventListener('click', () => showQr(cloud.shareUrl)); line.appendChild(big);
-      const stop = el('button', { class: 'small' }, t('live.share.stop')); stop.addEventListener('click', toggleShare); line.appendChild(stop);
+      const line = el('div', { style: 'display:flex;gap:8px;align-items:center' });
+      line.appendChild(el('input', { type: 'text', readonly: 'readonly', value: cloud.shareUrl.replace(/^https?:\/\//, ''), style: 'flex:1;min-width:0' }));
+      const cp = el('button', { class: 'small' }, t('live.share.copy')); cp.addEventListener('click', () => navigator.clipboard.writeText(cloud.shareUrl).then(() => { cp.textContent = t('common.copied'); setTimeout(() => { cp.textContent = t('live.share.copy'); }, 1200); }).catch(() => {})); line.appendChild(cp);
       right.appendChild(line);
-      right.appendChild(shareButtons(cloud.shareUrl));
-      right.appendChild(el('div', { class: 'hint' }, `${t('live.share.sent', { sent: cloud.sent })}${cloud.queued ? t('live.share.queued', { n: cloud.queued }) : ''}${cloud.error ? ` · ⚠ ${cloud.error}` : ''}${t('live.share.scanHint')}`));
+      const line2 = el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' });
+      const big = el('button', { class: 'small' }, t('live.share.showQr')); big.addEventListener('click', () => showQr(cloud.shareUrl)); line2.appendChild(big);
+      const poster = el('button', { class: 'small' }, t('live.share.poster')); poster.addEventListener('click', () => openPoster(cloud)); line2.appendChild(poster);
+      const img = el('button', { class: 'small' }, t('live.share.image')); img.addEventListener('click', () => App.menu(img, [{ label: t('live.share.copyImage'), onClick: () => copyQr(cloud.shareUrl) }, { label: t('live.share.savePng'), onClick: () => saveQr(cloud.shareUrl, 'png') }, { label: t('live.share.saveJpg'), onClick: () => saveQr(cloud.shareUrl, 'jpg') }])); line2.appendChild(img);
+      const stop = el('button', { class: 'small' }, t('live.share.stop')); stop.addEventListener('click', toggleShare); line2.appendChild(stop);
+      right.appendChild(line2);
+      right.appendChild(el('span', { class: 'hint', style: 'margin:0' }, `${t('live.share.sent', { sent: cloud.sent })}${cloud.queued ? t('live.share.queued', { n: cloud.queued }) : ''}${cloud.error ? ` · ⚠ ${cloud.error}` : ''}${t('live.share.scanHint')}`));
       w2.append(qrBox, right);
       sr.appendChild(w2);
     } else { const b = el('button', { class: 'small primary' }, t('live.share.start')); b.addEventListener('click', toggleShare); sr.appendChild(b); sr.appendChild(el('span', { class: 'muted', style: 'margin-left:8px' }, t('live.share.as', { email: cloud.email }))); }
@@ -320,6 +347,10 @@
     else rwrap.appendChild(el('span', { class: 'muted' }, t('live.rec.idle')));
     rr.appendChild(rwrap);
     $('recDir').textContent = `${s.recordingsDir || (rc.dir || '')} · ${t('live.rec.mp4', { onoff: s.mp4Auto === false ? t('common.off') : t('common.on') })}`;
+    // footer: what is doing the work
+    const fr = $('footRight'); if (fr) fr.textContent = s.demo ? t('live.foot.demo') : st.state === 'ready' ? (st.rotateAt ? t('live.foot.engineRotation', { time: Sub.fmtAgo(st.rotateAt - now) }) : t('live.foot.engine')) : '';
+    const gb = $('glossRow') && $('glossRow').querySelector('button');
+    if (gb && window.Glossary && Glossary.loaded) gb.textContent = glossaryLabel(Glossary.items.length);
   };
 
   App.register('live', view);

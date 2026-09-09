@@ -15,6 +15,7 @@
   const selected = new Set(); // recording bases ticked in the list
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  const cap = (x) => String(x).replace(/^\w/, (c) => c.toUpperCase());
   const fmtDate = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
   async function loadRecordings() { recordings = await fetch('/api/recordings').then((r) => r.json()).catch(() => []); }
@@ -38,13 +39,14 @@
   function renderList(root) {
     mounted = 'list';
     root.innerHTML = `
-      <div class="top"><h1>${t('files.title')}</h1><span class="muted">${t('files.subtitle')}</span><div class="grow"></div>
-        <button id="btnFolder">${t('files.openFolder')}</button><button id="btnAdd" class="primary">${t('files.add')}</button></div>
+      <div class="top"><h1>${t('files.title')}</h1><div class="chips"><span class="chip">${t('files.subtitle')}</span></div><div class="grow"></div>
+        <button id="btnFolder" class="ghost">${t('files.openFolder')}</button><button id="btnAdd" class="primary">${t('files.add')}</button></div>
       <div class="toolbar"><div class="pills" id="filters"></div><div id="bulk" class="btns" style="margin:0" hidden></div><div class="grow"></div><input type="text" id="search" placeholder="${t('files.search')}" style="width:220px"></div>
       <div class="body" style="flex-direction:column;overflow:auto">
         <div class="ui" style="padding:0;overflow:hidden"><table><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" title="${t('files.selectAll')}"></th><th style="width:32%">${t('files.col.name')}</th><th>${t('files.col.date')}</th><th>${t('files.col.length')}</th><th>${t('files.col.subtitles')}</th><th>${t('files.col.mp4')}</th><th>${t('files.col.actions')}</th></tr></thead><tbody id="rows"></tbody></table></div>
         <div class="drop" id="drop">${t('files.drop')}</div>
-      </div>`;
+      </div>
+      <div class="foot"><span id="fFoot"></span></div>`;
     for (const [k, label] of [['all', t('files.filter.all')], ['rec', t('files.filter.rec')], ['added', t('files.filter.added')]]) {
       const b = el('button', { class: `pill${filter === k ? ' on' : ''}`, 'data-f': k }, label);
       b.addEventListener('click', () => { filter = k; for (const x of $('filters').children) x.classList.toggle('on', x.dataset.f === k); renderRows(); });
@@ -84,6 +86,7 @@
     renderRows.visible = shown.filter((it) => it.rec).map((it) => it.rec.base);
     for (const b of [...selected]) if (!recordings.some((r) => r.base === b)) selected.delete(b);
     renderBulk();
+    const foot = $('fFoot'); if (foot) { const total = recordings.reduce((a, r) => a + (r.bytes || 0), 0); foot.textContent = [s.recordingsDir || '', recordings.length ? t(recordings.length === 1 ? 'files.foot.one' : 'files.foot.many', { n: recordings.length, size: Sub.fmtBytes(total) }) : ''].filter(Boolean).join(' · '); }
     tb.innerHTML = '';
     if (!shown.length) { tb.appendChild(el('tr')).appendChild(el('td', { colspan: 8, class: 'empty' }, recordings.length || jobs.length ? t('files.noMatch') : t('files.empty'))); return; }
     for (const it of shown) {
@@ -102,7 +105,7 @@
         else if (r.resubtitled) subs.appendChild(el('span', { class: 'tag done' }, t('files.tag.complete')));
         else if (r.zh || r.yue) { subs.appendChild(el('span', { class: 'tag live' }, t('files.tag.live'))); subs.appendChild(el('span', { class: 'muted', style: 'font-size:11px;margin-left:6px' }, t('files.fromTalk'))); }
         else subs.appendChild(el('span', { class: 'muted' }, t('files.tag.none')));
-        if (rs.last && rs.last.base === r.base && !rs.last.ok) subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px;color:#ff6b6b' }, rs.last.error));
+        if (rs.last && rs.last.base === r.base && !rs.last.ok) subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px;color:var(--bad)' }, rs.last.error));
         const mp4 = tr.appendChild(el('td'));
         if (r.mp4) mp4.textContent = '✓';
         else if (mp.current && mp.current.base === r.base) { mp4.appendChild(el('span', { class: 'tag busy' }, `${mp.current.percent}%`)); }
@@ -211,25 +214,27 @@
   async function renderDetail(root, base) {
     mounted = 'detail';
     root.innerHTML = `
-      <div class="top"><button class="ghost" id="btnBack">${t('files.back')}</button><h1 id="dTitle" style="cursor:text" title="${t('files.rename')}"></h1><span id="dChip" class="chip"></span><div class="grow"></div>
-        <button id="btnSummary">${t('files.aiSummary')}</button><button id="btnDownload" class="primary">${t('files.download')}</button><button id="btnActions">${t('files.actions')}</button></div>
+      <div class="top"><h1><a class="crumb" id="btnBack" href="#">${t('files.crumb')}</a> <span id="dTitle" style="cursor:text" title="${t('files.rename')}"></span></h1><div class="chips"><span id="dChip" class="chip"></span></div><div class="grow"></div>
+        <button id="btnSummary" class="ghost">${t('files.aiSummary')}</button><button id="btnActions" class="ghost">${t('files.actions')}</button><button id="btnDownload" class="primary">${t('files.download')}</button></div>
       <div class="body">
-        <div class="col" style="width:620px;flex:none;overflow:auto">
+        <div class="col scroll" style="width:560px;flex:none">
           <div class="ui" style="padding:10px"><div class="stage-p" id="pstage"></div><audio id="audio" controls preload="metadata" style="width:100%;margin-top:8px"></audio>
-            <div class="row wide" style="margin-top:4px"><label>${t('files.showOriginal')}</label><input type="checkbox" id="showSrc"></div></div>
-          <div class="ui"><h3>${t('files.filesHeading')}</h3><div id="dFiles" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px"></div></div>
+            <div class="row wide" style="margin:8px 0 0"><label>${t('files.showOriginal')}</label><div style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="showSrc"><span class="hint" style="margin:0">${t('files.showOriginalHint')}</span></div></div></div>
+          <div class="ui"><h3>${t('files.talk')}</h3><div class="kv2" id="dTalk"></div></div>
+          <div class="ui"><h3>${t('files.filesHeading')}</h3><div id="dFiles" class="flist"></div></div>
         </div>
         <div class="col" style="flex:1;min-height:0">
           <div class="ui" style="flex:1;display:flex;flex-direction:column;min-height:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="pills"><button class="pill on" id="tabSubs">${t('files.tab.subtitles')}</button><button class="pill" id="tabSum">${t('files.tab.summary')}</button></div><div class="grow"></div><span class="muted" id="dHint">${t('files.editHint')}</span></div>
             <div class="cues" id="cues"></div>
             <div id="sumBox" hidden style="flex:1;min-height:0"></div>
-            <div id="cueBar" style="display:flex;gap:8px;align-items:center;padding-top:10px;border-top:1px solid #2a2a2d"><button id="btnSave" class="primary" disabled>${t('files.save')}</button><button id="btnShift">${t('files.shiftAll')}</button><span class="muted" id="editCount"></span></div>
+            <div id="cueBar" style="display:flex;gap:8px;align-items:center;padding-top:10px;border-top:1px solid var(--line)"><button id="btnSave" class="primary" disabled>${t('files.save')}</button><button id="btnShift">${t('files.shiftAll')}</button><span class="hint" id="editCount" style="margin:0"></span></div>
           </div>
         </div>
-      </div>`;
+      </div>
+      <div class="foot"><span id="dFoot"></span></div>`;
     $('dTitle').textContent = base;
-    $('btnBack').addEventListener('click', () => App.go('files'));
+    $('btnBack').addEventListener('click', (e) => { e.preventDefault(); App.go('files'); });
     await loadRecordings();
     const r = recordings.find((x) => x.base === base);
     if (!r) { root.querySelector('.body').innerHTML = `<div class="empty">${t('files.gone')}</div>`; return; }
@@ -294,7 +299,7 @@
     function renderSummary() {
       const box = $('sumBox'); box.innerHTML = '';
       const rr = recordings.find((x) => x.base === base) || r;
-      if (rr.summary) { const f = el('iframe', { src: `/summary?rec=${encodeURIComponent(base)}`, style: 'width:100%;height:100%;border:0;border-radius:8px;background:#111' }); box.appendChild(f); }
+      if (rr.summary) { const f = el('iframe', { src: `/summary?rec=${encodeURIComponent(base)}`, style: 'width:100%;height:100%;border:0;border-radius:8px;background:var(--surface-2)' }); box.appendChild(f); }
       else box.appendChild(el('div', { class: 'empty' }, t('files.noSummary')));
     }
     const rec = () => recordings.find((x) => x.base === base) || r;
@@ -318,7 +323,16 @@
       if (changed) { await loadRecordings(); const rr = recordings.find((x) => x.base === base); if (rr) { const d2 = await fetch(`/api/recordings/cues?base=${encodeURIComponent(base)}`).then((x) => x.json()).catch(() => null); if (d2 && !dirty) { cues = d2.cues || []; renderCues(); sync(true); } } }
       const rr = recordings.find((x) => x.base === base) || r;
       const chip = $('dChip'); chip.className = `chip ${busy ? 'warn' : rr.resubtitled ? 'ok' : ''}`;
-      chip.textContent = busy || (rr.resubtitled ? t('files.chip.complete') : (rr.zh || rr.yue) ? t('files.chip.live') : t('files.chip.none')) + (rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : '');
+      chip.innerHTML = ''; chip.append(el('span', { class: 'dot' }), cap(busy || (rr.resubtitled ? t('files.chip.complete') : (rr.zh || rr.yue) ? t('files.chip.live') : t('files.chip.none')) + (rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : '')));
+      const talk = $('dTalk'); if (talk) {
+        talk.innerHTML = '';
+        const kv = (k, v) => { talk.appendChild(el('span', {}, k)); talk.appendChild(el('span', {}, v)); };
+        kv(t('files.talk.recorded'), `${new Date(rr.mtime).toLocaleString()}${rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : ''}`);
+        kv(t('files.talk.languages'), rr.style === 'legacy' ? t('files.legacy') : '粤语 → 中文');
+        kv(t('files.talk.subtitles'), rr.resubtitled ? t('files.talk.subsCloud', { n: cues.length }) : (rr.zh || rr.yue) ? t('files.talk.subsLive', { n: cues.length }) : t('files.talk.subsNone'));
+        kv(t('files.talk.video'), rr.mp4 ? t('files.talk.mp4', { size: Sub.fmtBytes(rr.mp4Bytes) }) : t('files.talk.noMp4'));
+      }
+      const df = $('dFoot'); if (df) df.textContent = t('files.foot.mp4', { onoff: s.mp4Auto === false ? t('common.off') : t('common.on') });
       chip.dataset.done = '1';
       const files = $('dFiles'); files.innerHTML = '';
       const f = (name, extra) => { const d = el('div'); const a = el('a', { href: `/recordings/${encodeURIComponent(name)}`, download: name }, name); d.appendChild(a); if (extra) d.appendChild(el('span', { class: 'muted' }, ` · ${extra}`)); files.appendChild(d); };
