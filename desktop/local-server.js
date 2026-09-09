@@ -58,6 +58,7 @@ function readJson(req) {
  * @param {function} [opts.displayStatus] () => {open, fullscreen}
  * @param {function} [opts.onOpenExternal] (url) => void
  * @param {function} [opts.onOpenFolder]  () => void
+ * @param {object}   [opts.summary]       {provider, apiKey, baseURL, model} for the summary generator
  * @param {string}   [opts.language]      'en' | 'zh' — sent to every page in `init`; setLanguage() switches live
  * @param {function} [opts.consoleLog]   (level, text) — defaults to console
  */
@@ -207,8 +208,10 @@ async function createLocalServer(opts) {
   }
   const summaries = new SummaryQueue({
     dir: opts.recordingsDir,
-    apiKey: (opts.summaryApiKey || '').trim(),
-    model: env.SUMMARY_MODEL || 'claude-opus-5',
+    provider: (opts.summary && opts.summary.provider) || 'anthropic',
+    apiKey: ((opts.summary && opts.summary.apiKey) || opts.summaryApiKey || '').trim(),
+    baseURL: (opts.summary && opts.summary.baseURL) || undefined,
+    model: (opts.summary && opts.summary.model) || env.SUMMARY_MODEL || 'claude-opus-5',
     language: env.SUMMARY_LANGUAGE || 'zh',
     effort: env.SUMMARY_EFFORT || 'high',
     pdfRenderer: opts.pdfRenderer,

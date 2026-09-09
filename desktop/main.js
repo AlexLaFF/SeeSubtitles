@@ -44,7 +44,8 @@ const DEFAULT_CONFIG = {
   appid: '', secretId: '', secretKeyEnc: '',
   cloudKeysEnc: '', // Tencent keys handed out by the server after login (encrypted JSON), used when no manual keys are set
   language: 'system', // system | en | zh — every window, menu and dialog
-  summaryKeyEnc: '', summaryModel: 'claude-opus-5', summaryLanguage: 'zh', summaryEffort: 'high',
+  summaryProvider: 'seesubtitles', // seesubtitles (DeepSeek etc. through TokenHub, key from the server, no VPN) | anthropic (own key)
+  summaryKeyEnc: '', summaryModel: 'deepseek-v4-flash', summaryLanguage: 'zh', summaryEffort: 'high',
   recordingsDir: path.join(app.getPath('videos'), 'See Subtitles'),
   demo: false, audioFile: '', edge: 'auto', bitrate: '128k', startPaused: true,
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
@@ -78,19 +79,29 @@ function decryptSecret(stored) {
 const cloudConfig = (cfg) => ({ ...cfg.cloud, token: decryptSecret(cfg.cloud.token) });
 /** Which Tencent keys the pipeline uses: the user's own (Settings) win over the ones the server handed out. */
 function resolveKeys(cfg) {
-  if (cfg.secretKeyEnc) return { source: 'manual', appid: cfg.appid, secretId: cfg.secretId, secretKey: decryptSecret(cfg.secretKeyEnc) };
-  if (cfg.cloudKeysEnc) {
-    try { const k = JSON.parse(decryptSecret(cfg.cloudKeysEnc)); return { source: 'cloud', ...k }; } catch { /* corrupt; ignore */ }
-  }
-  return null;
+  if (cfg.secretKeyEnc) return { source: 'manual', appid: cfg.appid, secretId: cfg.secretId, secretKey: decryptSecret(cfg.secretKeyEnc), ...(cloudKeys(cfg).tokenhubKey ? { tokenhubKey: cloudKeys(cfg).tokenhubKey } : {}) };
+  const k = cloudKeys(cfg);
+  return k.secretKey ? { source: 'cloud', ...k } : null;
+}
+/** The keys the server handed out (Tencent + TokenHub), decrypted; {} when none. */
+function cloudKeys(cfg) {
+  if (!cfg.cloudKeysEnc) return {};
+  try { return JSON.parse(decryptSecret(cfg.cloudKeysEnc)) || {}; } catch { return {}; }
+}
+/** Summary generator settings for the chosen provider. */
+function summaryConfig(cfg) {
+  if (cfg.summaryProvider === 'anthropic') return { provider: 'anthropic', apiKey: decryptSecret(cfg.summaryKeyEnc), baseURL: undefined, model: cfg.summaryModel && !/^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'claude-opus-5' };
+  return { provider: 'seesubtitles', apiKey: cloudKeys(cfg).tokenhubKey || '', baseURL: 'https://tokenhub.tencentmaas.com', model: cfg.summaryModel && /^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'deepseek-v4-flash' };
 }
 /** Ask the server for the Tencent keys (after login, and once a day). Returns true when they changed. */
 async function refreshCloudKeys(cfg) {
   const r = await cloud.fetchCredentials();
   if (!r || !r.tencent || !r.tencent.secretKey) throw new Error('the server did not return keys');
-  const next = encryptSecret(JSON.stringify({ ...r.tencent, fetchedAt: Date.now() }));
+  const tokenhubKey = (r.tokenhub && r.tokenhub.apiKey) || '';
+  const next = encryptSecret(JSON.stringify({ ...r.tencent, tokenhubKey, fetchedAt: Date.now() }));
   const before = cfg.cloudKeysEnc ? decryptSecret(cfg.cloudKeysEnc) : '';
-  const changed = !before || JSON.parse(before).secretKey !== r.tencent.secretKey || JSON.parse(before).appid !== r.tencent.appid;
+  const prev = before ? JSON.parse(before) : {};
+  const changed = !before || prev.secretKey !== r.tencent.secretKey || prev.appid !== r.tencent.appid || (prev.tokenhubKey || '') !== tokenhubKey;
   cfg.cloudKeysEnc = next;
   saveConfig(cfg);
   return changed;
@@ -138,7 +149,7 @@ async function startCore() {
     transcriptsDir: path.join(USER_DATA, 'transcripts'),
     creds,
     credsError,
-    summaryApiKey: decryptSecret(cfg.summaryKeyEnc),
+    summary: summaryConfig(cfg),
     demo: cfg.demo,
     audioFile: cfg.audioFile || undefined,
     port,
@@ -146,7 +157,6 @@ async function startCore() {
     env: {
       TENCENT_EDGE: cfg.edge,
       START_PAUSED: cfg.startPaused === false ? '0' : '1',
-      SUMMARY_MODEL: cfg.summaryModel,
       SUMMARY_LANGUAGE: cfg.summaryLanguage,
       SUMMARY_EFFORT: cfg.summaryEffort,
       RECORD_BITRATE: cfg.bitrate,
@@ -207,7 +217,7 @@ async function cloudAction(body) {
       // keys come from the server; start the pipeline with them unless the user entered their own
       let keys = 'unchanged';
       try { keys = (await refreshCloudKeys(cfg)) ? 'updated' : 'unchanged'; } catch (err) { keys = `unavailable: ${err.message}`; }
-      if (!cfg.secretKeyEnc && keys === 'updated') restartCore().catch(() => {});
+      if (keys === 'updated') restartCore().catch(() => {}); // new Tencent and/or summary keys
       return { ok: true, cloud: cloud.status(), keys };
     }
     case 'logout':
@@ -420,7 +430,7 @@ ipcMain.handle('config:get', () => {
   const keys = resolveKeys(cfg);
   return {
     ...cfg, summaryKeyEnc: undefined, summaryKeySet: !!cfg.summaryKeyEnc, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc,
-    cloudKeysEnc: undefined, keysSource: keys ? keys.source : null, cloudKeysAt: keys && keys.source === 'cloud' ? keys.fetchedAt : null,
+    cloudKeysEnc: undefined, keysSource: keys ? keys.source : null, cloudKeysAt: keys && keys.source === 'cloud' ? keys.fetchedAt : null, summaryKeyFromCloud: !!cloudKeys(cfg).tokenhubKey,
     cloud: { ...cfg.cloud, token: undefined, loggedIn: !!cfg.cloud.token },
     version: app.getVersion(), packaged: PACKAGED, defaultCloudUrl: DEFAULT_CLOUD_URL, language: cfg.language || 'system',
   };
@@ -482,7 +492,7 @@ app.whenReady().then(async () => {
   if (!cfg.demo && !resolveKeys(cfg)) openSettings();
   // keys from the server: refresh once a day; updates: check shortly after launch and every 6 h
   const keys = resolveKeys(cfg);
-  if (cfg.cloud.token && (!keys || (keys.source === 'cloud' && Date.now() - (keys.fetchedAt || 0) > 24 * 3600_000))) {
+  if (cfg.cloud.token && (!keys || !cloudKeys(cfg).tokenhubKey || (keys.source === 'cloud' && Date.now() - (keys.fetchedAt || 0) > 24 * 3600_000))) {
     setTimeout(() => refreshCloudKeys(loadConfig()).then((changed) => { if (changed && !loadConfig().secretKeyEnc) restartCore(); }).catch((err) => consoleLog('warn', `keys from the server: ${err.message}`)), 3000);
   }
   setTimeout(() => updater.check().catch(() => {}), 15_000);

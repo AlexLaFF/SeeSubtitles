@@ -147,7 +147,8 @@ async function api(req, res, url, user) {
     if (!creds) return fail(res, 503, 'the server has no Tencent keys configured');
     if (!SHARE_KEYS) return fail(res, 403, 'this server does not hand out keys to desktop apps (open sign-up); enter your own keys in Settings');
     log('info', `desktop keys handed to ${user.email}`);
-    return send(res, 200, { tencent: { appid: creds.appid, secretId: creds.secretId, secretKey: creds.secretKey, expiresAt: null }, fetchedAt: Date.now() });
+    const tokenhubKey = (process.env.TOKENHUB_API_KEY || '').trim();
+    return send(res, 200, { tencent: { appid: creds.appid, secretId: creds.secretId, secretKey: creds.secretKey, expiresAt: null }, tokenhub: tokenhubKey ? { apiKey: tokenhubKey } : null, fetchedAt: Date.now() });
   }
   if (p === '/api/logout' && req.method === 'POST') { auth.revoke(user.token); return send(res, 200, { ok: true }, undefined, { 'set-cookie': auth.clearCookie() }); }
 

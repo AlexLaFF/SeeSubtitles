@@ -1,7 +1,9 @@
 'use strict';
 // AI learning summaries of recordings (manual trigger). Builds a timestamped transcript from the
-// recording's SRT files, asks Claude for a complete, first-principles-ordered summary, and writes
+// recording's SRT files, asks a model for a complete, first-principles-ordered summary, and writes
 // <base>.summary.md next to the recording.
+// Providers: 'seesubtitles' = DeepSeek / Kimi / MiniMax through Tencent TokenHub's Anthropic-compatible
+// endpoint (key handed out by the server, reachable without a VPN); 'anthropic' = Claude with the user's key.
 const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
@@ -79,12 +81,14 @@ function systemPrompt(language) {
 }
 
 class SummaryQueue extends EventEmitter {
-  constructor({ dir, apiKey, model = 'claude-opus-5', language = 'zh', effort = 'high', pdfUrlFor = null, pdfRenderer = renderPdf } = {}) {
+  constructor({ dir, provider = 'anthropic', apiKey, baseURL, model = 'claude-opus-5', language = 'zh', effort = 'high', pdfUrlFor = null, pdfRenderer = renderPdf } = {}) {
     super();
     this.dir = dir;
     this.pdfRenderer = pdfRenderer;
     this.pdfUrlFor = pdfUrlFor; // (base) => URL of the printable summary page; enables PDF output
+    this.provider = provider;
     this.apiKey = apiKey;
+    this.baseURL = baseURL;
     this.model = model;
     this.language = language;
     this.effort = effort;
@@ -93,7 +97,16 @@ class SummaryQueue extends EventEmitter {
     this.done = [];
   }
 
-  get configured() { return !!(this.apiKey || process.env.ANTHROPIC_AUTH_TOKEN); }
+  get configured() { return !!(this.apiKey || (this.provider === 'anthropic' && process.env.ANTHROPIC_AUTH_TOKEN)); }
+
+  /** Request parameters per provider. TokenHub models think before answering: the budget replaces Claude's effort. */
+  requestParams() {
+    if (this.provider === 'seesubtitles') {
+      const budget = { low: 0, medium: 6000, high: 16000 }[this.effort] ?? 16000;
+      return { thinking: budget ? { type: 'enabled', budget_tokens: budget } : { type: 'disabled' } };
+    }
+    return { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default', output_config: { effort: this.effort } };
+  }
 
   add(base) {
     if (!base || this.queue.includes(base) || (this.current && this.current.base === base)) return false;
@@ -104,7 +117,7 @@ class SummaryQueue extends EventEmitter {
   }
 
   status() {
-    return { configured: this.configured, model: this.model, language: this.language, current: this.current, queue: [...this.queue], done: this.done.slice(-5) };
+    return { configured: this.configured, provider: this.provider, model: this.model, language: this.language, current: this.current, queue: [...this.queue], done: this.done.slice(-5) };
   }
 
   async _next() {
@@ -133,21 +146,20 @@ class SummaryQueue extends EventEmitter {
   }
 
   async _run(base) {
-    if (!this.configured) throw new Error('Add your Anthropic API key in Settings → AI summaries');
+    if (!this.configured) { const e = new Error(this.provider === 'seesubtitles' ? 'Log in under Settings so the app receives its summary key' : 'Add your Anthropic API key in Settings → AI summaries'); e.code = this.provider === 'seesubtitles' ? 'summary_login' : 'summary_key'; throw e; }
     const t0 = Date.now();
     const transcript = buildTranscript(this.dir, base);
     this.emit('log', `${base}: transcript ${transcript.cues} cues, ${transcript.chars} chars, ${clock(transcript.durationMs)} long`);
-    const client = new Anthropic({ apiKey: this.apiKey || undefined, timeout: 30 * 60_000, maxRetries: 2 });
-    this._set('asking Claude', 0);
+    const client = new Anthropic({ apiKey: this.apiKey || undefined, baseURL: this.baseURL || undefined, timeout: 30 * 60_000, maxRetries: 2 });
+    this._set('asking the model', 0);
     let text = '';
     // Streaming keeps long outputs from hitting HTTP timeouts; server-side fallback re-runs on a
     // policy refusal so a talk is never left without a summary.
-    const stream = client.beta.messages.stream({
+    const api = this.provider === 'seesubtitles' ? client.messages : client.beta.messages;
+    const stream = api.stream({
       model: this.model,
       max_tokens: 64000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: this.effort },
+      ...this.requestParams(),
       system: systemPrompt(this.language),
       messages: [{
         role: 'user',
@@ -156,9 +168,10 @@ class SummaryQueue extends EventEmitter {
     });
     stream.on('text', (delta) => { text += delta; this._set('writing summary', text.length); });
     const message = await stream.finalMessage();
-    if (message.stop_reason === 'refusal') throw new Error(`Claude declined: ${(message.stop_details && message.stop_details.explanation) || 'refusal'}`);
-    const body = message.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
-    if (!body) throw new Error('empty response from Claude');
+    if (message.stop_reason === 'refusal') throw new Error(`the model declined: ${(message.stop_details && message.stop_details.explanation) || 'refusal'}`);
+    let body = message.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
+    if (!body) throw new Error('empty response from the model');
+    body = sanitizeTimestamps(body, transcript.durationMs);
     const truncated = message.stop_reason === 'max_tokens';
     const usage = message.usage || {};
     const header = `<!-- recording: ${base} · model: ${message.model || this.model} · generated: ${new Date().toISOString()} · input ${usage.input_tokens || '?'} tokens · output ${usage.output_tokens || '?'} tokens -->\n\n`;
@@ -186,4 +199,14 @@ class SummaryQueue extends EventEmitter {
   }
 }
 
-module.exports = { SummaryQueue, buildTranscript, parseSrt, systemPrompt };
+/** Drop bracketed timestamps that lie beyond the recording (models occasionally invent them); keep the text. */
+function sanitizeTimestamps(body, durationMs) {
+  if (!durationMs) return body;
+  const limit = durationMs / 1000 + 5;
+  return String(body).replace(/\[(\d{1,2}):(\d{2})(?::(\d{2}))?\]/g, (m, a, b, c) => {
+    const sec = c != null ? Number(a) * 3600 + Number(b) * 60 + Number(c) : Number(a) * 60 + Number(b);
+    return sec <= limit ? m : '';
+  }).replace(/[ \t]+\n/g, '\n');
+}
+
+module.exports = { SummaryQueue, buildTranscript, parseSrt, systemPrompt, sanitizeTimestamps };
