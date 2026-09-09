@@ -221,19 +221,19 @@
     else if (st.state === 'ready') { cls = 'ok'; label = `Tencent connected${st.edge ? ` · ${st.edge.replace(/ .*/, '')} edge` : ''}`; }
     else if (st.state === 'reconnecting') { cls = 'bad'; label = `Reconnecting${st.retryAt ? ` in ${Math.max(0, Math.ceil((st.retryAt - (s.now || Date.now())) / 1000))}s` : ''}`; }
     else label = String(st.state || 'connecting').replace(/^\w/, (c) => c.toUpperCase());
-    const c1 = el('span', { class: `chip ${cls}` }); c1.append(el('span', { class: 'dot', style: cls === 'ok' ? '' : 'background:#fff' }), label); chips.appendChild(c1);
+    const c1 = el('span', { class: `chip ${cls}` }); c1.append(el('span', { class: 'dot' }), label); chips.appendChild(c1);
     const db = s.level ? s.level.dbfs : null;
     const pct = db == null ? 0 : Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
     const c2 = el('span', { class: 'chip', title: cap.device || '' }); const bar = el('span', { class: 'bar' }); bar.appendChild(el('i', { style: `width:${pct}%` })); c2.append('Mic ', bar, db == null ? ' no audio' : ` ${db.toFixed(0)} dB${db < -50 ? ' · very quiet' : ''}`); chips.appendChild(c2);
     const rc = s.recorder || {};
-    if (rc.recording && rc.current) { const c3 = el('span', { class: 'chip rec' }); c3.append(el('span', { class: 'dot', style: 'background:#fff' }), `Recording ${Sub.fmtClock(rc.current.elapsedMs)}`); chips.appendChild(c3); }
+    if (rc.recording && rc.current) { const c3 = el('span', { class: 'chip rec' }); c3.append(el('span', { class: 'dot' }), `Recording ${Sub.fmtClock(rc.current.elapsedMs)}`); chips.appendChild(c3); }
     // toolbar
     $('btnRec').textContent = rc.recording ? '■ Stop recording' : '● Start recording';
     $('btnRec').className = rc.recording ? 'primary' : 'danger';
     $('btnPause').textContent = s.streaming === false ? 'Resume subtitles' : 'Pause subtitles';
     const cloud = s.cloud;
     $('btnShare').textContent = cloud && cloud.session ? 'Stop sharing' : 'Share link';
-    $('btnShare').className = cloud && cloud.session ? '' : 'primary';
+    $('btnShare').className = '';
     // connection details
     const now = s.now || Date.now();
     const rows = [['State', st.state || '–'], ['Connected for', st.connectedAt ? Sub.fmtAgo(now - st.connectedAt) : '–'], ['Next rotation', st.rotateAt ? `in ${Sub.fmtAgo(st.rotateAt - now)}` : '–'], ['Reconnects', st.reconnects ?? 0], ['Queue / dropped', `${st.queue ?? 0} / ${st.dropped ?? 0} chunks`], ['Languages', st.source ? `${st.source} → ${st.target} · ${st.transModel}` : '–'], ['Gateway', st.edge || '–'], ['Mic', `${cap.device || '–'}${cap.restarts ? ` · ${cap.restarts} restarts` : ''}`], ['Last error', st.lastError ? `${st.lastError.code ? `${st.lastError.code} ` : ''}${st.lastError.message}` : (cap.lastError || s.credsError || '–')]];

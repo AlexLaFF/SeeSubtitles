@@ -78,7 +78,7 @@
     st.setProperty('--pad-y', `${s.paddingY}vh`);
     st.setProperty('--pad-top', `${s.paddingTop == null ? 2 : s.paddingTop}vh`);
     st.setProperty('--align', s.align);
-    st.setProperty('--bg', Sub.hexToRgba(s.bgColor, s.bgOpacity));
+    st.setProperty('--stage-bg', Sub.hexToRgba(s.bgColor, s.bgOpacity)); // the subtitle stage; --bg is the window (tokens.css)
     document.body.classList.toggle('shadow', !!s.textShadow);
     document.body.classList.toggle('fade', s.topFade !== false);
   };

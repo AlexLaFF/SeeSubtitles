@@ -1,7 +1,7 @@
 'use strict';
 // Subtitles desktop app (macOS). Owns the local pipeline server, the Control / Display / Overlay windows,
 // the Settings window (Tencent keys in the Keychain via safeStorage) and the optional cloud mirror.
-const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell, Tray, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell, Tray, nativeImage, nativeTheme } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -234,7 +234,7 @@ function focusOr(name, create) {
 
 function openControl() {
   return focusOr('control', () => {
-    const w = new BrowserWindow({ width: 1320, height: 860, minWidth: 980, minHeight: 600, title: 'See Subtitles', titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 }, backgroundColor: '#111111', webPreferences: SHELL_PREFS });
+    const w = new BrowserWindow({ width: 1320, height: 860, minWidth: 980, minHeight: 600, title: 'See Subtitles', titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 14, y: 14 }, backgroundColor: nativeTheme.shouldUseDarkColors ? '#191816' : '#f5f2eb', webPreferences: SHELL_PREFS }); // Marquee window colours (web/tokens.css)
     w.loadURL(core.pageUrl('/control'));
     w.on('enter-full-screen', reportDisplay); w.on('leave-full-screen', reportDisplay);
     return w;
@@ -339,7 +339,9 @@ async function toggleRecording() {
 let tray = null;
 function rebuildTray() {
   if (!tray) {
-    tray = new Tray(nativeImage.createEmpty());
+    const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'trayTemplate.png')); // the stack mark; macOS tints template images itself
+    icon.setTemplateImage(true);
+    tray = new Tray(icon);
     tray.setTitle('字幕');
     tray.setToolTip('See Subtitles');
   }
@@ -464,6 +466,7 @@ app.whenReady().then(async () => {
   }
   setTimeout(() => updater.check().catch(() => {}), 15_000);
   setInterval(() => updater.check().catch(() => {}), 6 * 3600_000).unref();
+  if (!app.isPackaged && process.platform === 'darwin' && app.dock) app.dock.setIcon(path.join(__dirname, 'build', 'icon.png')); // packaged builds get it from the icns
   rebuildTray();
   screen.on('display-added', rebuildTray);
   screen.on('display-removed', rebuildTray);
