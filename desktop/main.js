@@ -307,6 +307,7 @@ function openOverlay() {
       transparent: true,
       frame: false,
       hasShadow: false,
+      roundedCorners: false, // macOS rounds frameless windows by default; the corners show on a square screen
       alwaysOnTop: true,
       resizable: true,
       movable: true,
