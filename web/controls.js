@@ -205,7 +205,7 @@
         box.appendChild(el('div', { class: 'muted' }, o && o.present
           ? 'An overlay window is connected but has not reported its displays (opened before the last server restart). Quit it with ⌘Q and open it again.'
           : 'Overlay window is closed. It is a transparent, always-on-top window you can drag onto the venue screen.'));
-        const b = el('button', { class: 'primary' }, 'Open overlay window');
+        const b = el('button', { class: 'small' }, 'Open overlay window');
         b.addEventListener('click', () => Sub.post('/api/overlay/open').then((r) => { if (r && r.error) alert(r.error); }));
         box.appendChild(b);
         continue;
@@ -220,7 +220,7 @@
         ? `Overlay is filling: ${filled.label}`
         : on ? `Overlay is on ${on.label} but not filling it (${b.width}×${b.height}). Click a display to fill it:`
           : 'Fill a display with the overlay:'));
-      const closeBtn = el('button', { class: 'danger' }, 'Close overlay window');
+      const closeBtn = el('button', { class: 'small' }, 'Close overlay window');
       closeBtn.addEventListener('click', () => Sub.post('/api/overlay/close'));
       box.appendChild(closeBtn);
       for (const d of o.displays || []) {

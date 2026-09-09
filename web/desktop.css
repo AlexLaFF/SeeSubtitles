@@ -94,7 +94,7 @@ body.shell { margin: 0; padding: 0; background: var(--bg); color: var(--fg); fon
 .shell .stage-p .l { font-size: 24px; line-height: 1.25; overflow-wrap: anywhere; }
 .shell .stage-p .l.old { opacity: .55; }
 .shell .stage-p .l .s { display: block; font-size: 13px; font-weight: 500; opacity: .72; }
-.shell .qr { width: 96px; height: 96px; flex: none; background: #fff; border-radius: var(--r-md); padding: 4px; box-sizing: border-box; cursor: zoom-in; }
+.shell .qr { width: 66px; height: 66px; flex: none; background: #fff; border-radius: var(--r-md); padding: 4px; box-sizing: border-box; cursor: zoom-in; }
 .shell .qr svg { width: 100%; height: 100%; display: block; }
 .shell .qr-overlay { position: fixed; inset: 0; background: rgba(10,9,8,.85); z-index: 50; display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
 .shell .qr-card { background: #fff; color: #111; border-radius: 18px; padding: 28px 32px; display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: min(90vw, 620px); font-family: var(--ui); }
@@ -102,3 +102,15 @@ body.shell { margin: 0; padding: 0; background: var(--bg); color: var(--fg); fon
 .shell .qr-big svg { width: 100%; height: 100%; display: block; }
 .shell .qr-url { font-size: 26px; font-weight: 600; letter-spacing: .01em; word-break: break-all; text-align: center; }
 .shell .qr-card .muted { color: #666; }
+.shell .foot { display: flex; gap: 18px; align-items: center; padding: 7px 24px; border-top: 1px solid var(--line); color: var(--fg-3); font-size: 11.5px; white-space: nowrap; }
+.shell .foot kbd { margin-right: 3px; }
+.shell .set .ui .row, .shell .set .ui .row.wide { grid-template-columns: 150px 1fr; }
+.shell .set .ui input[type=password] { flex: 1; min-width: 0; }
+.shell .set .ui h3 .hint { font-weight: 400; }
+.shell .savebar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 10px 0 4px; border-top: 1px solid var(--line); }
+.shell .flist { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 16px; font-size: 12.5px; font-family: var(--cjk); }
+.shell .flist a { color: var(--fg); text-decoration: none; } .shell .flist a:hover { text-decoration: underline; }
+.shell .flist .muted { color: var(--fg-3); font-size: 11.5px; }
+.shell .ui .displays .muted { color: var(--fg-3); font-size: 12px; margin: 2px 0 6px; }
+.shell .ui .displays button.display { display: block; width: 100%; text-align: left; margin: 3px 0; height: auto; padding: 5px 10px; white-space: normal; }
+.shell .ui .displays button.display.filled { background: var(--accent-soft); border-color: var(--accent); }

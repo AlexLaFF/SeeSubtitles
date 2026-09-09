@@ -10,33 +10,32 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body class="control app">
-<div class="topbar"><a class="brand" href="/"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><h1>See Subtitles</h1></a><span class="muted" id="who"></span><span class="spacer"></span><a href="#" id="logout">Log out</a></div>
+<div class="topbar"><a class="brand" href="/"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><h1>See Subtitles</h1></a><a class="on" href="/">Overview</a><a href="/account">Account</a><span class="spacer"></span><span class="muted" id="who"></span><a href="#" id="logout">Log out</a></div>
 <main>
 <div class="alert" id="alert" hidden></div>
-<div class="grid">
+<div class="top"><h1>Overview</h1><div class="chips" id="ovNote"></div></div>
+<div class="stats" id="stats" hidden></div>
+<div class="grid2">
   <div class="ui">
     <h2>Upload a video or audio file</h2>
     <div class="drop" id="drop">Drop a file here or click to choose<br><span class="muted">mp4, mov, mkv, mp3, m4a, wav… up to 5 hours</span></div>
     <input type="file" id="file" hidden accept="video/*,audio/*,.mkv,.mp3,.m4a,.wav,.mp4,.mov,.webm">
     <label>Spoken language <select id="sourceLang"></select></label>
     <label>Translate subtitles to <select id="targetLang"></select></label>
-    <div class="btns"><button class="primary" id="btnUpload" disabled>Upload &amp; transcribe</button></div>
-    <div class="muted" id="uploadText"></div>
+    <div class="btns"><button class="primary" id="btnUpload" disabled>Upload &amp; transcribe</button><span class="hint" id="uploadText" style="margin:0">an hour of speech takes a few minutes</span></div>
     <div class="bar" id="uploadBar" hidden><i></i></div>
   </div>
-  <div class="ui">
-    <h2>Tencent usage</h2>
-    <div id="usage" class="muted">loading…</div>
+  <div class="col">
+    <div class="ui">
+      <h2>Live sessions <span class="hint">from the desktop app</span></h2>
+      <div class="hint">Turn on <b>Share link</b> under Live in the desktop app. Phones and venue screens open the link and follow along.</div>
+      <table id="sessions"><thead><tr><th>Name</th><th>Share link</th><th>Lines</th><th>Following</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="ui">
+      <h2>Subtitle jobs</h2>
+      <table id="jobs"><thead><tr><th>File</th><th>Languages</th><th>Status</th><th>Progress</th><th>Cues</th><th>Created</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
   </div>
-  <div class="ui">
-    <h2>Live sessions (from the desktop app)</h2>
-    <div class="muted">Turn on <b>Publish to cloud</b> in the desktop app's Control window. Open the share link on any screen or phone.</div>
-    <table id="sessions"><thead><tr><th>Name</th><th>Share link</th><th>Lines</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
-  </div>
-</div>
-<div class="ui" style="margin-top:14px">
-  <h2>Subtitle jobs</h2>
-  <table id="jobs"><thead><tr><th>File</th><th>Languages</th><th>Status</th><th>Progress</th><th>Cues</th><th>Created</th><th></th></tr></thead><tbody></tbody></table>
 </div>
 </main>
 <script src="/app.js"></script>

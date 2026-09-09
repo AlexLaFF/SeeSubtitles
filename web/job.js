@@ -20,8 +20,9 @@
     const pct = j.status === 'done' ? 100 : j.progress;
     $('bar').style.width = `${pct}%`;
     const stage = { uploading: 'waiting for upload', queued: 'queued', extracting: 'extracting audio', recognizing: 'recognising speech (Tencent)', segmenting: 'building cues', translating: 'translating', rendering: 'writing subtitle files', done: 'done', failed: 'failed' }[j.status] || j.status;
-    $('statusText').textContent = `${stage}${j.status !== 'done' && j.status !== 'failed' ? ` · ${Math.round(pct)}%` : ''}${j.error ? ` — ${j.error}` : ''}${j.duration ? ` · ${(j.duration / 60).toFixed(1)} min` : ''} · ${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}`;
-    $('progressBox').className = `ui ${j.status === 'failed' ? 'bad' : ''}`;
+    const chip = $('statusText'); chip.className = `chip ${j.status === 'done' ? 'ok' : j.status === 'failed' ? 'bad' : 'warn'}`; chip.innerHTML = '';
+    chip.append(el('span', { class: 'dot' }), `${stage.replace(/^\w/, (c) => c.toUpperCase())}${j.status !== 'done' && j.status !== 'failed' ? ` · ${Math.round(pct)}%` : ''}${j.error ? ` — ${j.error}` : ''}${j.cues ? ` · ${j.cues} cues` : ''}${j.duration ? ` · ${(j.duration / 60).toFixed(1)} min` : ''} · ${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}`);
+    $('progressBox').hidden = j.status === 'done' || j.status === 'failed';
     if (j.status === 'done') {
       $('work').hidden = false;
       if (!loadedCues) { loadedCues = true; loadCues(); }

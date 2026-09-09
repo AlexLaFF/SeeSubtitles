@@ -10,19 +10,27 @@
 <link rel="stylesheet" href="/app.css">
 </head>
 <body class="control app">
-<div class="login">
-  <div class="ui">
+<div class="auth">
+  <div class="left">
     <div class="brand"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span>See Subtitles</span></div>
-    <h2>Log in</h2>
-    <p class="muted">Live Cantonese → Mandarin subtitles, remote displays and video subtitling.</p>
-    <form id="form">
-      <label>Email<input id="email" type="email" autocomplete="username" required></label>
-      <label>Password<input id="password" type="password" autocomplete="current-password" required minlength="8"></label>
-      <label id="inviteRow" hidden>Invite code<input id="invite" autocomplete="off"></label>
-      <div class="alert" id="err" hidden></div>
-      <button class="primary" type="submit" id="submit">Log in</button>
-      <p class="muted" id="switchRow" hidden><a href="#" id="switch">Create an account</a></p>
-    </form>
+    <h1>Subtitles for everyone in the room.</h1>
+    <p>Live Cantonese → Mandarin subtitles on the venue screen and on every phone. Recordings with editable subtitles, MP4 and a summary. Video and audio files subtitled in minutes.</p>
+    <div class="stage"><div class="l old">首先是現場的觀眾，他們可以用手機掃二維碼。</div><div class="l">今天我們會講一下如何用字幕幫助更多人參與會議。<span class="s">今日我哋會講吓點樣用字幕幫助更多人參與會議。</span></div></div>
+  </div>
+  <div class="right">
+    <div class="ui card">
+      <h2>Log in</h2>
+      <p class="muted">The same account as the desktop app.</p>
+      <form id="form">
+        <label>Email<input id="email" type="email" autocomplete="username" required></label>
+        <label>Password<input id="password" type="password" autocomplete="current-password" required minlength="8"></label>
+        <label id="inviteRow" hidden>Invite code<input id="invite" autocomplete="off"></label>
+        <div class="alert" id="err" hidden></div>
+        <button class="primary" type="submit" id="submit">Log in</button>
+        <p class="muted" id="switchRow" hidden><a href="#" id="switch">Create an account</a></p>
+        <p class="hint" id="forgotRow">Forgot your password? Ask the person who runs See Subtitles for a reset link.</p>
+      </form>
+    </div>
   </div>
 </div>
 <script>

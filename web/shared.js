@@ -12,6 +12,15 @@
     eventsUrl: remoteMatch ? `/api/d/${remoteMatch[1]}/stream` : '/events',
     _overrides: {},
   };
+  // A phone remembers the text size and show mode its owner chose; the first visit fits the venue's px size to the
+  // viewport (120 px on a 1920-wide screen becomes about 30 px on a phone), after which A− / A+ step from there.
+  const REMOTE_KEYS = ['fontSize', 'showMode'];
+  if (Sub.remote) { try { const saved = JSON.parse(localStorage.getItem('subs.remote') || '{}'); for (const k of REMOTE_KEYS) if (saved[k] != null) Sub._overrides[k] = saved[k]; } catch { /* no storage */ } }
+  const fitRemote = (settings) => {
+    if (Sub._overrides.fontSize != null) return;
+    const scale = Math.min(1, window.innerWidth / 1600);
+    Sub._overrides.fontSize = Math.max(18, Math.round((Number(settings.fontSize) || 100) * scale));
+  };
 
   Sub.on = (ev, fn) => { (Sub._listeners[ev] ||= []).push(fn); return Sub; };
   Sub.emit = (ev, data) => { for (const fn of Sub._listeners[ev] || []) fn(data); };
@@ -27,7 +36,7 @@
       d.lines = d.lines || [];
       d.devices = d.devices || [];
       d.presets = d.presets || { builtin: (window.SCHEMA && SCHEMA.PRESETS) || {}, user: {} };
-      if (Sub.remote) Object.assign(d.settings, Sub._overrides);
+      if (Sub.remote) { fitRemote(d.settings); Object.assign(d.settings, Sub._overrides); }
       Sub.settings = d.settings;
       Sub.status = d.status;
     });
@@ -48,7 +57,11 @@
   Sub.update = function (patch) {
     Object.assign(Sub.settings, patch);
     Sub.emit('local', patch);
-    if (Sub.remote) { Object.assign(Sub._overrides, patch); return; }
+    if (Sub.remote) {
+      Object.assign(Sub._overrides, patch);
+      try { localStorage.setItem('subs.remote', JSON.stringify(Object.fromEntries(REMOTE_KEYS.filter((k) => Sub._overrides[k] != null).map((k) => [k, Sub._overrides[k]])))); } catch { /* private mode */ }
+      return;
+    }
     Object.assign(Sub._pending, patch);
     if (!Sub._timer) {
       Sub._timer = setTimeout(() => {

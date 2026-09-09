@@ -46,3 +46,44 @@ body.app .cue textarea { width: 100%; box-sizing: border-box; background: var(--
 body.app .cue textarea.orig { color: var(--fg-3); font-size: 12px; margin-top: 4px; background: transparent; }
 body.app .cue .ops button { height: 20px; padding: 0 7px; font-size: 11px; margin: 0 0 3px 0; display: block; }
 body.app .sticky { position: sticky; top: 0; background: var(--surface); padding: 6px 0; z-index: 2; }
+
+/* header, stat tiles and the two-column overview */
+body.app .top { display: flex; align-items: center; gap: 14px; margin: 0 0 14px; }
+body.app .top h1 { margin: 0; font: 600 21px/1.2 var(--ui); letter-spacing: -.01em; }
+body.app .top .crumb { color: var(--fg-3); font-weight: 400; }
+body.app .top .spacer { flex: 1; }
+body.app .chips { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: var(--fg-2); font-size: 12.5px; }
+body.app .chip { display: inline-flex; align-items: center; gap: 7px; }
+body.app .chip.ok { color: var(--fg); } body.app .chip.bad { color: var(--bad); }
+body.app .dot, body.app .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-3); display: inline-block; flex: none; }
+body.app .chip.ok .dot, body.app .pill.done .dot { background: var(--ok); } body.app .chip.warn .dot { background: var(--warn); } body.app .chip.bad .dot, body.app .pill.failed .dot { background: var(--bad); } body.app .pill.live .dot { background: var(--rec); }
+body.app .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+body.app .stat { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 12px 14px; background: var(--surface); }
+body.app .stat .k { color: var(--fg-3); font-size: 12px; }
+body.app .stat .v { font: 600 22px/1.1 var(--ui); letter-spacing: -.01em; font-variant-numeric: tabular-nums; margin-top: 4px; }
+body.app .stat .d { color: var(--fg-3); font-size: 11.5px; margin-top: 4px; }
+body.app .grid2 { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 16px; align-items: start; }
+body.app .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+body.app .ui h2 .hint { font-weight: 400; margin: 0 0 0 6px; }
+body.app .topbar a.on { color: var(--accent); }
+body.app .btns { align-items: center; }
+body.app #progressBox { margin-bottom: 16px; padding: 10px 14px; }
+body.app .sticky { display: flex; align-items: center; gap: 8px; }
+@media (max-width: 900px) { body.app .grid2 { grid-template-columns: 1fr; } }
+/* log in: the statement beside the card */
+body.app .auth { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; }
+body.app .auth .left { background: var(--side); border-right: 1px solid var(--line); padding: 48px 56px; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; }
+body.app .auth .brand { display: flex; align-items: center; gap: 10px; }
+body.app .auth .brand svg { width: 28px; height: 28px; border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
+body.app .auth .brand span { font: italic 400 26px/1 var(--display); }
+body.app .auth h1 { margin: auto 0 0; font: 600 34px/1.15 var(--ui); letter-spacing: -.02em; max-width: 520px; }
+body.app .auth p { margin: 0 0 auto; color: var(--fg-2); font-size: 15px; max-width: 520px; line-height: 1.5; }
+body.app .auth .stage { background: var(--stage); border: 1px solid var(--line-strong); border-radius: var(--r-lg); aspect-ratio: 16/9; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; padding: 16px 22px; font-family: var(--cjk); font-weight: 700; color: #fff; text-align: center; }
+body.app .auth .stage .l { font-size: 24px; line-height: 1.25; } body.app .auth .stage .l.old { opacity: .5; } body.app .auth .stage .s { display: block; font-size: 12px; font-weight: 500; opacity: .72; }
+body.app .auth .right { display: flex; align-items: center; justify-content: center; padding: 32px; }
+body.app .auth .card { width: 380px; padding: 26px 28px; box-shadow: none; }
+body.app .auth .card h2 { font: 600 20px/1.2 var(--ui); margin: 0 0 4px; }
+body.app .auth .card p.muted { margin: 0 0 8px; }
+body.app .auth .card button[type=submit] { width: 100%; height: var(--control-lg); justify-content: center; margin-top: 12px; font-size: 13px; }
+body.app .auth .card .hint { margin: 12px 0 0; }
+@media (max-width: 900px) { body.app .auth { grid-template-columns: 1fr; } body.app .auth .left { border-right: 0; border-bottom: 1px solid var(--line); padding: 28px 24px; } body.app .auth h1 { font-size: 26px; margin-top: 8px; } body.app .auth .stage { display: none; } }

@@ -44,6 +44,28 @@ body.shadow .line { text-shadow: 0 0 0.06em rgba(0,0,0,.95), 0 0 0.18em rgba(0,0
   overflow: auto; z-index: 10; -webkit-app-region: no-drag; }
 #panel[hidden] { display: none; }
 body.preview #panel, body.preview #hint { display: none !important; }
+/* attendee page (/d/<code> on the hosted server): a small header, controls at the thumb, and the ended state */
+body.remote #hint { display: none; }
+body.remote #stage { padding-bottom: calc(var(--pad-y) + 72px); }
+#remoteHead { position: fixed; top: 0; left: 0; right: 0; z-index: 6; display: flex; align-items: center; gap: 8px; padding: max(14px, env(safe-area-inset-top)) 16px 10px; font: 500 12.5px/1 var(--ui); color: rgba(255,255,255,.72); pointer-events: none; }
+#remoteHead svg { width: 18px; height: 18px; border-radius: 4px; flex: none; }
+#remoteHead .w { color: #fff; font: italic 400 17px/1 var(--display); }
+#remoteHead .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#remoteHead .state { margin-left: auto; color: var(--accent); display: flex; align-items: center; gap: 6px; }
+#remoteHead .state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+#remoteHead .state.ended { color: rgba(255,255,255,.5); } #remoteHead .state.ended::before { background: rgba(255,255,255,.4); }
+#remoteBar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px max(12px, env(safe-area-inset-bottom)); background: linear-gradient(to top, rgba(0,0,0,.7), rgba(0,0,0,0)); font: 500 13px/1 var(--ui); }
+#remoteBar .seg { display: flex; border: 1px solid rgba(255,255,255,.35); border-radius: 8px; overflow: hidden; }
+#remoteBar button { font: inherit; height: 40px; min-width: 44px; padding: 0 12px; background: rgba(0,0,0,.45); color: #fff; border: 0; cursor: pointer; }
+#remoteBar .seg button + button { border-left: 1px solid rgba(255,255,255,.25); }
+#remoteBar button.on { background: var(--accent); color: var(--accent-fg); }
+#remoteBar > button { border: 1px solid rgba(255,255,255,.35); border-radius: 8px; }
+#ended { position: fixed; inset: 0; z-index: 7; background: #000; display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--ui); color: #fff; padding: 32px; }
+#ended .card { display: flex; flex-direction: column; align-items: center; gap: 12px; max-width: 420px; }
+#ended svg { width: 44px; height: 44px; border-radius: 10px; }
+#ended h1 { margin: 0; font: 700 28px/1.2 var(--cjk); }
+#ended p { margin: 0; color: rgba(255,255,255,.65); font-size: 14px; line-height: 1.5; } #ended p.m { color: rgba(255,255,255,.4); font-size: 12px; }
+#remoteHead[hidden], #remoteBar[hidden], #ended[hidden] { display: none; }
 
 /* ---------- shared UI (panel + control page) ---------- */
 .ui { font: 13px/1.45 var(--ui); color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);

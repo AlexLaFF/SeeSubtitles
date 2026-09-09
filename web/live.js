@@ -66,10 +66,9 @@
         <button class="ghost" id="btnDisplayWin"></button><button class="ghost" id="btnOverlayWin"></button></div>
       <div class="toolbar">
         <button id="btnRec" class="danger">● Start recording</button>
-        <button id="btnShare" class="primary">Share link</button>
+        <button id="btnShare">Share link</button>
         <button id="btnPause">Pause subtitles</button>
         <button id="btnClear">Clear screen</button>
-        <span class="muted">Shortcuts: <kbd>⇧⌘R</kbd> record · <kbd>P</kbd> pause · <kbd>X</kbd> clear · <kbd>+</kbd>/<kbd>−</kbd> text size</span>
       </div>
       <div class="body">
         <div class="col scroll" style="width:600px;flex:none">
@@ -78,23 +77,21 @@
           <div class="ui"><h3><span class="n">3</span>Where it shows</h3>
             <div class="row wide"><label>Display window</label><div id="displayRow"></div></div>
             <div id="overlayFields"></div>
-            <div class="row wide"><label>Share link</label><div id="shareRow"></div></div>
-            <div class="hint" style="margin-left:138px">Phones and venue screens open the link and follow along. Audio stays on this Mac.</div>
+            <div class="row wide" style="align-items:start"><label style="padding-top:5px">Share link</label><div id="shareRow"></div></div>
           </div>
           <div class="ui"><h3><span class="n">4</span>Recording</h3>
             <div class="row wide"><label>This talk</label><div id="recRow"></div></div>
-            <div class="row wide"><label>Saves to</label><div id="recDir" class="muted"></div></div>
-            <div class="hint" style="margin-left:138px">Recording never depends on the network. Finished recordings appear under Files.</div>
+            <div class="row wide"><label>Saves to</label><div id="recDir" class="hint" style="margin:0"></div></div>
           </div>
         </div>
         <div class="col" style="flex:1">
-          <div class="ui" style="padding:10px"><h3>Now showing</h3><div class="stagebox" id="stagebox"><iframe id="stageFrame" src="/?preview=1" title="preview"></iframe></div></div>
+          <div class="ui" style="padding:10px"><h3 style="margin:2px 0 8px 6px">Now showing</h3><div class="stagebox" id="stagebox"><iframe id="stageFrame" src="/?preview=1" title="preview"></iframe></div></div>
           <div class="ui" style="flex:1;display:flex;flex-direction:column;min-height:0"><h3>Transcript</h3>
-            <div class="hint" style="margin:-4px 0 8px">Saved with the recording; download the subtitle files under Files.</div>
             <div class="preview" id="preview" style="flex:1;max-height:none"></div></div>
-          <div class="ui" style="padding:8px 14px" id="logPanel"></div>
+          <div class="ui" style="padding:8px 16px" id="logPanel"></div>
         </div>
-      </div>`;
+      </div>
+      <div class="foot"><span><kbd>⇧⌘R</kbd> record</span><span><kbd>P</kbd> pause</span><span><kbd>X</kbd> clear</span><span><kbd>+</kbd><kbd>−</kbd> text size</span><span class="grow"></span><span id="footRight"></span></div>`;
     // buttons
     $('btnDisplayWin').append(svg('<rect x="3" y="4" width="18" height="13" rx="2"></rect><path d="M8 21h8"></path>'), 'Display window');
     $('btnOverlayWin').append(svg('<rect x="3" y="3" width="18" height="18" rx="2"></rect><rect x="8" y="8" width="13" height="13" rx="2"></rect>'), 'Overlay window');
@@ -218,18 +215,18 @@
     if (s.demo) { cls = 'demo'; label = 'Demo mode'; }
     else if (!s.creds) { cls = 'bad'; label = s.credsError && /log in|not logged/i.test(s.credsError) ? 'Not logged in' : 'No Tencent keys'; }
     else if (!s.streaming) { cls = 'warn'; label = 'Subtitles paused'; }
-    else if (st.state === 'ready') { cls = 'ok'; label = `Tencent connected${st.edge ? ` · ${st.edge.replace(/ .*/, '')} edge` : ''}`; }
+    else if (st.state === 'ready') { cls = 'ok'; const edge = st.edge ? st.edge.replace(/ .*/, '').replace(/^ap-/, '').replace(/^\w/, (c) => c.toUpperCase()) : ''; label = `Connected${edge ? ` · ${edge} edge` : ''}`; }
     else if (st.state === 'reconnecting') { cls = 'bad'; label = `Reconnecting${st.retryAt ? ` in ${Math.max(0, Math.ceil((st.retryAt - (s.now || Date.now())) / 1000))}s` : ''}`; }
     else label = String(st.state || 'connecting').replace(/^\w/, (c) => c.toUpperCase());
     const c1 = el('span', { class: `chip ${cls}` }); c1.append(el('span', { class: 'dot' }), label); chips.appendChild(c1);
     const db = s.level ? s.level.dbfs : null;
     const pct = db == null ? 0 : Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
-    const c2 = el('span', { class: 'chip', title: cap.device || '' }); const bar = el('span', { class: 'bar' }); bar.appendChild(el('i', { style: `width:${pct}%` })); c2.append('Mic ', bar, db == null ? ' no audio' : ` ${db.toFixed(0)} dB${db < -50 ? ' · very quiet' : ''}`); chips.appendChild(c2);
+    const c2 = el('span', { class: 'chip', title: cap.device || '' }); const bar = el('span', { class: 'bar' }); bar.appendChild(el('i', { style: `width:${pct}%` })); c2.append(bar, db == null ? 'Mic · no audio' : `Mic ${db.toFixed(0)} dB${db < -50 ? ' · very quiet' : ''}`); chips.appendChild(c2);
     const rc = s.recorder || {};
     if (rc.recording && rc.current) { const c3 = el('span', { class: 'chip rec' }); c3.append(el('span', { class: 'dot' }), `Recording ${Sub.fmtClock(rc.current.elapsedMs)}`); chips.appendChild(c3); }
     // toolbar
     $('btnRec').textContent = rc.recording ? '■ Stop recording' : '● Start recording';
-    $('btnRec').className = rc.recording ? 'primary' : 'danger';
+    $('btnRec').className = 'danger';
     $('btnPause').textContent = s.streaming === false ? 'Resume subtitles' : 'Pause subtitles';
     const cloud = s.cloud;
     $('btnShare').textContent = cloud && cloud.session ? 'Stop sharing' : 'Share link';
@@ -250,16 +247,18 @@
     const sr = $('shareRow'); sr.innerHTML = '';
     if (!cloud || !cloud.loggedIn) { const b = el('button', { class: 'small' }, 'Log in to share'); b.addEventListener('click', () => App.go('settings')); sr.appendChild(b); }
     else if (cloud.session) {
-      const w2 = el('div', { style: 'display:flex;gap:10px;align-items:flex-start' });
+      const w2 = el('div', { style: 'display:flex;gap:12px;align-items:flex-start' });
       const qrBox = el('div', { class: 'qr', title: 'Scan to open the share link' }); qrBox.innerHTML = qrSvg(cloud.shareUrl, 3); qrBox.addEventListener('click', () => showQr(cloud.shareUrl));
       const right = el('div', { style: 'flex:1;display:flex;flex-direction:column;gap:6px;min-width:0' });
-      const line = el('div', { style: 'display:flex;gap:6px;align-items:center' });
-      line.appendChild(el('input', { type: 'text', readonly: 'readonly', value: cloud.shareUrl, style: 'flex:1' }));
+      const line = el('div', { style: 'display:flex;gap:8px;align-items:center' });
+      line.appendChild(el('input', { type: 'text', readonly: 'readonly', value: cloud.shareUrl.replace(/^https?:\/\//, ''), style: 'flex:1;min-width:0' }));
       const cp = el('button', { class: 'small' }, 'Copy'); cp.addEventListener('click', () => navigator.clipboard.writeText(cloud.shareUrl).then(() => { cp.textContent = 'Copied'; setTimeout(() => { cp.textContent = 'Copy'; }, 1200); }).catch(() => {})); line.appendChild(cp);
-      const big = el('button', { class: 'small' }, 'Show QR large'); big.addEventListener('click', () => showQr(cloud.shareUrl)); line.appendChild(big);
-      const stop = el('button', { class: 'small' }, 'Stop'); stop.addEventListener('click', toggleShare); line.appendChild(stop);
       right.appendChild(line);
-      right.appendChild(el('div', { class: 'hint' }, `${cloud.sent} events sent${cloud.queued ? `, ${cloud.queued} queued` : ''}${cloud.error ? ` · ⚠ ${cloud.error}` : ''} · attendees scan the code or type the link`));
+      const line2 = el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' });
+      const big = el('button', { class: 'small' }, 'Show QR large'); big.addEventListener('click', () => showQr(cloud.shareUrl)); line2.appendChild(big);
+      const stop = el('button', { class: 'small' }, 'Stop sharing'); stop.addEventListener('click', toggleShare); line2.appendChild(stop);
+      line2.appendChild(el('span', { class: 'hint', style: 'margin:0' }, `${cloud.sent} events sent${cloud.queued ? `, ${cloud.queued} queued` : ''}${cloud.error ? ` · ⚠ ${cloud.error}` : ''} · audio stays on this Mac`));
+      right.appendChild(line2);
       w2.append(qrBox, right);
       sr.appendChild(w2);
     } else { const b = el('button', { class: 'small primary' }, 'Start sharing'); b.addEventListener('click', toggleShare); sr.appendChild(b); sr.appendChild(el('span', { class: 'muted', style: 'margin-left:8px' }, `as ${cloud.email}`)); }
@@ -271,7 +270,8 @@
     else if (rc.last) rwrap.appendChild(el('span', { class: 'muted' }, `last: ${rc.last.file} · ${Sub.fmtClock(rc.last.durationMs)} · ${rc.last.cues.zh} cues`));
     else rwrap.appendChild(el('span', { class: 'muted' }, 'not recording'));
     rr.appendChild(rwrap);
-    $('recDir').textContent = `${s.recordingsDir || (rc.dir || '')} · MP4 after recording: ${s.mp4Auto === false ? 'off' : 'on'}`;
+    $('recDir').textContent = `${s.recordingsDir || (rc.dir || '')} · MP4 with burned-in subtitles after recording: ${s.mp4Auto === false ? 'off' : 'on'}`;
+    const fr = $('footRight'); if (fr) fr.textContent = s.demo ? 'Demo mode · scripted sentences' : st.state === 'ready' ? `Tencent 實時語音翻譯${st.rotateAt ? ` · rotation in ${Sub.fmtAgo(st.rotateAt - now)}` : ''}` : '';
   };
 
   App.register('live', view);

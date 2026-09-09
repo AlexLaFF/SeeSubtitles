@@ -56,7 +56,7 @@
       tr.appendChild(el('td')).appendChild(el('a', { href: `/jobs/${j.id}` }, j.filename));
       tr.appendChild(el('td', {}, `${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}`));
       const st = el('td');
-      st.appendChild(el('span', { class: `pill ${j.status}` }, j.status));
+      const pill = el('span', { class: `pill ${j.status}` }); pill.append(el('span', { class: 'dot' }), j.status); st.appendChild(pill);
       if (j.error) st.appendChild(el('div', { class: 'muted' }, j.error));
       tr.appendChild(st);
       const bar = el('div', { class: 'bar' });
@@ -78,13 +78,14 @@
     const list = await api('/api/sessions').catch(() => []);
     const tb = $('sessions').querySelector('tbody');
     tb.innerHTML = '';
-    if (!list.length) tb.appendChild(el('tr')).appendChild(el('td', { colspan: 5, class: 'muted' }, 'none yet'));
+    if (!list.length) tb.appendChild(el('tr')).appendChild(el('td', { colspan: 6, class: 'muted' }, 'none yet'));
     for (const s of list) {
       const tr = el('tr');
       tr.appendChild(el('td', {}, s.name || s.id));
       tr.appendChild(el('td')).appendChild(el('a', { href: `/d/${s.code}`, target: '_blank' }, `/d/${s.code}`));
       tr.appendChild(el('td', {}, s.lines));
-      tr.appendChild(el('td')).appendChild(el('span', { class: `pill ${s.ended_at ? '' : 'live'}` }, s.ended_at ? 'ended' : `live · ${s.viewers} viewer${s.viewers === 1 ? '' : 's'}`));
+      tr.appendChild(el('td', {}, s.ended_at ? `${s.peak_viewers || 0} peak` : `${s.viewers} now · ${s.peak_viewers || 0} peak`));
+      const lp = el('span', { class: `pill ${s.ended_at ? '' : 'live'}` }); lp.append(el('span', { class: 'dot' }), s.ended_at ? 'ended' : 'live'); tr.appendChild(el('td')).appendChild(lp);
       const downloads = tr.appendChild(el('td'));
       downloads.appendChild(el('a', { href: `/api/sessions/${s.id}/transcript` }, 'transcript'));
       for (const [which, label] of [['source', 'Plain text · original'], ['target', 'Plain text · translation']]) {
@@ -99,20 +100,20 @@
   // What the account consumed this month, what is left of the resource pack (if the server knows its size), the balance.
   async function loadUsage() {
     const u = await api('/api/usage').catch((e) => ({ errors: { usage: e.message } }));
-    const box = $('usage');
+    const box = $('stats');
     box.innerHTML = '';
-    box.className = '';
-    if (u.month) box.appendChild(el('div', {}, `This month (since ${u.month.since}): live ${fmtDur(u.month.live)} · files ${fmtDur(u.month.files)} · ${u.month.count} requests`));
-    if (u.pack) {
-      const pct = Math.round(u.pack.fraction * 100);
-      box.appendChild(el('div', {}, `Resource pack: ${fmtDur(u.pack.remainingSeconds)} left of ${fmtDur(u.pack.seconds)} bought ${u.pack.since} (${pct}%)${u.pack.covers === 'all' ? '' : ' · live subtitles only'}`));
-      const bar = el('div', { class: 'bar', title: `${pct}% left` });
-      bar.appendChild(el('i')).style.width = `${pct}%`;
-      box.appendChild(bar);
-    } else if (u.month) box.appendChild(el('div', { class: 'muted' }, 'To see what is left of the resource pack, set TENCENT_PACK (hours@purchase date) on the server.'));
-    if (u.balance && u.balance.yuan != null) box.appendChild(el('div', {}, `Account balance ¥${u.balance.yuan.toFixed(2)}${u.balance.oweYuan ? ` · owing ¥${u.balance.oweYuan.toFixed(2)}` : ''}`));
-    for (const [k, v] of Object.entries(u.errors || {})) box.appendChild(el('div', { class: 'muted' }, `${k}: ${v}`));
-    if (!box.children.length) box.appendChild(el('div', { class: 'muted' }, 'no usage data'));
+    const tile = (k, v, d) => { const t = el('div', { class: 'stat' }); t.appendChild(el('div', { class: 'k' }, k)); t.appendChild(el('div', { class: 'v' }, v)); if (d) t.appendChild(el('div', { class: 'd' }, d)); box.appendChild(t); };
+    if (u.month) {
+      tile('Live this month', fmtDur(u.month.live), `since ${u.month.since} · ${u.month.count} requests`);
+      tile('Files this month', fmtDur(u.month.files), 'recognised on this server');
+    }
+    if (u.pack) { const pct = Math.round(u.pack.fraction * 100); tile('Resource pack', `${pct}% left`, `${fmtDur(u.pack.remainingSeconds)} of ${fmtDur(u.pack.seconds)} bought ${u.pack.since}${u.pack.covers === 'all' ? '' : ' · live subtitles'}`); }
+    if (u.balance && u.balance.yuan != null) tile('Account balance', `¥${u.balance.yuan.toFixed(2)}`, u.balance.oweYuan ? `owing ¥${u.balance.oweYuan.toFixed(2)}` : 'Tencent Cloud');
+    box.hidden = !box.children.length;
+    const note = $('ovNote'); note.innerHTML = '';
+    const bits = Object.entries(u.errors || {}).map(([k, v]) => `${k}: ${v}`);
+    if (u.month && !u.pack) bits.push('set TENCENT_PACK on the server to see what is left of the resource pack');
+    if (bits.length) note.appendChild(el('span', { class: 'chip' }, bits.join(' · ')));
   }
 
   (async () => {

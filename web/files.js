@@ -37,13 +37,14 @@
   function renderList(root) {
     mounted = 'list';
     root.innerHTML = `
-      <div class="top"><h1>Files</h1><span class="muted">Recordings from Live and files you add, with their subtitles</span><div class="grow"></div>
-        <button id="btnFolder">Open recordings folder</button><button id="btnAdd" class="primary">+ Add file…</button></div>
+      <div class="top"><h1>Files</h1><div class="chips"><span class="chip">Recordings from Live and files you add, with their subtitles</span></div><div class="grow"></div>
+        <button id="btnFolder" class="ghost">Open recordings folder</button><button id="btnAdd" class="primary">+ Add file…</button></div>
       <div class="toolbar"><div class="pills" id="filters"></div><div class="grow"></div><input type="text" id="search" placeholder="Search" style="width:220px"></div>
       <div class="body" style="flex-direction:column;overflow:auto">
         <div class="ui" style="padding:0;overflow:hidden"><table><thead><tr><th style="width:34%">Name</th><th>Date</th><th>Length</th><th>Subtitles</th><th>MP4</th><th>Summary</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
         <div class="drop" id="drop">Drop a video or audio file here to subtitle it. It is transcribed and translated on seesubtitles.com; an hour of speech takes a few minutes.</div>
-      </div>`;
+      </div>
+      <div class="foot"><span id="fFoot"></span></div>`;
     for (const [k, label] of [['all', 'All'], ['rec', 'Recordings'], ['added', 'Added files']]) {
       const b = el('button', { class: `pill${filter === k ? ' on' : ''}`, 'data-f': k }, label);
       b.addEventListener('click', () => { filter = k; for (const x of $('filters').children) x.classList.toggle('on', x.dataset.f === k); renderRows(); });
@@ -80,6 +81,7 @@
     for (const q of up.queue || []) items.push({ kind: 'added', name: q, sub: 'added file · waiting to upload', date: Date.now(), queued: true });
     const shown = items.filter((it) => (filter === 'all' || it.kind === filter) && (!search || it.name.toLowerCase().includes(search))).sort((a, b) => (b.date || 0) - (a.date || 0));
     tb.innerHTML = '';
+    const foot = $('fFoot'); if (foot) { const total = recordings.reduce((a, r) => a + (r.bytes || 0), 0); foot.textContent = [s.recordingsDir || '', recordings.length ? `${recordings.length} recording${recordings.length === 1 ? '' : 's'} · ${Sub.fmtBytes(total)}` : ''].filter(Boolean).join(' · '); }
     if (!shown.length) { tb.appendChild(el('tr')).appendChild(el('td', { colspan: 7, class: 'empty' }, recordings.length || jobs.length ? 'nothing matches' : 'No files yet. Record a talk under Live, or add a video or audio file.')); return; }
     for (const it of shown) {
       const tr = el('tr', { class: 'row-click' });
@@ -129,23 +131,25 @@
   async function renderDetail(root, base) {
     mounted = 'detail';
     root.innerHTML = `
-      <div class="top"><span class="crumb">Files ›</span><h1 id="dTitle"></h1><span id="dChip" class="chip"></span><div class="grow"></div>
-        <button id="btnResub">Re-subtitle via cloud</button><button id="btnMp4">Make MP4</button><button id="btnSummary">AI summary</button><button id="btnDownload" class="primary">Download ▾</button></div>
+      <div class="top"><h1><span class="crumb">Files ›</span> <span id="dTitle"></span></h1><div class="chips"><span id="dChip" class="chip"></span></div><div class="grow"></div>
+        <button id="btnResub" class="ghost">Re-subtitle via cloud</button><button id="btnMp4" class="ghost">Make MP4</button><button id="btnSummary" class="ghost">AI summary</button><button id="btnDownload" class="primary">Download ▾</button></div>
       <div class="body">
-        <div class="col" style="width:620px;flex:none;overflow:auto">
+        <div class="col scroll" style="width:560px;flex:none">
           <div class="ui" style="padding:10px"><div class="stage-p" id="pstage"></div><audio id="audio" controls preload="metadata" style="width:100%;margin-top:8px"></audio>
-            <div class="row wide" style="margin-top:4px"><label>Show Cantonese</label><input type="checkbox" id="showSrc"></div></div>
-          <div class="ui"><h3>Files</h3><div id="dFiles" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px"></div></div>
+            <div class="row wide" style="margin:8px 0 0"><label>Show Cantonese</label><div style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="showSrc"><span class="hint" style="margin:0">under each line, like the venue screen</span></div></div></div>
+          <div class="ui"><h3>This talk</h3><div class="kv2" id="dTalk"></div></div>
+          <div class="ui"><h3>Files</h3><div id="dFiles" class="flist"></div></div>
         </div>
         <div class="col" style="flex:1;min-height:0">
           <div class="ui" style="flex:1;display:flex;flex-direction:column;min-height:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="pills"><button class="pill on" id="tabSubs">Subtitles</button><button class="pill" id="tabSum">Summary</button></div><div class="grow"></div><span class="muted" id="dHint">Click a time to jump · edits regenerate the files</span></div>
             <div class="cues" id="cues"></div>
             <div id="sumBox" hidden style="flex:1;min-height:0"></div>
-            <div id="cueBar" style="display:flex;gap:8px;align-items:center;padding-top:10px;border-top:1px solid #2a2a2d"><button id="btnSave" class="primary" disabled>Save changes</button><button id="btnShift">Shift all…</button><span class="muted" id="editCount"></span></div>
+            <div id="cueBar" style="display:flex;gap:8px;align-items:center;padding-top:10px;border-top:1px solid var(--line)"><button id="btnSave" class="primary" disabled>Save changes</button><button id="btnShift">Shift all…</button><span class="hint" id="editCount" style="margin:0"></span></div>
           </div>
         </div>
-      </div>`;
+      </div>
+      <div class="foot"><span id="dFoot"></span></div>`;
     $('dTitle').textContent = base;
     await loadRecordings();
     const r = recordings.find((x) => x.base === base);
@@ -254,7 +258,9 @@
       if (changed) { await loadRecordings(); const rr = recordings.find((x) => x.base === base); if (rr) { const d2 = await fetch(`/api/recordings/cues?base=${encodeURIComponent(base)}`).then((x) => x.json()).catch(() => null); if (d2 && !dirty) { cues = d2.cues || []; renderCues(); sync(true); } } }
       const rr = recordings.find((x) => x.base === base) || r;
       const chip = $('dChip'); chip.className = `chip ${busy ? 'warn' : rr.resubtitled ? 'ok' : ''}`;
-      chip.textContent = busy || (rr.resubtitled ? 'complete · cloud subtitles' : (rr.zh || rr.yue) ? 'live subtitles from the talk' : 'no subtitles') + (rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : '');
+      chip.innerHTML = ''; chip.append(el('span', { class: 'dot' }), busy || (rr.resubtitled ? 'Complete · cloud subtitles' : (rr.zh || rr.yue) ? 'Live subtitles from the talk' : 'No subtitles') + (rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : ''));
+      const talk = $('dTalk'); if (talk) { talk.innerHTML = ''; const kv = (k, v) => { talk.appendChild(el('span', {}, k)); talk.appendChild(el('span', {}, v)); }; kv('Recorded', `${new Date(rr.mtime).toLocaleString()}${rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : ''}`); kv('Languages', rr.style === 'legacy' ? 'legacy name' : '粵語 → 中文'); kv('Subtitles', rr.resubtitled ? `${cues.length} cues from the cloud · the live set is kept as .live.srt` : (rr.zh || rr.yue) ? `${cues.length} cues from the talk · Re-subtitle via cloud fills any holes` : 'none yet'); kv('Video', rr.mp4 ? `MP4 with burned-in subtitles · ${Sub.fmtBytes(rr.mp4Bytes)}` : 'no MP4 yet'); }
+      const df = $('dFoot'); if (df) df.textContent = `MP4 after recording: ${s.mp4Auto === false ? 'off' : 'on'} · re-rendered when the subtitles are replaced`;
       chip.dataset.done = '1';
       const files = $('dFiles'); files.innerHTML = '';
       const f = (name, extra) => { const d = el('div'); const a = el('a', { href: `/recordings/${encodeURIComponent(name)}`, download: name }, name); d.appendChild(a); if (extra) d.appendChild(el('span', { class: 'muted' }, ` · ${extra}`)); files.appendChild(d); };
