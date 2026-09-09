@@ -150,9 +150,8 @@ Three concepts, all bottom-weighted: the empty upper part is the screen, the mar
 - **Bracket**: the corner quotes 「 」 that Cantonese and Traditional Chinese text uses, framing a subtitle
   line. Typographic and rooted in the language, but it turns to noise at 16 px.
 
-Wordmark: "See Subtitles" in the direction's display face, optionally locked up with a Chinese line. 睇字幕 is
-the Cantonese way to say it; 看字幕 or 見字幕 if the name should read as Mandarin first. This is a proposal, not
-a decision.
+Wordmark: "See Subtitles" in the direction's display face, locked up with the Chinese name 看字幕 (kàn zìmù, "see the
+subtitles"), which reads the same in Traditional and Simplified. 睇字幕 (Cantonese) and 見字幕 were considered.
 
 Production: one 1024 × 1024 PNG with the 100 px transparent margin as `desktop/build/icon.png`
 (electron-builder derives the icns; `icons/app-<direction>.svg` is the source); `trayTemplate.png` and

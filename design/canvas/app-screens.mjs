@@ -254,7 +254,7 @@ export function qrSheet() {
   const css = `.win{position:relative} .qrcard{background:#fff;color:#111;border-radius:18px;padding:30px 36px 26px;display:flex;flex-direction:column;align-items:center;gap:14px;width:600px;font-family:var(--ui)}
 .qrcard .ev{font:600 15px/1.3 var(--cjk);color:#333;display:flex;align-items:center;gap:10px} .qrcard .url{font:600 30px/1.1 var(--ui);letter-spacing:.01em} .qrcard .m{color:#666;font-size:13px;text-align:center;line-height:1.5}
 .qrcard .bar{width:100%;height:6px;border-radius:3px;background:var(--accent);margin-top:4px}`;
-  const inner = liveWin().replace('<div class="win">', `<div class="win"><div class="scrim"><div class="qrcard">${mark(32)}<div class="ev">字幕與共融 講座 · 8 September</div>${QR(360)}<div class="url">seesubtitles.com/d/K7Q2</div><div class="m">Scan to follow the subtitles on your phone · 掃碼用手機睇字幕<br>Click anywhere or press Esc to close · Print QR poster from the share row</div><div class="bar"></div></div></div>`);
+  const inner = liveWin().replace('<div class="win">', `<div class="win"><div class="scrim"><div class="qrcard">${mark(32)}<div class="ev">字幕與共融 講座 · 8 September</div>${QR(360)}<div class="url">seesubtitles.com/d/K7Q2</div><div class="m">Scan to follow the subtitles on your phone · 掃碼用手機看字幕<br>Click anywhere or press Esc to close · Print QR poster from the share row</div><div class="bar"></div></div></div>`);
   return doc(inner, css);
 }
 
@@ -331,10 +331,10 @@ export function poster() {
 .po .ft{margin-top:auto;display:flex;align-items:center;gap:12px;color:#8a8478;font-size:14px;border-top:1px solid #dcd6c8;padding-top:16px} .po .ft .ev{color:#1c1a16;font:600 16px "Noto Sans TC", sans-serif}`;
   const body = `<div class="po">
   <div class="hd">${mark(44)}<span class="w">See Subtitles</span></div>
-  <div><h1>用手機睇字幕</h1><h2>Follow the subtitles on your phone. Nothing to install.</h2></div>
+  <div><h1>用手機看字幕</h1><h2>Follow the subtitles on your phone. Nothing to install.</h2></div>
   <div class="qr">${QR(380)}</div>
   <div class="url">seesubtitles.com/d/K7Q2</div>
-  <div class="steps"><div><i>1</i><b>掃碼</b>Scan the code or type the address.</div><div><i>2</i><b>揀語言</b>Choose the translation, the original, or both.</div><div><i>3</i><b>調整字體</b>Set the text size. It stays on while the talk runs.</div></div>
+  <div class="steps"><div><i>1</i><b>掃碼</b>Scan the code or type the address.</div><div><i>2</i><b>選語言</b>Choose the translation, the original, or both.</div><div><i>3</i><b>調整字體</b>Set the text size. It stays on while the talk runs.</div></div>
   <div class="ft"><span class="ev">字幕與共融 講座 · 8 September 2026</span><span style="margin-left:auto">Audio stays with the organiser · 音頻不會離開會場</span></div>
 </div>`;
   return page({ fontLink, css, body });

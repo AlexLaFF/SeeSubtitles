@@ -364,9 +364,9 @@ export function brandBoard(d) {
   <section class="sec"><h2>Wordmark</h2>
     <div class="wm">
       <div class="big" style="${wmStyle}">See Subtitles</div>
-      <div class="lock">${markSvg(d)}<div class="t"><span class="en" style="${lockEn}">See Subtitles</span><span class="zh" style="${lockZh}">睇字幕</span></div></div>
+      <div class="lock">${markSvg(d)}<div class="t"><span class="en" style="${lockEn}">See Subtitles</span><span class="zh" style="${lockZh}">看字幕</span></div></div>
     </div>
-    <div class="hint">The Chinese line is a proposal: 睇字幕 is the Cantonese way to say it; 看字幕 or 見字幕 if the name should read as Mandarin first.</div>
+    <div class="hint">The Chinese name is 看字幕 (kàn zìmù, "see the subtitles"); it reads the same in Traditional and Simplified.</div>
   </section>
 
   <section class="sec"><h2>Colour</h2>
@@ -467,7 +467,7 @@ export function overview() {
   <div class="rec">
     <b>Recommendation</b>
     <p>A · Marquee for the app, using B · Daylight's paper tokens as its light appearance. It is the most ours: the yellow is a memory every Cantonese-speaking audience has of subtitles, the stacked mark is the product itself, and it evolves the shell you already like instead of replacing it. Daylight is the better answer if the hosted web app and desk work become the main use; Signal if you want the product to read as a contemporary app first and a venue tool second.</p>
-    <p class="hint">The three marks are interchangeable across directions, see the icon sheet at the bottom of the canvas. The Chinese name on the wordmarks (睇字幕) is a proposal, not a decision.</p>
+    <p class="hint">The three marks are interchangeable across directions, see the icon sheet at the bottom of the canvas. The Chinese name is 看字幕.</p>
   </div>
   <div class="sec"><h2>After you choose</h2>
     <div class="next">

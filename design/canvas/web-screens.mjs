@@ -66,7 +66,7 @@ export function home() {
     <div class="cues"><div><span>00:15:48</span><div>大家好，歡迎來到今天的分享。<small>大家好，歡迎嚟到今日嘅分享。</small></div></div><div><span>00:15:52</span><div>今天我們會講一下如何用字幕幫助更多人參與會議。<small>今日我哋會講吓點樣用字幕幫助更多人參與會議。</small></div></div><div><span>00:15:59</span><div>首先是現場的觀眾，他們可以用手機掃二維碼。<small>首先係現場嘅觀眾，佢哋可以用手機掃個二維碼。</small></div></div></div></div></div>
   <div class="sec paper"><div class="two"><div><h2>Get started</h2><p class="sub" style="margin-bottom:22px">Download the app and log in. Accounts are created by the team that runs See Subtitles; tell us what you will subtitle and we will set one up.</p><span class="btn primary big">Download for macOS</span></div>
     <div class="form"><span class="field">Name</span><span class="field">Email</span><span class="field wide">Organisation or event</span><span class="field wide" style="height:80px;align-items:flex-start;padding-top:10px">What will you subtitle? Talks, classes, files…</span><span class="btn" style="grid-column:1/-1;justify-content:center">Request an account</span></div></div></div>
-  <div class="foot"><div class="brand">${mark()}<span>See Subtitles · 睇字幕</span></div><a>Download</a><a>Web app</a><a>Privacy</a><a>Contact</a><span class="lang"><span class="on">EN</span>·<span>繁</span>·<span>简</span></span></div>
+  <div class="foot"><div class="brand">${mark()}<span>See Subtitles · 看字幕</span></div><a>Download</a><a>Web app</a><a>Privacy</a><a>Contact</a><span class="lang"><span class="on">EN</span>·<span>繁</span>·<span>简</span></span></div>
 </div>`;
   return page({ fontLink, css: WEB_CSS, body });
 }
@@ -87,7 +87,7 @@ export function homeMobile() {
   <div class="sec paper"><h2>How it works</h2><div class="steps"><div><div class="n">1</div><h3>Speak</h3><p>A microphone on the speaker; each sentence comes back translated as it finishes.</p></div><div><div class="n">2</div><h3>Show</h3><p>Display window, overlay on the slides, or the share link for phones.</p></div><div><div class="n">3</div><h3>Keep</h3><p>The recording, complete subtitles, an MP4 and a summary.</p></div></div></div>
   <div class="sec"><h2>Where it helps</h2><div class="cards4"><div><h3>Conferences and talks<small>會議・講座</small></h3><p>Screen, slides and every phone, from one laptop.</p></div><div><h3>Classes and workshops<small>課堂・工作坊</small></h3><p>Students follow on their own screens.</p></div><div><h3>Video and audio files<small>影片・錄音</small></h3><p>Subtitles in minutes, export SRT, VTT, text or MP4.</p></div></div></div>
   <div class="sec paper"><h2>Get started</h2><p class="sub">Accounts are created by the team that runs See Subtitles.</p><div class="form"><span class="field">Name</span><span class="field">Email</span><span class="field">What will you subtitle?</span><span class="btn" style="justify-content:center">Request an account</span></div></div>
-  <div class="foot"><div class="brand">${mark()}<span>See Subtitles · 睇字幕</span></div><a>Download</a><a>Web app</a><a>Privacy</a><span class="lang"><span class="on">EN</span>·<span>繁</span>·<span>简</span></span></div>
+  <div class="foot"><div class="brand">${mark()}<span>See Subtitles · 看字幕</span></div><a>Download</a><a>Web app</a><a>Privacy</a><span class="lang"><span class="on">EN</span>·<span>繁</span>·<span>简</span></span></div>
 </div>`;
   return page({ fontLink, css, body });
 }
@@ -238,6 +238,6 @@ export function phoneMenu() {
 export function phoneEnded() {
   return page({ fontLink, css: PHONE_CSS, body: `<div class="ph"><div class="hdr">${mark()}<span class="w">See Subtitles</span><span class="live" style="color:rgba(255,255,255,.5)">ended 14:49</span></div>
     <div class="ended">${mark(44)}<h1>這場講座已經結束</h1><p>This talk has ended. Thank you for following along.<br>The organiser can share the recording and the subtitles from See Subtitles.</p><p class="m">字幕與共融 講座 · 8 September · 47 minutes · 1,284 lines</p></div>
-    <div class="bar"><span>seesubtitles.com</span><span>睇字幕</span></div>
+    <div class="bar"><span>seesubtitles.com</span><span>看字幕</span></div>
   </div>` });
 }
