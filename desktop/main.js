@@ -234,6 +234,14 @@ async function cloudAction(body) {
       else await cloud.stopSession();
       return { ok: true, cloud: cloud.status() };
     }
+    // Account management inside the app (the same routes the hosted Account page uses)
+    case 'password':
+      await cloud._fetch('/api/account/password', { current: body.current, next: body.next });
+      return { ok: true };
+    case 'devices':
+      return { ok: true, devices: await cloud._fetch('/api/account/tokens', null, { method: 'GET' }) };
+    case 'revoke':
+      return { ok: true, ...(await cloud._fetch('/api/account/tokens/revoke', body.all ? { all: true } : { id: body.id })) };
     case 'glossary': {
       // { items } stores the list on the account; without items it fetches the account's list
       if (Array.isArray(body.items)) return { ok: true, ...(await cloud._fetch('/api/glossary', { items: body.items }, { method: 'PUT' })) };

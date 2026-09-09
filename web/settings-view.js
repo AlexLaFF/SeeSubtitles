@@ -7,7 +7,7 @@
   const view = { get title() { return t('settings.title'); } };
   let mounted = false;
 
-  const SECTIONS = ['general', 'account', 'tencent', 'summaries', 'recording', 'advanced', 'about'];
+  const SECTIONS = ['general', 'account', 'password', 'devices', 'tencent', 'summaries', 'recording', 'advanced', 'about'];
   const row = (label, ...content) => { const r = el('div', { class: 'row wide' }); r.appendChild(el('label', {}, label)); const w = el('div', { style: 'display:flex;gap:6px;align-items:center;min-width:0' }); for (const c of content) w.appendChild(typeof c === 'string' ? el('span', {}, c) : c); r.appendChild(w); return r; };
   const hint = (text) => el('div', { class: 'hint', style: 'margin-left:160px' }, text);
   const input = (attrs) => el('input', { type: 'text', ...attrs });
@@ -41,6 +41,62 @@
     const manage = el('a', { href: '#' }, t('settings.manageAccount'));
     manage.addEventListener('click', (e) => { e.preventDefault(); App.openExternal(`${cfg.cloud.url || cfg.defaultCloudUrl}/account`); });
     const h = el('div', { class: 'hint', style: 'margin-left:160px' }); h.append(manage, ` · ${t('settings.manageHint')}`); acc.appendChild(h);
+
+    // password: the server signs every other device out; this app keeps its own login
+    const pw = sec('password');
+    const cur = el('input', { type: 'password', autocomplete: 'current-password' });
+    const next = el('input', { type: 'password', autocomplete: 'new-password', minlength: 8 });
+    const again = el('input', { type: 'password', autocomplete: 'new-password', minlength: 8 });
+    const btnPw = el('button', { class: 'small' }, t('acct.change'));
+    const pwMsg = el('span', { class: 'hint', style: 'margin:0' });
+    pw.append(row(t('acct.current'), cur), row(t('acct.new'), next, el('span', { class: 'hint', style: 'margin:0' }, t('acct.atLeast'))), row(t('acct.repeat'), again), row('', btnPw, pwMsg), hint(t('acct.securityHint')));
+    btnPw.addEventListener('click', async () => {
+      pwMsg.textContent = '';
+      if (next.value.length < 8) { pwMsg.textContent = t('acct.atLeast'); return; }
+      if (next.value !== again.value) { pwMsg.textContent = t('acct.differ'); return; }
+      btnPw.disabled = true;
+      try { await d.cloud({ action: 'password', current: cur.value, next: next.value }); cur.value = next.value = again.value = ''; pwMsg.textContent = t('acct.changed'); renderDevices(); }
+      catch (err) { pwMsg.textContent = String(err.message || err).replace(/^.*Error: /, ''); }
+      btnPw.disabled = false;
+    });
+
+    // devices: where the account is signed in (this app, browsers, other Macs)
+    const dv = sec('devices');
+    dv.querySelector('h3').appendChild(el('span', { class: 'hint', style: 'margin-left:8px' }, t('acct.devicesSub')));
+    const devBox = el('div'); dv.appendChild(devBox);
+    const fmtDay = (ms) => (ms ? new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '–');
+    const fmtAgo = (ms) => {
+      if (!ms) return t('acct.never');
+      const ago = Date.now() - ms;
+      if (ago < 90_000) return t('acct.now');
+      if (ago < 3600_000) return t('acct.minAgo', { n: Math.round(ago / 60_000) });
+      if (ago < 86400_000) return t('acct.hAgo', { n: Math.round(ago / 3600_000) });
+      if (ago < 2 * 86400_000) return t('acct.yesterday');
+      return fmtDay(ms);
+    };
+    async function renderDevices() {
+      let list = [];
+      try { list = (await d.cloud({ action: 'devices' })).devices || []; } catch (err) { devBox.textContent = String(err.message || err).replace(/^.*Error: /, ''); return; }
+      if (!mounted) return;
+      devBox.innerHTML = '';
+      const table = el('table', { class: 'devices' });
+      table.appendChild(el('thead')).appendChild(el('tr')).append(el('th', {}, t('acct.device')), el('th', {}, t('acct.signedIn')), el('th', {}, t('acct.lastUsed')), el('th'));
+      const tb = table.appendChild(el('tbody'));
+      for (const tok of list) {
+        const tr = el('tr');
+        tr.appendChild(el('td', {}, `${tok.label}${tok.kind === 'bearer' ? '' : ` · ${t('acct.browser')}`}`));
+        tr.appendChild(el('td', { class: 'muted' }, fmtDay(tok.created_at)));
+        tr.appendChild(el('td', { class: 'muted' }, tok.current ? t('acct.thisDevice') : fmtAgo(tok.last_used)));
+        const ops = el('td', { style: 'text-align:right' });
+        if (!tok.current) { const b = el('button', { class: 'small' }, t('acct.signOut')); b.addEventListener('click', () => d.cloud({ action: 'revoke', id: tok.id }).then(renderDevices).catch((e) => { devBox.prepend(el('div', { class: 'hint' }, e.message)); })); ops.appendChild(b); }
+        tr.appendChild(ops); tb.appendChild(tr);
+      }
+      devBox.appendChild(table);
+      const all = el('button', { class: 'small', style: 'margin-top:10px' }, t('acct.signOutOthers')); all.disabled = list.length < 2;
+      all.addEventListener('click', () => { if (confirm(t('acct.signOutConfirm'))) d.cloud({ action: 'revoke', all: true }).then(renderDevices).catch((e) => { devBox.prepend(el('div', { class: 'hint' }, e.message)); }); });
+      devBox.appendChild(all);
+    }
+    renderDevices();
     const renderAcc = (c) => {
       if (!c || !c.loggedIn) { status.textContent = t('settings.notLoggedIn'); return; }
       status.textContent = (c.session ? t('settings.sharingTo', { url: c.shareUrl }) : t('account.connected')) + (c.error ? `\n${c.error}` : '');

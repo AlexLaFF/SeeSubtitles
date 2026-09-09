@@ -117,8 +117,10 @@ function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
   }
 
   // ---- website: request an account
-  function requestAccount({ name, email, org, note } = {}) {
+  function requestAccount({ name, email, org, note, plan } = {}) {
     const clean = String(email || '').trim().toLowerCase();
+    const wanted = /^[a-z]{1,20}$/i.test(String(plan || '')) ? String(plan).toLowerCase() : '';
+    note = [wanted ? `plan: ${wanted}` : '', String(note || '').trim()].filter(Boolean).join(' · ');
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) throw new Error('please give an email address we can reply to');
     const r = db.run('INSERT INTO requests(name, email, org, note, created_at) VALUES (?,?,?,?,?)', String(name || '').trim().slice(0, 80), clean, String(org || '').trim().slice(0, 120), String(note || '').trim().slice(0, 1000), Date.now());
     log('info', `account requested by ${clean}`);

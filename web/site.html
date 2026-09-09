@@ -12,7 +12,7 @@
 <body class="site">
 <header class="nav">
   <a class="brand" href="/"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span class="w">See Subtitles</span></a>
-  <nav class="links"><a href="#how" data-t="nav.how">How it works</a><a href="#where" data-t="nav.where">Where it helps</a><a href="#files" data-t="nav.files">Files</a></nav>
+  <nav class="links"><a href="#how" data-t="nav.how">How it works</a><a href="#where" data-t="nav.where">Where it helps</a><a href="#pricing" data-t="nav.pricing">Pricing</a><a href="#files" data-t="nav.files">Files</a></nav>
   <a class="login" href="/login" data-t="nav.login">Log in</a>
   <a class="btn primary dl" href="/login" data-t="nav.download" hidden>Download for Mac</a>
 </header>
@@ -21,7 +21,18 @@
   <div class="copy">
     <h1 data-t="hero.h1" data-html>Subtitles for <em>everyone</em> in the room.</h1>
     <p data-t="hero.p">See Subtitles turns Cantonese speech into Mandarin subtitles as it is spoken: on the venue screen, over the slides, and on every phone that scans a code. When the talk ends you have the recording, the complete subtitles and a summary.</p>
-    <div class="cta"><a class="btn primary big dl" href="/login" data-t="cta.download">Download for macOS</a><a class="btn ghost big" href="/login" data-t="cta.web">Open the web app</a></div>
+    <div class="reqcard">
+      <b data-t="req.title">Accounts are by request</b>
+      <p data-t="req.body">There is no self-service sign-up. Tell us who you are and what you will subtitle; we reply by email and set the account up. Existing users: <a href="/login">log in</a>.</p>
+      <form class="form" id="req">
+        <input type="text" name="name" data-t="form.name" data-attr="placeholder" placeholder="Name" maxlength="80" autocomplete="name">
+        <input type="email" name="email" data-t="form.email" data-attr="placeholder" placeholder="Email" required maxlength="120" autocomplete="email">
+        <input type="text" name="org" class="wide" data-t="form.org" data-attr="placeholder" placeholder="Organisation or event" maxlength="120" autocomplete="organization">
+        <textarea name="note" class="wide" rows="2" data-t="form.note" data-attr="placeholder" placeholder="What will you subtitle? Talks, classes, files…" maxlength="1000"></textarea>
+        <div class="msg wide" id="reqMsg" hidden></div>
+        <button class="btn primary wide" type="submit" id="reqBtn" data-t="form.submit">Request an account</button>
+      </form>
+    </div>
     <div class="fine" id="fine" data-t="hero.fine">macOS 13 or later, Apple silicon · the web app subtitles video and audio files in any browser</div>
   </div>
   <div class="vis" aria-hidden="true">
@@ -80,22 +91,25 @@
   </div>
 </section>
 
+<section class="sec" id="pricing">
+  <h2 data-t="price.h2">Pricing</h2>
+  <p class="sub" data-t="price.sub">Three plans. Every plan includes the Mac app, the web app and recordings that never leave your Mac.</p>
+  <div class="plans" id="plans"></div>
+  <p class="fine c" data-t="price.fine">Prices in US dollars per month. Hours are of audio processed each month and do not carry over; extra live hours are $1.50 each and extra file hours $0.60 each, or move up a plan. Request an account and say which plan you want.</p>
+</section>
+
 <section class="sec paper" id="start">
   <div class="two">
     <div>
-      <h2 data-t="start.h2">Get started</h2>
-      <p class="sub" data-t="start.sub">Download the app and log in. Accounts are created by the team that runs See Subtitles; tell us what you will subtitle and we will set one up.</p>
-      <a class="btn primary big dl" href="/login" data-t="cta.download">Download for macOS</a>
+      <h2 data-t="start.h2">Already have an account?</h2>
+      <p class="sub" data-t="start.sub">Download the app and log in with the address we set up for you. The web app takes video and audio files from any browser.</p>
+      <div class="cta"><a class="btn primary big dl" href="/login" data-t="cta.download">Download for macOS</a><a class="btn ghost big" href="/login" data-t="cta.web">Open the web app</a></div>
       <div class="fine" id="fine2"></div>
     </div>
-    <form class="form" id="req">
-      <input type="text" name="name" data-t="form.name" data-attr="placeholder" placeholder="Name" maxlength="80" autocomplete="name">
-      <input type="email" name="email" data-t="form.email" data-attr="placeholder" placeholder="Email" required maxlength="120" autocomplete="email">
-      <input type="text" name="org" class="wide" data-t="form.org" data-attr="placeholder" placeholder="Organisation or event" maxlength="120" autocomplete="organization">
-      <textarea name="note" class="wide" rows="3" data-t="form.note" data-attr="placeholder" placeholder="What will you subtitle? Talks, classes, files…" maxlength="1000"></textarea>
-      <div class="msg wide" id="reqMsg" hidden></div>
-      <button class="btn wide" type="submit" id="reqBtn" data-t="form.submit">Request an account</button>
-    </form>
+    <div class="cues" aria-hidden="true">
+      <div><span>00:15:48</span><div>大家好，欢迎来到今天的分享。<small>大家好，欢迎嚟到今日嘅分享。</small></div></div>
+      <div><span>00:15:52</span><div>今天我们会讲一下如何用字幕帮助更多人参与会议。<small>今日我哋会讲吓点样用字幕帮助更多人参与会议。</small></div></div>
+    </div>
   </div>
 </section>
 

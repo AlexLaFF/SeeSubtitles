@@ -243,6 +243,8 @@
     'settings.menuHint': ['Also in the menu bar: See Subtitles › Settings… (⌘,)', '菜单栏中也有：See Subtitles › 设置…（⌘,）'],
     'settings.sec.general': ['General', '通用'],
     'settings.sec.account': ['Account', '账号'],
+    'settings.sec.password': ['Password', '密码'],
+    'settings.sec.devices': ['Devices', '设备'],
     'settings.sec.tencent': ['Tencent Cloud (实时语音翻译)', '腾讯云（实时语音翻译）'],
     'settings.sec.summaries': ['AI summaries', 'AI 总结'],
     'settings.sec.recording': ['Recording', '录音'],
