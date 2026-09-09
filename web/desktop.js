@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const el = Controls.el;
-  const App = { views: {}, current: null, main: null, params: {} };
+  const App = { views: {}, current: null, main: null, params: {}, locked: false };
 
   App.register = (name, view) => { App.views[name] = view; };
 
@@ -16,12 +16,14 @@
   App.pathFor = (view, params = {}) => (view === 'files' ? (params.base ? `/files/${encodeURIComponent(params.base)}` : '/files') : view === 'settings' ? '/settings' : '/control');
 
   App.go = function (view, params = {}, { replace = false } = {}) {
+    if (App.locked && view !== 'welcome') { view = 'welcome'; params = {}; } // logged out: nothing but the login flow
     const path = App.pathFor(view, params);
     if (location.pathname !== path) history[replace ? 'replaceState' : 'pushState']({ view, params }, '', path);
     App.show(view, params);
   };
 
   App.show = function (view, params) {
+    if (App.locked && view !== 'welcome') { view = 'welcome'; params = {}; }
     const v = App.views[view];
     if (!v) return;
     if (App.current && App.current !== v && App.current.leave) App.current.leave();
@@ -34,6 +36,8 @@
   };
 
   App.refresh = () => { if (App.current && App.current.update) App.current.update(); };
+  /** Logging out (from Settings, or a revoked login) sends the app back to the login card; logging in only unlocks. */
+  App.setLocked = (locked) => { if (locked === App.locked) return; App.locked = locked; if (locked && App.current !== App.views.welcome) App.go('welcome', {}, { replace: true }); };
 
   App.desktop = () => window.desktop || null; // preload bridge (Electron); null in a plain browser
 
@@ -75,13 +79,20 @@
     for (const n of document.querySelectorAll('.side .nav')) n.addEventListener('click', () => App.go(n.dataset.view));
     window.addEventListener('popstate', () => { const r = App.route(location.pathname); App.show(r.view, r.params); });
     let r = App.route(location.pathname);
-    // first run in the desktop app: the welcome cards instead of Live, until the last card is dismissed
-    if (window.desktop && App.views.welcome) { try { const cfg = await window.desktop.getConfig(); if (!cfg.firstRunDone && !cfg.demo) r = { view: 'welcome', params: {} }; } catch { /* plain Live */ } }
+    // In the desktop app the account is the door: logged out means the login card and nothing else; a first run
+    // continues with the microphone and language cards after logging in.
+    if (window.desktop && App.views.welcome) {
+      try {
+        const cfg = await window.desktop.getConfig();
+        App.locked = !cfg.demo && !(cfg.cloud && cfg.cloud.loggedIn);
+        if (App.locked || (!cfg.firstRunDone && !cfg.demo)) r = { view: 'welcome', params: {} };
+      } catch { /* plain Live */ }
+    }
     App.show(r.view, r.params);
     if (window.desktop && window.desktop.onNavigate) window.desktop.onNavigate((view, params) => App.go(view, params || {}));
     document.addEventListener('keydown', (e) => { if (Sub.keyAction(e)) e.preventDefault(); });
     Sub.on('init', (d) => { if (d.language && !qlang) I18n.setLanguage(d.language); Controls.setDevices(d.devices); Controls.setPresets(d.presets); Controls.setOverlay(d.status.overlay); Controls.sync(d.settings, true); renderAccount(); for (const v of Object.values(App.views)) if (v.init) v.init(d); App.refresh(); });
-    Sub.on('status', (s) => { Controls.setOverlay(s.overlay); renderAccount(); App.refresh(); });
+    Sub.on('status', (s) => { Controls.setOverlay(s.overlay); renderAccount(); App.setLocked(!!window.desktop && !s.demo && !!s.cloud && !s.cloud.loggedIn); App.refresh(); });
     Sub.on('settings', (d) => { if (d.from !== Sub.clientId) Controls.sync(d.settings); App.refresh(); });
     Sub.on('local', App.refresh);
     Sub.on('devices', Controls.setDevices);

@@ -72,7 +72,6 @@
       </div>
       <div class="body">
         <div class="col scroll" style="width:600px;flex:none">
-          <div class="ui logincard" id="loginCard" hidden><b>${t('live.login.title')}</b><p>${t('live.login.body')}</p><button class="primary small" id="btnLoginCard">${t('live.login.btn')}</button></div>
           <div class="ui"><h3><span class="n">1</span>${t('live.source')}</h3><div id="srcFields"></div><div class="row wide" id="glossRowWrap"><label>${t('live.glossary')}</label><div id="glossRow"></div></div><div id="srcFolds"></div></div>
           <div class="ui"><h3><span class="n">2</span>${t('live.look')}</h3><div id="lookFields"></div><div id="lookFolds"></div></div>
           <div class="ui"><h3><span class="n">3</span>${t('live.where')}</h3>
@@ -102,7 +101,6 @@
     $('btnShare').addEventListener('click', toggleShare);
     $('btnPause').addEventListener('click', () => Sub.update({ streaming: !Sub.settings.streaming }));
     $('btnClear').addEventListener('click', () => Sub.post('/api/clear'));
-    $('btnLoginCard').addEventListener('click', () => App.go('settings'));
     // 1 Source — the glossary (app config + account) replaces the hotwords textarea inside the desktop app
     Controls.renderFields($('srcFields'), ['audioDevice', 'source', 'target', 'transModel']);
     renderGlossaryRow();
@@ -281,7 +279,6 @@
     else if (s.creds && st.state === 'reconnecting' && I18n.has(`billing.${code}`)) text = t('live.alert.billing', { code, reason: t(`billing.${code}`) });
     else if (s.creds && st.state === 'reconnecting' && st.reconnects >= 3 && st.lastError) text = t('live.alert.failing', { message: st.lastError.message });
     alert.textContent = text; alert.hidden = !text;
-    $('loginCard').hidden = !!(s.creds || s.demo || App.offline);
     // chips: a dot and a word
     const chips = $('chips'); chips.innerHTML = '';
     let cls = 'warn'; let label = st.state || '…';

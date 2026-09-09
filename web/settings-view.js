@@ -32,39 +32,25 @@
     gen.append(row(t('settings.language'), lang), hint(t('settings.languageHint')));
 
     // ---- Account
+    // Settings only exist while logged in (the login card is the door), so this is who, and the way out.
     const acc = sec('account');
-    const email = input({ id: 'email', autocomplete: 'username', value: cfg.cloud.email || '' });
-    const pass = el('input', { type: 'password', id: 'password', autocomplete: 'current-password' });
-    const invite = input({ id: 'invite', autocomplete: 'off', placeholder: t('settings.invitePh') });
-    const btnLogin = el('button', { class: 'primary small' }, t('settings.login'));
-    const btnSignup = el('button', { class: 'primary small' }, t('settings.createAccount'));
+    const who = el('div', { class: 'status-line', style: 'flex:1' }, cfg.cloud.email || '');
     const status = el('div', { class: 'status-line', id: 'accStatus', style: 'flex:1' });
     const btnLogout = el('button', { class: 'small' }, t('settings.logout'));
-    const toggle = el('a', { href: '#' }, t('settings.toggleSignup'));
-    const rowPass = row(t('settings.password'), pass, btnLogin); const rowInvite = row(t('settings.invite'), invite, btnSignup); rowInvite.hidden = true;
-    acc.append(row(t('settings.email'), email), rowPass, rowInvite);
-    const h = el('div', { class: 'hint', style: 'margin-left:160px' }); h.append(toggle, t('settings.loginHint')); acc.appendChild(h);
-    acc.appendChild(row(t('settings.status'), status, btnLogout));
-    let creating = false;
-    toggle.addEventListener('click', (e) => { e.preventDefault(); creating = !creating; rowInvite.hidden = !creating; btnLogin.hidden = creating; toggle.textContent = creating ? t('settings.toggleLogin') : t('settings.toggleSignup'); pass.autocomplete = creating ? 'new-password' : 'current-password'; });
+    acc.append(row(t('settings.email'), who), row(t('settings.status'), status, btnLogout));
+    const manage = el('a', { href: '#' }, t('settings.manageAccount'));
+    manage.addEventListener('click', (e) => { e.preventDefault(); App.openExternal(`${cfg.cloud.url || cfg.defaultCloudUrl}/account`); });
+    const h = el('div', { class: 'hint', style: 'margin-left:160px' }); h.append(manage, ` · ${t('settings.manageHint')}`); acc.appendChild(h);
     const renderAcc = (c) => {
-      if (!c || !c.loggedIn) { status.textContent = t('settings.notLoggedIn'); btnLogout.hidden = true; return; }
-      status.textContent = t('settings.loggedInAs', { email: c.email }) + (c.session ? `\n${t('settings.sharingTo', { url: c.shareUrl })}` : '') + (c.error ? `\n${c.error}` : '');
-      btnLogout.hidden = false;
+      if (!c || !c.loggedIn) { status.textContent = t('settings.notLoggedIn'); return; }
+      status.textContent = (c.session ? t('settings.sharingTo', { url: c.shareUrl }) : t('account.connected')) + (c.error ? `\n${c.error}` : '');
     };
-    const auth = async (action) => {
-      status.textContent = action === 'signup' ? t('settings.creating') : t('settings.loggingIn');
-      try {
-        const r = await d.cloud({ action, email: email.value, password: pass.value, invite: invite.value });
-        pass.value = ''; invite.value = '';
-        renderAcc(r.cloud);
-        if (r.keys && r.keys.startsWith('unavailable')) status.textContent += `\n${t('settings.keysUnavailable', { status: r.keys })}`;
-        renderKeys(await d.getConfig());
-      } catch (err) { const msg = err.message.replace(/^.*Error: /, ''); status.textContent = action === 'signup' ? t('settings.signupFailed', { message: msg }) : t('settings.loginFailed', { message: msg }); }
-    };
-    btnLogin.addEventListener('click', () => auth('login'));
-    btnSignup.addEventListener('click', () => auth('signup'));
-    btnLogout.addEventListener('click', async () => { const r = await d.cloud({ action: 'logout' }); renderAcc(r.cloud); renderKeys(await d.getConfig()); });
+    btnLogout.addEventListener('click', async () => {
+      if (!confirm(t('settings.logoutConfirm'))) return;
+      btnLogout.disabled = true;
+      try { await d.cloud({ action: 'logout' }); } catch (err) { status.textContent = err.message; btnLogout.disabled = false; return; }
+      App.setLocked(true);
+    });
 
     // ---- Tencent
     const tc = sec('tencent');

@@ -497,7 +497,7 @@ app.whenReady().then(async () => {
   }
   await startCore();
   openControl();
-  if (!cfg.demo && !resolveKeys(cfg) && cfg.firstRunDone) openSettings();
+  if (!cfg.demo && !resolveKeys(cfg) && cfg.firstRunDone && cfg.cloud.token) openSettings();
   // keys from the server: refresh once a day; updates: check shortly after launch and every 6 h
   const keys = resolveKeys(cfg);
   if (cfg.cloud.token && (!keys || !cloudKeys(cfg).tokenhubKey || (keys.source === 'cloud' && Date.now() - (keys.fetchedAt || 0) > 24 * 3600_000))) {

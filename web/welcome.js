@@ -1,5 +1,5 @@
-// First run (desktop app): three cards — log in, pick the microphone, choose the languages — then straight to Live
-// or Files. Shown once (config.firstRunDone); everything here can be changed later under Live and Settings.
+// The login card (desktop app): the account is the door. On a first run it is followed by two more cards — pick the
+// microphone, choose the languages — then straight to Live or Files; later log-ins go straight to Live.
 (function () {
   'use strict';
   const el = Controls.el;
@@ -8,17 +8,19 @@
   const MARK = '<svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg>';
   let step = 1;
   let mounted = false;
-  let ownKeys = false;
   let cfg = null;
+  const firstRun = () => !(cfg && cfg.firstRunDone);
 
   view.render = async function (root) {
     Controls.reset();
     mounted = true;
     document.body.classList.add('welcome');
-    root.innerHTML = `<div class="fr"><div class="hd">${MARK}<span class="w">${t('brand')}</span><span class="m">${t('wel.firstRun')}</span></div><div class="card" id="wcard"></div></div>`;
+    root.innerHTML = `<div class="fr"><div class="hd">${MARK}<span class="w">${t('brand')}</span><span class="m" id="wmode"></span></div><div class="card" id="wcard"></div></div>`;
     const d = App.desktop();
     cfg = d ? await d.getConfig() : { cloud: {} };
     if (!mounted) return;
+    step = 1;
+    $('wmode').textContent = firstRun() ? t('wel.firstRun') : t('wel.signIn');
     renderStep();
   };
   view.leave = () => { mounted = false; document.body.classList.remove('welcome'); };
@@ -30,7 +32,7 @@
   function renderStep() {
     const card = $('wcard'); if (!card) return;
     card.innerHTML = '';
-    card.appendChild(stepsBar(step));
+    if (firstRun()) card.appendChild(stepsBar(step));
     if (step === 1) renderLogin(card);
     else if (step === 2) renderMic(card);
     else renderLanguages(card);
@@ -54,24 +56,24 @@
     const err = el('div', { class: 'alert', hidden: '' });
     const btn = el('button', { class: 'primary' }, t('settings.login'));
     const toggle = el('a', { href: '#' }, t('wel.haveInvite'));
-    const own = el('a', { href: '#', class: 'quiet' }, t('wel.ownKeys'));
     let creating = false;
     const labelBtn = () => { btn.textContent = creating ? t('settings.createAccount') : t('settings.login'); };
     toggle.addEventListener('click', (e) => { e.preventDefault(); creating = !creating; inviteRow.hidden = !creating; labelBtn(); toggle.textContent = creating ? t('wel.haveAccount') : t('wel.haveInvite'); pass.autocomplete = creating ? 'new-password' : 'current-password'; });
-    own.addEventListener('click', (e) => { e.preventDefault(); ownKeys = true; step = 2; renderStep(); });
     const submit = async () => {
       if (!d) { err.textContent = t('wel.appOnly'); err.hidden = false; return; }
       err.hidden = true; btn.disabled = true; btn.textContent = creating ? t('settings.creating') : t('settings.loggingIn');
       try {
         const r = await d.cloud({ action: creating ? 'signup' : 'login', email: email.value.trim(), password: pass.value, invite: invite.value.trim() });
         cfg = await d.getConfig();
+        App.setLocked(false);
         if (r.keys && String(r.keys).startsWith('unavailable')) { err.textContent = t('wel.keysUnavailable', { status: r.keys }); err.hidden = false; }
+        if (!firstRun()) { App.go('live', {}, { replace: true }); return; }
         step = 2; renderStep();
       } catch (e) { err.textContent = String(e.message || e).replace(/^.*Error: /, ''); err.hidden = false; btn.disabled = false; labelBtn(); }
     };
     btn.addEventListener('click', submit);
     for (const i of [email, pass, invite]) i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    card.append(fld(t('settings.email'), email), fld(t('settings.password'), pass), inviteRow, err, btn, toggle, el('span', { class: 'sp' }), own);
+    card.append(fld(t('settings.email'), email), fld(t('settings.password'), pass), inviteRow, err, btn, toggle);
     setTimeout(() => (email.value ? pass : email).focus(), 0);
   }
 
@@ -120,12 +122,12 @@
     card.appendChild(el('span', { class: 'sp' }));
     const live = el('button', { class: 'primary' }, t('wel.startLive')); live.addEventListener('click', () => finish('live'));
     const files = el('button', { class: 'ghost' }, t('wel.addFile')); files.addEventListener('click', () => finish('files'));
-    card.append(live, files, el('span', { class: 'hint c' }, ownKeys ? t('wel.hintOwnKeys') : t('wel.hintLater')));
+    card.append(live, files, el('span', { class: 'hint c' }, t('wel.hintLater')));
   }
   async function finish(target) {
     const d = App.desktop();
     if (d) { try { await d.saveConfig({ firstRunDone: true, restart: false }); } catch { /* keep going */ } }
-    App.go(ownKeys ? 'settings' : target);
+    App.go(target, {}, { replace: true });
   }
 
   App.register('welcome', view);
