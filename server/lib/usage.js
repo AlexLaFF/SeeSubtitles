@@ -13,6 +13,7 @@
 const tc3 = require('./tc3');
 
 const BIZ = { asr_rt: 'live', asr_rec: 'files' };
+const REGION = 'ap-guangzhou'; // the asr API refuses a request without a region; usage is account-wide either way
 const DAY = 86_400_000;
 const CN_OFFSET = 8 * 3_600_000; // the usage API counts days in China time
 const WINDOW_DAYS = 90; // the API accepts at most three months per call
@@ -35,7 +36,7 @@ async function usageBetween(creds, start, end, call = tc3.call) {
   const out = { live: 0, files: 0, count: 0 };
   for (let from = start; from <= end; from = addDays(from, WINDOW_DAYS)) {
     const to = addDays(from, WINDOW_DAYS - 1) < end ? addDays(from, WINDOW_DAYS - 1) : end;
-    const r = await call(creds, { service: 'asr', version: '2019-06-14', action: 'GetUsageByDate', payload: { BizNameList: Object.keys(BIZ), StartDate: from, EndDate: to } });
+    const r = await call(creds, { service: 'asr', version: '2019-06-14', action: 'GetUsageByDate', region: REGION, payload: { BizNameList: Object.keys(BIZ), StartDate: from, EndDate: to } });
     for (const it of (r.Data && r.Data.UsageByDateInfoList) || []) {
       const k = BIZ[it.BizName];
       if (!k) continue;

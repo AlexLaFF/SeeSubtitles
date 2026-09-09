@@ -168,7 +168,7 @@ is the app icon via electron-builder, and `desktop/assets/trayTemplate*.png` (fr
 menu-bar icon. To regenerate the PNGs after changing the SVGs, render them with any SVG rasteriser at 1024, 22 and 44 px
 with a transparent background. The shell anatomy (Live, Files, Settings), the hosted pages (overview, job, log in,
 account, reset, poster), the attendee page, the new screens (first run, glossary, not-logged-in card) and the website
-(`web/site.html`, EN / 繁 / 简) follow the artboards on the canvas; the gap board's deliberate omissions (speaker
+(`web/site.html`, EN / 简) follow the artboards on the canvas; the gap board's deliberate omissions (speaker
 labels, attendee audio, meeting integrations) stay omitted.
 
 1. Load the chosen `tokens/<direction>.css` first and replace the hard-coded colours in `web/style.css`,

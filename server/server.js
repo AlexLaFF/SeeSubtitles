@@ -58,6 +58,15 @@ if (process.env.TENCENT_PACK && !usage.pack) log('warn', `TENCENT_PACK "${proces
 const jobs = new JobRunner({ db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe' });
 log('info', `clean transcripts ready for ${jobs.backfillPlainExports()} existing jobs`);
 log('info', `accounts: sign-up ${SIGNUP_MODE}`);
+// The Team page is for administrators. ADMIN_EMAIL names one; otherwise, while no account is an administrator, the
+// first account created becomes one (a closed server has exactly the operator's account).
+function ensureAdmin() {
+  const wanted = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const admins = db.all("SELECT email FROM users WHERE role = 'admin'").map((u) => u.email);
+  if (wanted && !admins.includes(wanted)) { const r = db.run("UPDATE users SET role = 'admin' WHERE email = ?", wanted); if (r.changes) log('info', `administrator: ${wanted} (ADMIN_EMAIL)`); else log('warn', `ADMIN_EMAIL ${wanted} has no account yet`); }
+  else if (!admins.length) { const first = db.get('SELECT email FROM users ORDER BY id LIMIT 1'); if (first) { db.run("UPDATE users SET role = 'admin' WHERE email = ?", first.email); log('info', `administrator: ${first.email} (first account)`); } }
+}
+ensureAdmin();
 log(jobs.backend === 'tokenhub' ? 'info' : 'warn', `translation backend: ${jobs.backend} (${jobs.model})${jobs.backend === 'hunyuan-legacy' ? ' — the standalone Hunyuan API stops on 2026-09-30; set TOKENHUB_API_KEY' : ''}`);
 const jobClients = new Map(); // job id -> Set<res>
 jobs.on('update', (j) => {
@@ -138,6 +147,7 @@ async function api(req, res, url, user) {
     const kind = body.kind === 'bearer' ? 'bearer' : 'cookie';
     const token = auth.issueToken(created.id, kind, body.label || req.headers['user-agent']);
     log('info', `sign-up ${created.email} (${SIGNUP_MODE}${body.invite ? ', invite' : ''}, ${kind})`);
+    ensureAdmin();
     return send(res, 200, { ok: true, user: created, token: kind === 'bearer' ? token : undefined }, undefined, kind === 'cookie' ? { 'set-cookie': auth.cookieHeader(token, SECURE) } : {});
   }
   if ((r = m(/^\/api\/d\/([a-z0-9]+)\/stream$/))) {

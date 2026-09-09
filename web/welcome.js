@@ -115,7 +115,7 @@
     Controls.renderFields(fields, ['source', 'target']);
     card.appendChild(fields);
     const stage = el('div', { class: 'stage-p' });
-    const l = el('div', { class: 'l' }, '今天我們會講一下如何用字幕。'); l.appendChild(el('span', { class: 's' }, '今日我哋會講吓點樣用字幕。')); stage.appendChild(l);
+    const l = el('div', { class: 'l' }, '今天我们会讲一下如何用字幕。'); l.appendChild(el('span', { class: 's' }, '今日我哋会讲吓点样用字幕。')); stage.appendChild(l);
     card.appendChild(stage);
     card.appendChild(el('span', { class: 'sp' }));
     const live = el('button', { class: 'primary' }, t('wel.startLive')); live.addEventListener('click', () => finish('live'));

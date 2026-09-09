@@ -328,7 +328,7 @@
         talk.innerHTML = '';
         const kv = (k, v) => { talk.appendChild(el('span', {}, k)); talk.appendChild(el('span', {}, v)); };
         kv(t('files.talk.recorded'), `${new Date(rr.mtime).toLocaleString()}${rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : ''}`);
-        kv(t('files.talk.languages'), rr.style === 'legacy' ? t('files.legacy') : '粵語 → 中文');
+        kv(t('files.talk.languages'), rr.style === 'legacy' ? t('files.legacy') : '粤语 → 中文');
         kv(t('files.talk.subtitles'), rr.resubtitled ? t('files.talk.subsCloud', { n: cues.length }) : (rr.zh || rr.yue) ? t('files.talk.subsLive', { n: cues.length }) : t('files.talk.subsNone'));
         kv(t('files.talk.video'), rr.mp4 ? t('files.talk.mp4', { size: Sub.fmtBytes(rr.mp4Bytes) }) : t('files.talk.noMp4'));
       }
