@@ -328,10 +328,25 @@ async function createLocalServer(opts) {
       now: Date.now(),
     };
   }
-  function startRecording() {
+  /** A user-typed recording name as a file-name base: no path characters, trimmed, at most 60 characters. */
+  const cleanName = (v) => String(v || '').replace(/[\/\\:\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60).trim();
+  function startRecording(name) {
     if (!capture) throw new Error('no audio source in demo mode');
     if (stream && !settings.streaming) { log('info', 'recording started: resuming subtitles'); applySettings({ streaming: true }, null); }
-    return recorder.start({ rate: capture.rate, channels: 1 });
+    const clean = cleanName(name);
+    return recorder.start({ rate: capture.rate, channels: 1, name: clean ? names.uniqueBase(opts.recordingsDir, clean) : undefined });
+  }
+  /** Rename a recording set (every file keeps its suffix). Returns the new base. */
+  function renameRecording(base, name) {
+    const clean = cleanName(name);
+    if (!clean) { const e = new Error('the name is empty'); e.code = 'name_empty'; throw e; }
+    if (!recorder.list(1000).some((r) => r.base === base)) { const e = new Error('unknown recording'); e.code = 'unknown_recording'; throw e; }
+    if (recorder.recording && recorder.status().current && String(recorder.status().current.file || '').startsWith(base)) { const e = new Error('this recording is still in progress'); e.code = 'recording_in_progress'; throw e; }
+    if (clean === base) return base;
+    const next = names.uniqueBase(opts.recordingsDir, clean);
+    for (const f of recordingFiles(base)) fs.renameSync(f, path.join(opts.recordingsDir, next + path.basename(f).slice(base.length)));
+    log('info', `recording ${base} renamed to ${next}`);
+    return next;
   }
   const statusTimer = setInterval(() => broadcast('status', status()), 250);
 
@@ -508,6 +523,9 @@ async function createLocalServer(opts) {
         if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         try { const cues = writeCues(opts.recordingsDir, base, body.cues); log('info', `subtitles of ${base} edited (${cues.length} cues)`); return send(res, 200, { ok: true, cues }); } catch (err) { return send(res, 400, { error: err.message }); }
       }
+      case '/api/recordings/rename': {
+        try { return send(res, 200, { ok: true, base: renameRecording(String(body.base || ''), body.name) }); } catch (err) { return send(res, 400, { error: err.message, code: err.code }); }
+      }
       case '/api/recordings/delete': {
         const bases = Array.isArray(body.bases) ? body.bases.map(String) : [];
         const known = new Set(recorder.list(1000).map((r) => r.base));
@@ -567,7 +585,7 @@ async function createLocalServer(opts) {
         return send(res, 200, { ok: true });
       case '/api/record': {
         const action = body.action === 'toggle' ? (recorder.recording ? 'stop' : 'start') : body.action;
-        if (action === 'start') { startRecording(); return send(res, 200, { ok: true, recorder: recorder.status() }); }
+        if (action === 'start') { startRecording(body.name); return send(res, 200, { ok: true, recorder: recorder.status() }); }
         if (action === 'stop') { const info = await recorder.stop(); return send(res, 200, { ok: true, saved: info, recorder: recorder.status() }); }
         return send(res, 400, { error: 'action must be start, stop or toggle' });
       }

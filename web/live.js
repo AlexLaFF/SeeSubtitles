@@ -254,7 +254,9 @@
   function toggleRecording() {
     const on = Sub.status.recorder && Sub.status.recorder.recording;
     if (on && !confirm(t('live.confirmStop'))) return;
-    Sub.post('/api/record', { action: on ? 'stop' : 'start' }).then((r) => { if (r && r.error) alert(I18n.err(r)); });
+    let name = '';
+    if (!on) { const v = prompt(t('live.namePrompt'), ''); if (v === null) return; name = v.trim(); }
+    Sub.post('/api/record', { action: on ? 'stop' : 'start', name }).then((r) => { if (r && r.error) alert(I18n.err(r)); });
   }
   let shareBusy = false;
   function toggleShare() {
