@@ -163,7 +163,7 @@ class SummaryQueue extends EventEmitter {
       system: systemPrompt(this.language),
       messages: [{
         role: 'user',
-        content: `录音文件：${base}（时长 ${clock(transcript.durationMs)}，${transcript.cues} 句，逐字稿约 ${transcript.chars} 字）。以下是完整逐字稿：\n\n<transcript>\n${transcript.text}\n</transcript>\n\n请按系统要求输出学习摘要。`,
+        content: `录音文件：${base}（时长 ${clock(transcript.durationMs)}，${transcript.cues} 句，逐字稿约 ${transcript.chars} 字）。以下是完整逐字稿：\n\n<transcript>\n${transcript.text}\n</transcript>\n\n请按系统要求输出学习摘要。硬性要求：“要点”下的每一条以及“值得记住的话”的每一句，末尾都必须带一个出处时间戳，格式与逐字稿行首完全一致，例如 [12:34]（时间必须来自逐字稿，不得编造）；没有时间戳的条目视为不合格。`,
       }],
     });
     stream.on('text', (delta) => { text += delta; this._set('writing summary', text.length); });
