@@ -5,7 +5,7 @@
   const api = (p, opts) => fetch(p, opts).then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j; });
   const el = (tag, attrs = {}, text) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
   const fmtBytes = (b) => (b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.round(b / 1e3)} KB`);
-  const fmtDate = (t) => new Date(t).toLocaleString();
+  const fmtDate = (ms) => new Date(ms).toLocaleString();
   const alertBox = (msg) => { const a = $('alert'); a.textContent = msg; a.hidden = !msg; };
   I18n.apply();
   document.querySelectorAll('a[data-lang]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); I18n.remember(a.dataset.lang); location.reload(); }));

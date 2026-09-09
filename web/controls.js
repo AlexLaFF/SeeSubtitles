@@ -130,19 +130,19 @@
         break;
       }
       case 'text': {
-        const t = el('input', { type: 'text' });
-        t.addEventListener('change', () => set(t.value));
+        const inp = el('input', { type: 'text' });
+        inp.addEventListener('change', () => set(inp.value));
         r.classList.add('wide');
-        r.appendChild(t);
-        register(f.key, { els: [t], setValue: (v) => { t.value = v; } });
+        r.appendChild(inp);
+        register(f.key, { els: [inp], setValue: (v) => { inp.value = v; } });
         break;
       }
       case 'textarea': {
-        const t = el('textarea', { rows: 4, placeholder: f.placeholder || '' });
-        t.addEventListener('change', () => set(t.value));
+        const ta = el('textarea', { rows: 4, placeholder: f.placeholder || '' });
+        ta.addEventListener('change', () => set(ta.value));
         r.classList.add('wide');
-        r.appendChild(t);
-        register(f.key, { els: [t], setValue: (v) => { t.value = v || ''; } });
+        r.appendChild(ta);
+        register(f.key, { els: [ta], setValue: (v) => { ta.value = v || ''; } });
         break;
       }
       case 'device': {

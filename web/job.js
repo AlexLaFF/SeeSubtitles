@@ -54,11 +54,11 @@
     box.innerHTML = '';
     cues.forEach((c, i) => {
       const row = el('div', { class: 'cue', 'data-i': i });
-      const t = el('div', { class: 't' }, `${fmt(c.start)}\n${fmt(c.end)}`);
-      t.style.whiteSpace = 'pre';
-      t.title = I18n.t('web.seek');
-      t.onclick = () => { $('video').currentTime = c.start / 1000; $('video').play().catch(() => {}); };
-      row.appendChild(t);
+      const tc = el('div', { class: 't' }, `${fmt(c.start)}\n${fmt(c.end)}`);
+      tc.style.whiteSpace = 'pre';
+      tc.title = t('web.seek');
+      tc.onclick = () => { $('video').currentTime = c.start / 1000; $('video').play().catch(() => {}); };
+      row.appendChild(tc);
       const texts = el('div');
       if (hasTrans) { const ta = el('textarea', { class: 'trans', rows: 1 }); ta.value = c.trans || ''; ta.oninput = () => { c.trans = ta.value; markDirty(); }; texts.appendChild(ta); }
       const orig = el('textarea', { class: hasTrans ? 'orig' : 'trans', rows: 1 }); orig.value = c.text || ''; orig.oninput = () => { c.text = orig.value; markDirty(); }; texts.appendChild(orig);
@@ -110,8 +110,8 @@
   function tick() {
     const v = $('video');
     if (!v.src || !cues.length) return requestAnimationFrame(tick);
-    const t = v.currentTime * 1000;
-    let idx = cues.findIndex((c) => t >= c.start && t < c.end);
+    const now = v.currentTime * 1000;
+    let idx = cues.findIndex((c) => now >= c.start && now < c.end);
     if (idx !== activeIdx) {
       activeIdx = idx;
       const c = cues[idx];

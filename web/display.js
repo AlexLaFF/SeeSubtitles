@@ -48,8 +48,8 @@
     const n = Number(Sub.settings.visibleLines) || 20;
     const out = [];
     for (let i = lines.length - 1; i >= 0 && out.length < n; i--) {
-      const t = textFor(lines[i]);
-      if (t.main || t.sub) out.unshift(lines[i]);
+      const tx = textFor(lines[i]);
+      if (tx.main || tx.sub) out.unshift(lines[i]);
     }
     return out;
   }
@@ -73,11 +73,11 @@
         el.appendChild(document.createElement('span')).className = 'main';
         el.appendChild(document.createElement('span')).className = 'sub';
       }
-      const t = textFor(line);
+      const tx = textFor(line);
       const [main, sub] = el.children;
-      if (main.textContent !== t.main) main.textContent = t.main;
-      if (sub.textContent !== t.sub) sub.textContent = t.sub;
-      sub.hidden = !t.sub;
+      if (main.textContent !== tx.main) main.textContent = tx.main;
+      if (sub.textContent !== tx.sub) sub.textContent = tx.sub;
+      sub.hidden = !tx.sub;
       el.classList.toggle('partial', !line.ended);
       linesEl.appendChild(el); // re-appending existing nodes keeps them in order
     }

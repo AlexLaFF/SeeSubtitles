@@ -92,8 +92,8 @@
   };
 
   Sub.isTyping = (e) => {
-    const t = e.target;
-    return !!(t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable));
+    const target = e.target;
+    return !!(target && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA' || target.isContentEditable));
   };
 
   /** Shared shortcuts. Returns true when the key was handled. */

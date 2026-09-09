@@ -213,6 +213,11 @@
     'files.dl.md': ['AI summary (Markdown)', 'AI 总结（Markdown）'],
     'files.dl.pdf': ['AI summary (PDF)', 'AI 总结（PDF）'],
     'files.makePdf': ['Make a PDF of the AI summary', '生成 AI 总结 PDF'],
+    'files.remakeMp4': ['Make the MP4 again', '重新生成 MP4'],
+    'files.viewSummary': ['Summary', '总结'],
+    'files.more': ['More ▾', '更多 ▾'],
+    'files.busy': ['working…', '处理中…'],
+    'files.back': ['‹ Files', '‹ 文件'],
 
     // ---- settings
     'settings.title': ['Settings', '设置'],

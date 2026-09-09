@@ -39,3 +39,13 @@ test('every key used by the pages and the main process is in the catalog', () =>
   const missing = [...used].filter(([k]) => !(k in LOCALES.strings));
   assert.deepEqual(missing, [], `keys missing from web/locales.js: ${missing.map(([k, f]) => `${k} (${f})`).join(', ')}`);
 });
+
+test('no page declares a variable named t (it would shadow the translation function)', () => {
+  const offenders = [];
+  for (const file of SOURCES) {
+    if (!file.endsWith('.js') || !file.includes('/web/')) continue;
+    const src = fs.readFileSync(file, 'utf8');
+    src.split('\n').forEach((line, i) => { if (/\b(const|let|var)\s+t\s*=/.test(line) || /\(\s*t\s*[,)]/.test(line) && /=>|function/.test(line)) offenders.push(`${path.relative(ROOT, file)}:${i + 1}`); });
+  }
+  assert.deepEqual(offenders, [], `rename these: ${offenders.join(', ')}`);
+});

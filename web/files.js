@@ -105,7 +105,17 @@
         if (sm.current && sm.current.base === r.base) sum.appendChild(el('span', { class: 'tag busy' }, stageName(sm.current.stage)));
         else sum.textContent = r.summary ? '✓' : '—';
         const act = tr.appendChild(el('td'));
-        const b = el('button', { class: 'small' }, t('files.open')); act.appendChild(b);
+        const acts = el('div', { class: 'btns', style: 'margin:0;flex-wrap:nowrap;justify-content:flex-end' });
+        const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
+        const open = el('button', { class: 'small' }, t('files.open')); open.addEventListener('click', stop(() => App.go('files', { base: r.base })));
+        const dl = el('button', { class: 'small' }, t('files.download')); dl.addEventListener('click', stop(() => downloadMenu(dl, r)));
+        const sumBusy = (sm.current && sm.current.base === r.base) || (sm.queue || []).includes(r.base);
+        const sb = el('button', { class: 'small' }, r.summary ? t('files.viewSummary') : t('files.aiSummary'));
+        sb.disabled = sumBusy || !(r.zh || r.yue);
+        sb.addEventListener('click', stop(() => (r.summary ? App.go('files', { base: r.base, tab: 'summary' }) : generateSummary(r))));
+        const more = el('button', { class: 'small' }, t('files.more')); more.addEventListener('click', stop(() => moreMenu(more, r)));
+        acts.append(open, dl, sb, more);
+        act.appendChild(acts);
         tr.addEventListener('click', () => App.go('files', { base: r.base }));
       } else if (it.job) {
         const j = it.job;
@@ -124,13 +134,49 @@
     }
   }
   const stageName = (st) => (I18n.has(`status.${st}`) ? t(`status.${st}`) : st);
+  const post = (path, body) => Sub.post(path, body).then((x) => { if (x && x.error) alert(I18n.err(x)); return x; });
+  /** Download menu for a recording (list rows and the recording page share it). */
+  function downloadMenu(anchor, rr) {
+    const items = [];
+    const link = (name, label) => items.push({ label, href: `/recordings/${encodeURIComponent(name)}`, download: name });
+    link(rr.mp3, t('files.dl.audio'));
+    if (rr.zh) link(rr.zh, t('files.dl.zh'));
+    if (rr.yue) link(rr.yue, t('files.dl.yue'));
+    if (rr.zh) items.push({ label: t('files.dl.plainZh'), onClick: () => CleanDownloads.recording(rr, 'zh') });
+    if (rr.yue) items.push({ label: t('files.dl.plainYue'), onClick: () => CleanDownloads.recording(rr, 'yue') });
+    if (rr.mp4) link(rr.mp4, t('files.dl.mp4', { size: Sub.fmtBytes(rr.mp4Bytes) }));
+    if (rr.summary) link(rr.summary, t('files.dl.md'));
+    if (rr.summaryPdf) link(rr.summaryPdf, t('files.dl.pdf'));
+    else if (rr.summary) items.push({ label: t('files.makePdf'), onClick: () => post('/api/recordings/summary-pdf', { base: rr.base }) });
+    App.menu(anchor, items);
+  }
+  function generateSummary(rr) {
+    if (rr.summary && !confirm(t('files.confirmRegen'))) return;
+    post('/api/recordings/summary', { base: rr.base });
+  }
+  function resubtitle(rr) {
+    const c = Sub.status.cloud; if (!c || !c.loggedIn) return alert(t('files.loginFirst'));
+    if ((rr.zh || rr.yue) && !confirm(t('files.confirmResub'))) return;
+    post('/api/recordings/resubtitle', { base: rr.base });
+  }
+  /** "More ▾" menu of a recording: re-subtitle, MP4. */
+  function moreMenu(anchor, rr) {
+    const s = Sub.status || {}; const rs = s.resubtitle || {}; const mp = s.mp4 || {};
+    const busyResub = (rs.current && rs.current.base === rr.base) || (rs.queue || []).includes(rr.base);
+    const busyMp4 = (mp.current && mp.current.base === rr.base) || (mp.queue || []).includes(rr.base);
+    const items = [];
+    if (!busyResub) items.push({ label: t('files.resub'), onClick: () => resubtitle(rr) });
+    if (!busyMp4 && (rr.zh || rr.yue)) items.push({ label: rr.mp4 ? t('files.remakeMp4') : t('files.makeMp4'), onClick: () => post('/api/recordings/mp4', { base: rr.base }) });
+    if (!items.length) items.push({ label: t('files.busy'), onClick: () => {} });
+    App.menu(anchor, items);
+  }
   const progress = (pct) => { const p = el('span', { class: 'progress', style: 'margin-left:6px' }); p.appendChild(el('i', { style: `width:${Math.round(pct || 0)}%` })); return p; };
 
   // ------------------------------------------------------------------ detail (one recording)
   async function renderDetail(root, base) {
     mounted = 'detail';
     root.innerHTML = `
-      <div class="top"><span class="crumb">${t('files.crumb')}</span><h1 id="dTitle"></h1><span id="dChip" class="chip"></span><div class="grow"></div>
+      <div class="top"><button class="ghost" id="btnBack">${t('files.back')}</button><h1 id="dTitle"></h1><span id="dChip" class="chip"></span><div class="grow"></div>
         <button id="btnResub">${t('files.resub')}</button><button id="btnMp4">${t('files.makeMp4')}</button><button id="btnSummary">${t('files.aiSummary')}</button><button id="btnDownload" class="primary">${t('files.download')}</button></div>
       <div class="body">
         <div class="col" style="width:620px;flex:none;overflow:auto">
@@ -148,6 +194,7 @@
         </div>
       </div>`;
     $('dTitle').textContent = base;
+    $('btnBack').addEventListener('click', () => App.go('files'));
     await loadRecordings();
     const r = recordings.find((x) => x.base === base);
     if (!r) { root.querySelector('.body').innerHTML = `<div class="empty">${t('files.gone')}</div>`; return; }
@@ -161,9 +208,9 @@
     applyLook();
     let shown = -1; let current = null;
     function sync(force) {
-      const t = audio.currentTime * 1000;
-      let n = 0; while (n < cues.length && cues[n].start <= t) n++;
-      const cur = n > 0 && cues[n - 1].end >= t ? n - 1 : null;
+      const now = audio.currentTime * 1000;
+      let n = 0; while (n < cues.length && cues[n].start <= now) n++;
+      const cur = n > 0 && cues[n - 1].end >= now ? n - 1 : null;
       if (n !== shown || force) {
         shown = n; stage.innerHTML = '';
         for (let i = Math.max(0, n - 6); i < n; i++) {
@@ -183,8 +230,8 @@
       if (!cues.length) { box.appendChild(el('div', { class: 'empty' }, t('files.noCues'))); return; }
       cues.forEach((c, i) => {
         const row = el('div', { class: 'cue', 'data-i': i });
-        const t = el('div', { class: 't' }, `${Sub.fmtClock(c.start)}\n${Sub.fmtClock(c.end)}`); t.style.whiteSpace = 'pre';
-        t.addEventListener('click', () => { audio.currentTime = c.start / 1000; audio.play().catch(() => {}); });
+        const tc = el('div', { class: 't' }, `${Sub.fmtClock(c.start)}\n${Sub.fmtClock(c.end)}`); tc.style.whiteSpace = 'pre';
+        tc.addEventListener('click', () => { audio.currentTime = c.start / 1000; audio.play().catch(() => {}); });
         const texts = el('div');
         const zh = el('textarea', { rows: 1 }); zh.value = c.zh || ''; zh.addEventListener('input', () => { c.zh = zh.value; markDirty(); });
         const yue = el('textarea', { rows: 1, class: 'orig', placeholder: t('web.original') }); yue.value = c.yue || ''; yue.addEventListener('input', () => { c.yue = yue.value; markDirty(); });
@@ -194,7 +241,7 @@
         merge.addEventListener('click', () => { const n = cues[i + 1]; c.end = n.end; c.zh = [c.zh, n.zh].filter(Boolean).join(''); c.yue = [c.yue, n.yue].filter(Boolean).join(''); cues.splice(i + 1, 1); markDirty(); renderCues(); });
         const del = el('button', {}, t('files.delete')); del.addEventListener('click', () => { cues.splice(i, 1); markDirty(); renderCues(); });
         ops.append(merge, del);
-        row.append(t, texts, ops);
+        row.append(tc, texts, ops);
         box.appendChild(row);
       });
       for (const ta of box.querySelectorAll('textarea')) { ta.style.height = 'auto'; ta.style.height = `${ta.scrollHeight}px`; }
@@ -215,32 +262,12 @@
       if (rr.summary) { const f = el('iframe', { src: `/summary?rec=${encodeURIComponent(base)}`, style: 'width:100%;height:100%;border:0;border-radius:8px;background:#111' }); box.appendChild(f); }
       else box.appendChild(el('div', { class: 'empty' }, t('files.noSummary')));
     }
-    $('btnResub').addEventListener('click', () => {
-      const c = Sub.status.cloud; if (!c || !c.loggedIn) return alert(t('files.loginFirst'));
-      if ((r.zh || r.yue) && !confirm(t('files.confirmResub'))) return;
-      Sub.post('/api/recordings/resubtitle', { base }).then((x) => { if (x && x.error) alert(I18n.err(x)); });
-    });
-    $('btnMp4').addEventListener('click', () => Sub.post('/api/recordings/mp4', { base }).then((x) => { if (x && x.error) alert(I18n.err(x)); }));
-    $('btnSummary').addEventListener('click', () => {
-      const rr = recordings.find((x) => x.base === base) || r;
-      if (rr.summary && !confirm(t('files.confirmRegen'))) return;
-      Sub.post('/api/recordings/summary', { base }).then((x) => { if (x && x.error) alert(I18n.err(x)); else { $('tabSum').click(); } });
-    });
-    $('btnDownload').addEventListener('click', () => {
-      const rr = recordings.find((x) => x.base === base) || r;
-      const items = [];
-      const link = (name, label) => items.push({ label, href: `/recordings/${encodeURIComponent(name)}`, download: name });
-      link(rr.mp3, t('files.dl.audio'));
-      if (rr.zh) link(rr.zh, t('files.dl.zh'));
-      if (rr.yue) link(rr.yue, t('files.dl.yue'));
-      if (rr.zh) items.push({ label: t('files.dl.plainZh'), onClick: () => CleanDownloads.recording(rr, 'zh') });
-      if (rr.yue) items.push({ label: t('files.dl.plainYue'), onClick: () => CleanDownloads.recording(rr, 'yue') });
-      if (rr.mp4) link(rr.mp4, t('files.dl.mp4', { size: Sub.fmtBytes(rr.mp4Bytes) }));
-      if (rr.summary) link(rr.summary, t('files.dl.md'));
-      if (rr.summaryPdf) link(rr.summaryPdf, t('files.dl.pdf'));
-      else if (rr.summary) items.push({ label: t('files.makePdf'), onClick: () => Sub.post('/api/recordings/summary-pdf', { base }).then((x) => { if (x && x.error) alert(I18n.err(x)); }) });
-      App.menu($('btnDownload'), items);
-    });
+    const rec = () => recordings.find((x) => x.base === base) || r;
+    $('btnResub').addEventListener('click', () => resubtitle(rec()));
+    $('btnMp4').addEventListener('click', () => post('/api/recordings/mp4', { base }));
+    $('btnSummary').addEventListener('click', () => { const rr = rec(); if (rr.summary && !confirm(t('files.confirmRegen'))) return; post('/api/recordings/summary', { base }).then((x) => { if (x && !x.error) $('tabSum').click(); }); });
+    $('btnDownload').addEventListener('click', () => downloadMenu($('btnDownload'), rec()));
+    if (App.params.tab === 'summary') $('tabSum').click();
 
     view.updateDetail = async () => {
       const s = Sub.status || {};
