@@ -13,6 +13,10 @@
     if (text !== undefined) e.textContent = text;
     return e;
   }
+  const L = (key, fallback) => (window.I18n && I18n.has(key) ? I18n.t(key) : fallback); // schema strings via the catalog
+  const flabel = (f) => L(`field.${f.key}.label`, f.label);
+  const fhint = (f) => (f.hint ? L(`field.${f.key}.hint`, f.hint) : '');
+  const fopt = (f, v, label) => L(`field.${f.key}.opt.${v}`, label);
   const toSlider = (f, v) => (f.scale === 'log' ? Math.round((LOG_MAX * Math.log(v / f.min)) / Math.log(f.max / f.min)) : v);
   const fromSlider = (f, p) => (f.scale === 'log' ? Math.round(f.min * Math.pow(f.max / f.min, p / LOG_MAX)) : Number(p));
 
@@ -32,7 +36,7 @@
     for (const [g, label] of SCHEMA.GROUPS) {
       if (groups && !groups.includes(g)) continue;
       const sec = el('section', { class: 'grp' });
-      sec.appendChild(el('h3', {}, label));
+      sec.appendChild(el('h3', {}, L(`group.${g}`, label)));
       if (g === 'output') sec.appendChild(presetRow());
       for (const f of SCHEMA.FIELDS) if (f.group === g) sec.appendChild(row(f));
       root.appendChild(sec);
@@ -45,17 +49,17 @@
   Controls.presetSelects = [];
   function presetRow() {
     const r = el('div', { class: 'row wide' });
-    r.appendChild(el('label', {}, 'Presets'));
+    r.appendChild(el('label', {}, t('ctl.presets')));
     const wrap = el('div');
-    const sel = el('select', { title: 'A preset stores every Text, Layout and Background setting plus "Show"' });
+    const sel = el('select', { title: t('ctl.presetTitle') });
     const btns = el('div', { class: 'btns' });
     const post = (body) => Sub.post('/api/presets', { ...body, from: Sub.clientId }).then((x) => { if (x && x.error) alert(x.error); return x; });
     const selected = () => { const o = sel.options[sel.selectedIndex]; return o ? { name: o.value, user: o.dataset.user === '1' } : null; };
     const btn = (label, cls, fn) => { const b = el('button', cls ? { class: cls } : {}, label); b.addEventListener('click', fn); btns.appendChild(b); return b; };
-    btn('Apply', 'primary', () => { const s = selected(); if (s) post({ action: 'apply', name: s.name }); });
-    btn('Save current as…', '', () => { const name = prompt('Name for this preset (current text/layout/background settings):'); if (name && name.trim()) post({ action: 'save', name: name.trim() }).then(() => { sel.dataset.want = name.trim(); }); });
-    const upd = btn('Update', '', () => { const s = selected(); if (s && s.user && confirm(`Overwrite preset "${s.name}" with the current settings?`)) post({ action: 'save', name: s.name }); });
-    const del = btn('Delete', 'danger', () => { const s = selected(); if (s && s.user && confirm(`Delete preset "${s.name}"?`)) post({ action: 'delete', name: s.name }); });
+    btn(t('ctl.apply'), 'primary', () => { const s = selected(); if (s) post({ action: 'apply', name: s.name }); });
+    btn(t('ctl.saveAs'), '', () => { const name = prompt(t('ctl.presetPrompt')); if (name && name.trim()) post({ action: 'save', name: name.trim() }).then(() => { sel.dataset.want = name.trim(); }); });
+    const upd = btn(t('ctl.update'), '', () => { const s = selected(); if (s && s.user && confirm(t('ctl.presetOverwrite', { name: s.name }))) post({ action: 'save', name: s.name }); });
+    const del = btn(t('ctl.delete'), 'danger', () => { const s = selected(); if (s && s.user && confirm(t('ctl.presetDelete', { name: s.name }))) post({ action: 'delete', name: s.name }); });
     sel.addEventListener('change', () => { const s = selected(); upd.disabled = del.disabled = !(s && s.user); });
     wrap.append(sel, btns);
     r.appendChild(wrap);
@@ -67,11 +71,11 @@
     for (const { sel, upd, del } of Controls.presetSelects) {
       const want = sel.dataset.want || sel.value;
       sel.innerHTML = '';
-      const gUser = el('optgroup', { label: 'Saved presets' });
+      const gUser = el('optgroup', { label: t('ctl.savedPresets') });
       for (const name of Object.keys(Controls.presets.user || {})) { const o = el('option', { value: name }, name); o.dataset.user = '1'; gUser.appendChild(o); }
-      if (gUser.children.length) sel.appendChild(gUser); else { const o = el('option', { value: '', disabled: 'disabled' }, '(no saved presets yet — use "Save current as…")'); sel.appendChild(o); }
-      const gBuilt = el('optgroup', { label: 'Built-in' });
-      for (const [key, p] of Object.entries(Controls.presets.builtin || {})) gBuilt.appendChild(el('option', { value: key }, p.label));
+      if (gUser.children.length) sel.appendChild(gUser); else { const o = el('option', { value: '', disabled: 'disabled' }, t('ctl.noPresets')); sel.appendChild(o); }
+      const gBuilt = el('optgroup', { label: t('ctl.builtin') });
+      for (const [key, p] of Object.entries(Controls.presets.builtin || {})) gBuilt.appendChild(el('option', { value: key }, L(`preset.${key}`, p.label)));
       sel.appendChild(gBuilt);
       if (want && [...sel.options].some((o) => o.value === want)) sel.value = want;
       else { const first = [...sel.options].find((o) => !o.disabled); if (first) sel.value = first.value; }
@@ -89,7 +93,7 @@
 
   function row(f) {
     const r = el('div', { class: 'row', 'data-key': f.key });
-    r.appendChild(el('label', { title: f.hint || '' }, f.label));
+    r.appendChild(el('label', { title: fhint(f) }, flabel(f)));
     const set = (v) => Sub.update({ [f.key]: v });
     switch (f.type) {
       case 'range': {
@@ -104,7 +108,7 @@
       }
       case 'select': {
         const s = el('select');
-        for (const [v, label] of f.options) s.appendChild(el('option', { value: v }, label));
+        for (const [v, label] of f.options) s.appendChild(el('option', { value: v }, fopt(f, v, label)));
         s.addEventListener('change', () => set(s.value));
         r.classList.add('wide');
         r.appendChild(s);
@@ -126,24 +130,24 @@
         break;
       }
       case 'text': {
-        const t = el('input', { type: 'text' });
-        t.addEventListener('change', () => set(t.value));
+        const inp = el('input', { type: 'text' });
+        inp.addEventListener('change', () => set(inp.value));
         r.classList.add('wide');
-        r.appendChild(t);
-        register(f.key, { els: [t], setValue: (v) => { t.value = v; } });
+        r.appendChild(inp);
+        register(f.key, { els: [inp], setValue: (v) => { inp.value = v; } });
         break;
       }
       case 'textarea': {
-        const t = el('textarea', { rows: 4, placeholder: f.placeholder || '' });
-        t.addEventListener('change', () => set(t.value));
+        const ta = el('textarea', { rows: 4, placeholder: f.placeholder || '' });
+        ta.addEventListener('change', () => set(ta.value));
         r.classList.add('wide');
-        r.appendChild(t);
-        register(f.key, { els: [t], setValue: (v) => { t.value = v || ''; } });
+        r.appendChild(ta);
+        register(f.key, { els: [ta], setValue: (v) => { ta.value = v || ''; } });
         break;
       }
       case 'device': {
         const s = el('select');
-        const btn = el('button', { title: 'Rescan input devices' }, '↻');
+        const btn = el('button', { title: t('ctl.rescan') }, '↻');
         s.addEventListener('change', () => set(s.value));
         btn.addEventListener('click', () => fetch('/api/devices').then((x) => x.json()).then(Controls.setDevices));
         r.append(s, btn);
@@ -155,8 +159,8 @@
         const wrap = el('div');
         const grid = el('div', { class: 'bounds' });
         const ins = {};
-        for (const k of ['x', 'y', 'width', 'height']) { ins[k] = el('input', { type: 'number', placeholder: k, title: k }); grid.appendChild(ins[k]); }
-        const apply = el('button', {}, 'Apply');
+        for (const k of ['x', 'y', 'width', 'height']) { ins[k] = el('input', { type: 'number', placeholder: t(`ctl.bounds.${k}`), title: t(`ctl.bounds.${k}`) }); grid.appendChild(ins[k]); }
+        const apply = el('button', {}, t('ctl.apply'));
         apply.addEventListener('click', () => set({ x: +ins.x.value, y: +ins.y.value, width: +ins.width.value, height: +ins.height.value }));
         grid.appendChild(apply);
         const displays = el('div', { class: 'displays' });
@@ -171,15 +175,15 @@
       default:
         break;
     }
-    if (f.hint) { const h = el('div', { class: 'hint' }, f.hint); h.style.gridColumn = '1 / -1'; r.appendChild(h); }
+    if (f.hint) { const h = el('div', { class: 'hint' }, fhint(f)); h.style.gridColumn = '1 / -1'; r.appendChild(h); }
     return r;
   }
 
   function fillDevices(s, current) {
     s.innerHTML = '';
-    const list = Controls.devices.length ? [...Controls.devices] : [{ id: 'default', name: 'System default input' }];
-    if (current && !list.some((d) => d.id === current)) list.push({ id: current, name: `${current} (not found)` });
-    for (const d of list) s.appendChild(el('option', { value: d.id }, d.name));
+    const list = Controls.devices.length ? [...Controls.devices] : [{ id: 'default', name: t('ctl.systemDefault') }];
+    if (current && !list.some((d) => d.id === current)) list.push({ id: current, name: t('ctl.notFound', { name: current }) });
+    for (const d of list) s.appendChild(el('option', { value: d.id }, d.id === 'default' ? t('ctl.systemDefault') : `${d.name}${d.default ? ` (${t('ctl.systemDefaultMark')})` : ''}`));
     s.value = current || 'default';
   }
 
@@ -202,10 +206,8 @@
       box.innerHTML = '';
       const o = Controls.overlay;
       if (!o || !o.present || !(o.displays || []).length) {
-        box.appendChild(el('div', { class: 'muted' }, o && o.present
-          ? 'An overlay window is connected but has not reported its displays (opened before the last server restart). Quit it with ⌘Q and open it again.'
-          : 'Overlay window is closed. It is a transparent, always-on-top window you can drag onto the venue screen.'));
-        const b = el('button', { class: 'small' }, 'Open overlay window');
+        box.appendChild(el('div', { class: 'muted' }, o && o.present ? t('ctl.overlayNoDisplays') : t('ctl.overlayClosed')));
+        const b = el('button', { class: 'small' }, t('ctl.openOverlay'));
         b.addEventListener('click', () => Sub.post('/api/overlay/open').then((r) => { if (r && r.error) alert(r.error); }));
         box.appendChild(b);
         continue;
@@ -217,16 +219,16 @@
       const filled = (o.displays || []).find(same);
       const on = filled || (o.displays || []).find(within);
       box.appendChild(el('div', { class: 'muted' }, filled
-        ? `Overlay is filling: ${filled.label}`
-        : on ? `Overlay is on ${on.label} but not filling it (${b.width}×${b.height}). Click a display to fill it:`
-          : 'Fill a display with the overlay:'));
-      const closeBtn = el('button', { class: 'small' }, 'Close overlay window');
+        ? t('ctl.filling', { label: filled.label })
+        : on ? t('ctl.onNotFilling', { label: on.label, w: b.width, h: b.height })
+          : t('ctl.fillPrompt')));
+      const closeBtn = el('button', { class: 'small' }, t('ctl.closeOverlay'));
       closeBtn.addEventListener('click', () => Sub.post('/api/overlay/close'));
       box.appendChild(closeBtn);
       for (const d of o.displays || []) {
         const isFilled = filled && filled.id === d.id;
         const btn = el('button', { class: isFilled ? 'display filled' : 'display' },
-          `${isFilled ? '● ' : ''}${d.label}${d.primary ? ' (main)' : ''} — ${d.bounds.width}×${d.bounds.height} at ${d.bounds.x},${d.bounds.y}${isFilled ? '   ✓ filling' : ''}`);
+          `${isFilled ? '● ' : ''}${t('ctl.displayLine', { label: d.label, main: d.primary ? t('ctl.main') : '', w: d.bounds.width, h: d.bounds.height, x: d.bounds.x, y: d.bounds.y })}${isFilled ? t('ctl.fillingMark') : ''}`);
         btn.addEventListener('click', () => Sub.update({ window: { ...d.bounds } }));
         box.appendChild(btn);
       }
@@ -245,7 +247,7 @@
 
   Controls.renderShortcuts = function (root) {
     root.innerHTML = '';
-    for (const [k, d] of Sub.SHORTCUTS) { root.appendChild(el('kbd', {}, k)); root.appendChild(el('span', {}, d)); }
+    for (const [k, d] of Sub.SHORTCUTS) { root.appendChild(el('kbd', {}, k)); root.appendChild(el('span', {}, t(d))); }
   };
 
   Controls.el = el;

@@ -72,7 +72,9 @@ function send(res, code, body, type = 'application/json; charset=utf-8', extra =
   res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store', ...extra });
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
-const fail = (res, code, error) => send(res, code, { error });
+const fail = (res, code, error, extra) => send(res, code, { error, ...(extra || {}) });
+/** A machine-readable code for the auth messages the pages translate (see web/locales.js err.*). */
+const errCode = (message) => (/closed/.test(message) ? 'signup_closed' : /invite/.test(message) ? 'bad_invite' : /already exists/.test(message) ? 'email_exists' : /at least 8/.test(message) ? 'password_short' : /invalid email/.test(message) ? 'bad_email' : undefined);
 function readJson(req, limit = 5e6) {
   return new Promise((resolve, reject) => {
     let b = '';
@@ -121,18 +123,18 @@ async function api(req, res, url, user) {
     const body = await readJson(req, 1e4);
     const kind = body.kind === 'bearer' ? 'bearer' : 'cookie';
     const email = String(body.email || '').trim().toLowerCase();
-    if (!attempts.allow(`ip:${clientIp(req)}`) || !attempts.allow(`email:${email}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
+    if (!attempts.allow(`ip:${clientIp(req)}`) || !attempts.allow(`email:${email}`)) return fail(res, 429, 'too many attempts; try again in a few minutes', { code: 'rate_limited' });
     const out = auth.login(email, body.password, kind, body.label || req.headers['user-agent']);
-    if (!out) return fail(res, 401, 'wrong email or password');
+    if (!out) return fail(res, 401, 'wrong email or password', { code: 'bad_login' });
     log('info', `login ${out.user.email} (${kind})`);
     const extra = kind === 'cookie' ? { 'set-cookie': auth.cookieHeader(out.token, SECURE) } : {};
     return send(res, 200, { ok: true, user: out.user, token: kind === 'bearer' ? out.token : (body.token ? out.token : undefined) }, undefined, extra);
   }
   if (p === '/api/signup' && req.method === 'POST') {
     const body = await readJson(req, 1e4);
-    if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
+    if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes', { code: 'rate_limited' });
     let created;
-    try { created = auth.signup(body.email, body.password, { mode: SIGNUP_MODE, invite: body.invite }); } catch (err) { return fail(res, SIGNUP_MODE === 'closed' ? 403 : 400, err.message); }
+    try { created = auth.signup(body.email, body.password, { mode: SIGNUP_MODE, invite: body.invite }); } catch (err) { return fail(res, SIGNUP_MODE === 'closed' ? 403 : 400, err.message, { code: errCode(err.message) }); }
     const kind = body.kind === 'bearer' ? 'bearer' : 'cookie';
     const token = auth.issueToken(created.id, kind, body.label || req.headers['user-agent']);
     log('info', `sign-up ${created.email} (${SIGNUP_MODE}${body.invite ? ', invite' : ''}, ${kind})`);
@@ -181,7 +183,8 @@ async function api(req, res, url, user) {
     if (!creds) return fail(res, 503, 'the server has no Tencent keys configured');
     if (!SHARE_KEYS) return fail(res, 403, 'this server does not hand out keys to desktop apps (open sign-up); enter your own keys in Settings');
     log('info', `desktop keys handed to ${user.email}`);
-    return send(res, 200, { tencent: { appid: creds.appid, secretId: creds.secretId, secretKey: creds.secretKey, expiresAt: null }, fetchedAt: Date.now() });
+    const tokenhubKey = (process.env.TOKENHUB_API_KEY || '').trim();
+    return send(res, 200, { tencent: { appid: creds.appid, secretId: creds.secretId, secretKey: creds.secretKey, expiresAt: null }, tokenhub: tokenhubKey ? { apiKey: tokenhubKey } : null, fetchedAt: Date.now() });
   }
   if (p === '/api/logout' && req.method === 'POST') { auth.revoke(user.token); return send(res, 200, { ok: true }, undefined, { 'set-cookie': auth.clearCookie() }); }
 

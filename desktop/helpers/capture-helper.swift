@@ -45,11 +45,26 @@ func allInputDevices() -> [Dev] {
   guard AudioObjectGetPropertyDataSize(sys, &addr, 0, nil, &size) == noErr else { return [] }
   var ids = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
   guard AudioObjectGetPropertyData(sys, &addr, 0, nil, &size, &ids) == noErr else { return [] }
-  return ids.compactMap { id in
-    let inputs = inputChannels(id)
-    if inputs == 0 { return nil }
-    return Dev(id: id, name: stringProperty(id, kAudioObjectPropertyName), uid: stringProperty(id, kAudioDevicePropertyDeviceUID), inputs: inputs)
+  // Each device is queried on its own thread with a deadline: a remote device that is not reachable (an
+  // iPhone's Continuity microphone with the phone away, a stale virtual device) can block CoreAudio's
+  // property calls indefinitely, which used to hang the whole listing. Those devices are simply skipped.
+  let group = DispatchGroup()
+  let lock = NSLock()
+  var found: [Dev] = []
+  for id in ids {
+    group.enter()
+    DispatchQueue.global(qos: .userInitiated).async {
+      let inputs = inputChannels(id)
+      if inputs > 0 {
+        let d = Dev(id: id, name: stringProperty(id, kAudioObjectPropertyName), uid: stringProperty(id, kAudioDevicePropertyDeviceUID), inputs: inputs)
+        lock.lock(); found.append(d); lock.unlock()
+      }
+      group.leave()
+    }
   }
+  if group.wait(timeout: .now() + 4) == .timedOut { log("some audio devices did not answer within 4 s; listing the rest") }
+  lock.lock(); defer { lock.unlock() }
+  return found.sorted { $0.id < $1.id }
 }
 
 func defaultInputDevice() -> AudioDeviceID {
@@ -66,11 +81,25 @@ func jsonString(_ s: String) -> String {
 }
 
 if args.contains("--list") {
-  let def = defaultInputDevice()
-  let items = allInputDevices().map {
-    "{\"id\":\($0.id),\"name\":\(jsonString($0.name)),\"uid\":\(jsonString($0.uid)),\"inputs\":\($0.inputs),\"default\":\($0.id == def)}"
+  // The whole enumeration runs off the main thread with a deadline: when coreaudiod itself stops answering
+  // new clients (seen with an unreachable Continuity iPhone microphone), even the first property query blocks
+  // forever. Then we report an empty list with a hint instead of hanging the app's device refresh.
+  var out: String? = nil
+  let done = DispatchSemaphore(value: 0)
+  DispatchQueue.global(qos: .userInitiated).async {
+    let def = defaultInputDevice()
+    let items = allInputDevices().map {
+      "{\"id\":\($0.id),\"name\":\(jsonString($0.name)),\"uid\":\(jsonString($0.uid)),\"inputs\":\($0.inputs),\"default\":\($0.id == def)}"
+    }
+    out = "[" + items.joined(separator: ",") + "]"
+    done.signal()
   }
-  print("[" + items.joined(separator: ",") + "]")
+  if done.wait(timeout: .now() + 5) == .timedOut {
+    log("the audio system (coreaudiod) is not answering; no devices listed — unplug or forget an unreachable iPhone/Continuity microphone, or run: sudo killall coreaudiod")
+    print("[]")
+    exit(0)
+  }
+  print(out ?? "[]")
   exit(0)
 }
 

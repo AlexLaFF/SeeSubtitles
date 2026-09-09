@@ -14,4 +14,6 @@ contextBridge.exposeInMainWorld('desktop', {
   checkUpdates: () => ipcRenderer.invoke('updates:check'),
   updateStatus: () => ipcRenderer.invoke('updates:status'),
   onNavigate: (cb) => { ipcRenderer.on('app:navigate', (_e, view, params) => cb(view, params)); },
+  copyImage: (dataUrl) => ipcRenderer.invoke('clipboard:image', dataUrl),
+  saveImage: (dataUrl, name) => ipcRenderer.invoke('files:saveImage', dataUrl, name),
 });

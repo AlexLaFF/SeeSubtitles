@@ -71,7 +71,7 @@
   const nodes = [...document.querySelectorAll('[data-t]')];
   for (const n of nodes) { const attr = n.dataset.attr; n.dataset.en = attr ? n.getAttribute(attr) : n.innerHTML; }
   let lang = 'en';
-  const t = (key, vars = {}) => { const s = (T[lang] && T[lang][key]) || (T.en[key]) || ''; return s.replace(/\{(\w+)\}/g, (_, k) => vars[k] || ''); };
+  const msg = (key, vars = {}) => { const s = (T[lang] && T[lang][key]) || (T.en[key]) || ''; return s.replace(/\{(\w+)\}/g, (_, k) => vars[k] || ''); };
   function setLang(l) {
     lang = T[l] ? l : 'en';
     document.documentElement.lang = lang === 'en' ? 'en' : lang;
@@ -92,11 +92,11 @@
     const links = document.querySelectorAll('a.dl');
     if (release && release.dmg) {
       for (const a of links) { a.href = release.dmg; a.hidden = false; }
-      $('fine').textContent = t('dl.version', { version: release.version });
-      $('fine2').textContent = t('dl.version', { version: release.version });
+      $('fine').textContent = msg('dl.version', { version: release.version });
+      $('fine2').textContent = msg('dl.version', { version: release.version });
     } else {
       for (const a of links) { if (a.closest('.nav')) a.hidden = true; else if (a.closest('.foot')) a.href = '#start'; else a.href = '#start'; }
-      $('fine2').textContent = t('dl.none');
+      $('fine2').textContent = msg('dl.none');
     }
   }
   fetch('/api/desktop/version').then((r) => r.json()).then((r) => { release = r && r.version ? r : null; renderDownload(); }).catch(renderDownload);
@@ -111,8 +111,8 @@
     const body = { name: f.name.value, email: f.email.value, org: f.org.value, note: f.note.value };
     btn.disabled = true; msg.hidden = true; msg.className = 'msg wide';
     const r = await fetch('/api/request-account', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json()).catch(() => ({ error: 'network error' }));
-    if (r.error) { msg.textContent = /email/i.test(r.error) ? t('form.err') : r.error; msg.classList.add('bad'); msg.hidden = false; btn.disabled = false; return; }
-    msg.textContent = t('form.sent', { email: body.email.trim() }); msg.hidden = false;
+    if (r.error) { msg.textContent = /email/i.test(r.error) ? msg('form.err') : r.error; msg.classList.add('bad'); msg.hidden = false; btn.disabled = false; return; }
+    msg.textContent = msg('form.sent', { email: body.email.trim() }); msg.hidden = false;
     f.reset(); btn.disabled = false;
   });
 

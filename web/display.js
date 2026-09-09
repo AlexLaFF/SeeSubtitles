@@ -48,8 +48,8 @@
     const n = Number(Sub.settings.visibleLines) || 20;
     const out = [];
     for (let i = lines.length - 1; i >= 0 && out.length < n; i--) {
-      const t = textFor(lines[i]);
-      if (t.main || t.sub) out.unshift(lines[i]);
+      const tx = textFor(lines[i]);
+      if (tx.main || tx.sub) out.unshift(lines[i]);
     }
     return out;
   }
@@ -73,11 +73,11 @@
         el.appendChild(document.createElement('span')).className = 'main';
         el.appendChild(document.createElement('span')).className = 'sub';
       }
-      const t = textFor(line);
+      const tx = textFor(line);
       const [main, sub] = el.children;
-      if (main.textContent !== t.main) main.textContent = t.main;
-      if (sub.textContent !== t.sub) sub.textContent = t.sub;
-      sub.hidden = !t.sub;
+      if (main.textContent !== tx.main) main.textContent = tx.main;
+      if (sub.textContent !== tx.sub) sub.textContent = tx.sub;
+      sub.hidden = !tx.sub;
       el.classList.toggle('partial', !line.ended);
       linesEl.appendChild(el); // re-appending existing nodes keeps them in order
     }
@@ -117,19 +117,19 @@
     const st = s.stream || {};
     let text = '';
     if (s.demo) text = '';
-    else if (s.remote) text = s.live === false ? 'session ended' : '';
-    else if (!s.creds) text = 'no credentials — open Settings';
-    else if (!s.streaming) text = 'paused';
-    else if (st.state === 'reconnecting') text = `reconnecting${st.retryAt ? ` in ${Math.max(0, Math.ceil((st.retryAt - (s.now || Date.now())) / 1000))}s` : ''}`;
-    else if (st.state === 'connecting') text = 'connecting';
+    else if (s.remote) text = s.live === false ? t('disp.status.ended') : '';
+    else if (!s.creds) text = t('disp.status.noCreds');
+    else if (!s.streaming) text = t('disp.status.paused');
+    else if (st.state === 'reconnecting') text = st.retryAt ? t('disp.status.reconnectingIn', { s: Math.max(0, Math.ceil((st.retryAt - (s.now || Date.now())) / 1000)) }) : t('disp.status.reconnecting');
+    else if (st.state === 'connecting') text = t('disp.status.connecting');
     else if (st.state === 'ready' || st.state === 'open') text = '';
-    else text = st.state || 'starting';
+    else text = st.state || t('disp.status.starting');
     if (text && st.lastError) text += ` · ${st.lastError.code ? `${st.lastError.code} ` : ''}${st.lastError.message}`.slice(0, 90);
     statusEl.textContent = text ? `● ${text}` : '';
     statusEl.hidden = !text || Sub.settings.showStatus === false;
-    $('btnPause').textContent = Sub.settings.streaming === false ? 'Resume' : 'Pause';
+    $('btnPause').textContent = Sub.settings.streaming === false ? t('disp.resume') : t('disp.pause');
     const rc = s.recorder || {};
-    $('btnRec').textContent = rc.recording ? `■ Rec ${Sub.fmtClock(rc.current ? rc.current.elapsedMs : 0)}` : '● Rec';
+    $('btnRec').textContent = rc.recording ? t('disp.recOn', { time: Sub.fmtClock(rc.current ? rc.current.elapsedMs : 0) }) : t('disp.rec');
     $('btnRec').className = rc.recording ? 'primary' : '';
   }
 
@@ -151,8 +151,8 @@
   $('btnReconnect').addEventListener('click', () => Sub.post('/api/reconnect'));
   $('btnRec').addEventListener('click', () => {
     const on = Sub.status.recorder && Sub.status.recorder.recording;
-    if (on && !confirm('Stop the recording?')) return;
-    Sub.post('/api/record', { action: on ? 'stop' : 'start' }).then((r) => { if (r && r.error) alert(r.error); });
+    if (on && !confirm(t('live.confirmStop'))) return;
+    Sub.post('/api/record', { action: on ? 'stop' : 'start' }).then((r) => { if (r && r.error) alert(I18n.err(r)); });
   });
   $('btnFs').addEventListener('click', toggleFullscreen);
   $('btnControl').addEventListener('click', () => window.open('/control', '_blank'));
@@ -175,7 +175,12 @@
     if (Sub.keyAction(e)) e.preventDefault();
   });
 
+  function relabel() { I18n.apply(); $('panelControls').innerHTML = ''; Controls.reset(); Controls.render($('panelControls')); Controls.renderShortcuts($('kbd')); renderStatus(); }
+  I18n.onChange(relabel);
+  Sub.on('language', (d) => I18n.setLanguage(d.language));
   Sub.on('init', (d) => {
+    if (d.language) I18n.setLanguage(d.language);
+    I18n.apply();
     lines.length = 0;
     byId.clear();
     for (const l of d.lines) ingest(l);
@@ -200,7 +205,7 @@
   Sub.on('devices', Controls.setDevices);
   Sub.on('presets', Controls.setPresets);
   Sub.on('overlay', Controls.setOverlay);
-  Sub.on('disconnected', () => { statusEl.textContent = '● server offline'; statusEl.hidden = Sub.settings.showStatus === false; });
+  Sub.on('disconnected', () => { statusEl.textContent = `● ${t('disp.status.offline')}`; statusEl.hidden = Sub.settings.showStatus === false; });
   // ---- attendee page (remote mode): header, controls, ended state
   if (Sub.remote) {
     $('remoteHead').hidden = false; $('remoteBar').hidden = false;
@@ -215,7 +220,7 @@
       $('btnAwake').classList.toggle('on', !!lock);
       const s = Sub.status || {};
       const ended = s.live === false;
-      $('remoteState').textContent = ended ? 'ended' : 'live';
+      $('remoteState').textContent = ended ? t('disp.remote.ended') : t('disp.remote.live');
       $('remoteState').classList.toggle('ended', ended);
       $('ended').hidden = !ended;
       if (ended) $('endedMeta').textContent = [Sub.session && Sub.session.name, s.lastEventAt ? new Date(s.lastEventAt).toLocaleString() : ''].filter(Boolean).join(' · ');
@@ -227,6 +232,7 @@
     });
     Sub.on('init', (d) => { Sub.session = d.session || null; $('remoteName').textContent = Sub.session && Sub.session.name ? `· ${Sub.session.name}` : ''; renderRemote(); });
     Sub.on('status', renderRemote); Sub.on('settings', renderRemote); Sub.on('local', renderRemote);
+    I18n.onChange(renderRemote);
   }
   window.__display = { lines, byId, render };
   Sub.connect();

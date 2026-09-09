@@ -1,18 +1,21 @@
 'use strict';
 // Subtitles desktop app (macOS). Owns the local pipeline server, the Control / Display / Overlay windows,
 // the Settings window (Tencent keys in the Keychain via safeStorage) and the optional cloud mirror.
-const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell, Tray, nativeImage, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell, Tray, nativeImage, nativeTheme, clipboard } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const { getCredentials } = require('@subs/core');
 const { createLocalServer } = require('./local-server');
+const i18n = require('./lib/i18n');
+const { t } = i18n;
 const { DEFAULT_URL: DEFAULT_CLOUD_URL } = require('./cloud');
 const helpers = require('./lib/helpers');
 const { CloudLink } = require('./cloud');
 
 const PACKAGED = app.isPackaged;
 const WEB_DIR = PACKAGED ? path.join(process.resourcesPath, 'web') : path.join(__dirname, '..', 'web');
+i18n.load(WEB_DIR);
 const BIN_DIR = PACKAGED ? path.join(process.resourcesPath, 'bin') : path.join(__dirname, 'resources', 'bin');
 const SCHEMA_FILE = require.resolve('@subs/core/schema');
 app.setName('See Subtitles');
@@ -40,9 +43,10 @@ process.env.PATH = [BIN_DIR, process.env.PATH || '', '/opt/homebrew/bin', '/usr/
 const DEFAULT_CONFIG = {
   appid: '', secretId: '', secretKeyEnc: '',
   cloudKeysEnc: '', // Tencent keys handed out by the server after login (encrypted JSON), used when no manual keys are set
-  summaryKeyEnc: '', summaryModel: 'claude-opus-5', summaryLanguage: 'zh', summaryEffort: 'high',
+  language: 'system', // system | en | zh — every window, menu and dialog
+  summaryModel: 'deepseek-v4-flash', summaryLanguage: 'zh', summaryEffort: 'high', // Chinese models through TokenHub; the key comes with the login
   recordingsDir: path.join(app.getPath('videos'), 'See Subtitles'),
-  demo: false, audioFile: '', edge: 'auto', bitrate: '128k',
+  demo: false, audioFile: '', edge: 'auto', bitrate: '128k', startPaused: true,
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
   cloud: { url: DEFAULT_CLOUD_URL, email: '', token: '', publish: false },
   glossary: [],        // [{term, weight, note}] → the pipeline's hotwords; synced with the account (Live › Glossary)
@@ -76,19 +80,28 @@ function decryptSecret(stored) {
 const cloudConfig = (cfg) => ({ ...cfg.cloud, token: decryptSecret(cfg.cloud.token) });
 /** Which Tencent keys the pipeline uses: the user's own (Settings) win over the ones the server handed out. */
 function resolveKeys(cfg) {
-  if (cfg.secretKeyEnc) return { source: 'manual', appid: cfg.appid, secretId: cfg.secretId, secretKey: decryptSecret(cfg.secretKeyEnc) };
-  if (cfg.cloudKeysEnc) {
-    try { const k = JSON.parse(decryptSecret(cfg.cloudKeysEnc)); return { source: 'cloud', ...k }; } catch { /* corrupt; ignore */ }
-  }
-  return null;
+  if (cfg.secretKeyEnc) return { source: 'manual', appid: cfg.appid, secretId: cfg.secretId, secretKey: decryptSecret(cfg.secretKeyEnc), ...(cloudKeys(cfg).tokenhubKey ? { tokenhubKey: cloudKeys(cfg).tokenhubKey } : {}) };
+  const k = cloudKeys(cfg);
+  return k.secretKey ? { source: 'cloud', ...k } : null;
+}
+/** The keys the server handed out (Tencent + TokenHub), decrypted; {} when none. */
+function cloudKeys(cfg) {
+  if (!cfg.cloudKeysEnc) return {};
+  try { return JSON.parse(decryptSecret(cfg.cloudKeysEnc)) || {}; } catch { return {}; }
+}
+/** Summary generator settings: TokenHub with the key the server handed out. */
+function summaryConfig(cfg) {
+  return { apiKey: cloudKeys(cfg).tokenhubKey || '', baseURL: 'https://tokenhub.tencentmaas.com', model: cfg.summaryModel && /^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'deepseek-v4-flash' };
 }
 /** Ask the server for the Tencent keys (after login, and once a day). Returns true when they changed. */
 async function refreshCloudKeys(cfg) {
   const r = await cloud.fetchCredentials();
   if (!r || !r.tencent || !r.tencent.secretKey) throw new Error('the server did not return keys');
-  const next = encryptSecret(JSON.stringify({ ...r.tencent, fetchedAt: Date.now() }));
+  const tokenhubKey = (r.tokenhub && r.tokenhub.apiKey) || '';
+  const next = encryptSecret(JSON.stringify({ ...r.tencent, tokenhubKey, fetchedAt: Date.now() }));
   const before = cfg.cloudKeysEnc ? decryptSecret(cfg.cloudKeysEnc) : '';
-  const changed = !before || JSON.parse(before).secretKey !== r.tencent.secretKey || JSON.parse(before).appid !== r.tencent.appid;
+  const prev = before ? JSON.parse(before) : {};
+  const changed = !before || prev.secretKey !== r.tencent.secretKey || prev.appid !== r.tencent.appid || (prev.tokenhubKey || '') !== tokenhubKey;
   cfg.cloudKeysEnc = next;
   saveConfig(cfg);
   return changed;
@@ -110,8 +123,11 @@ function consoleLog(level, text) {
   (level === 'error' ? console.error : console.log)(`${ts} ${level === 'error' ? '✖' : level === 'warn' ? '⚠' : '·'} ${text}`);
 }
 
+function applyLanguage(cfg) { return i18n.setLanguage(i18n.resolve(cfg.language, app.getLocale())); }
+
 async function startCore() {
   const cfg = loadConfig();
+  applyLanguage(cfg);
   let creds = null;
   let credsError = null;
   if (!cfg.demo) {
@@ -133,14 +149,14 @@ async function startCore() {
     transcriptsDir: path.join(USER_DATA, 'transcripts'),
     creds,
     credsError,
-    summaryApiKey: decryptSecret(cfg.summaryKeyEnc),
+    summary: summaryConfig(cfg),
     demo: cfg.demo,
     audioFile: cfg.audioFile || undefined,
     port,
     token: TOKEN,
     env: {
       TENCENT_EDGE: cfg.edge,
-      SUMMARY_MODEL: cfg.summaryModel,
+      START_PAUSED: cfg.startPaused === false ? '0' : '1',
       SUMMARY_LANGUAGE: cfg.summaryLanguage,
       SUMMARY_EFFORT: cfg.summaryEffort,
       RECORD_BITRATE: cfg.bitrate,
@@ -162,6 +178,8 @@ async function startCore() {
     displayStatus: () => ({ open: !!(wins.display && !wins.display.isDestroyed()), fullscreen: !!(wins.display && !wins.display.isDestroyed() && wins.display.isFullScreen()) }),
     onOpenExternal: (url) => shell.openExternal(url),
     onOpenFolder: () => shell.openPath(loadConfig().recordingsDir),
+    onTrash: async (paths) => { for (const f of paths) await shell.trashItem(f); },
+    language: i18n.lang,
     consoleLog,
   });
   port = core.port;
@@ -200,7 +218,7 @@ async function cloudAction(body) {
       // keys come from the server; start the pipeline with them unless the user entered their own
       let keys = 'unchanged';
       try { keys = (await refreshCloudKeys(cfg)) ? 'updated' : 'unchanged'; } catch (err) { keys = `unavailable: ${err.message}`; }
-      if (!cfg.secretKeyEnc && keys === 'updated') restartCore().catch(() => {});
+      if (keys === 'updated') restartCore().catch(() => {}); // new Tencent and/or summary keys
       return { ok: true, cloud: cloud.status(), keys };
     }
     case 'logout':
@@ -338,7 +356,7 @@ async function toggleRecording() {
     if (core.recording) await core.stopRecording();
     else core.startRecording();
   } catch (err) {
-    dialog.showErrorBox('Recording', err.message);
+    dialog.showErrorBox(t('dlg.recording'), err.message);
   }
 }
 
@@ -353,14 +371,14 @@ function rebuildTray() {
     tray.setToolTip('See Subtitles');
   }
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Open See Subtitles', click: openControl },
-    { label: 'Open overlay', click: openOverlay },
-    ...displays().map((d) => ({ label: `Fill: ${d.label}${d.primary ? ' (main)' : ''} — ${d.bounds.width}×${d.bounds.height}`,
+    { label: t('tray.open'), click: openControl },
+    { label: t('tray.overlay'), click: openOverlay },
+    ...displays().map((d) => ({ label: `${t('tray.fill', { label: d.label })}${d.primary ? t('ctl.main') : ''} — ${d.bounds.width}×${d.bounds.height}`,
       click: () => { openOverlay(); core.applySettings({ window: d.bounds }, null); applyOverlayBounds(d.bounds); reportOverlay(); } })),
-    { label: 'Reload overlay', click: () => { if (wins.overlay) wins.overlay.reload(); } },
-    { label: 'Close overlay', click: closeOverlay },
+    { label: t('tray.reload'), click: () => { if (wins.overlay) wins.overlay.reload(); } },
+    { label: t('tray.close'), click: closeOverlay },
     { type: 'separator' },
-    { label: 'Quit See Subtitles', click: () => app.quit() },
+    { label: t('tray.quit'), click: () => app.quit() },
   ]));
 }
 
@@ -370,41 +388,41 @@ function rebuildMenu() {
   const template = [
     { label: app.name, submenu: [
       { role: 'about' },
-      { label: 'Check for Updates…', click: () => updater.check({ interactive: true }) },
+      { label: t('menu.checkUpdates'), click: () => updater.check({ interactive: true }) },
       { type: 'separator' },
-      { label: 'Settings…', accelerator: 'Cmd+,', click: openSettings },
+      { label: t('menu.settings'), accelerator: 'Cmd+,', click: openSettings },
       { type: 'separator' },
       { role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' },
       { type: 'separator' },
       { role: 'quit' },
     ] },
-    { label: 'File', submenu: [
-      { label: 'Add File…', accelerator: 'Cmd+O', click: async () => { const p = await chooseMediaFile(); if (p && core) navigate('files'); if (p && core) core.addFile(p); } },
-      { label: core && core.recording ? 'Stop Recording' : 'Start Recording', accelerator: 'Shift+Cmd+R', click: toggleRecording },
+    { label: t('menu.file'), submenu: [
+      { label: t('menu.addFile'), accelerator: 'Cmd+O', click: async () => { const p = await chooseMediaFile(); if (p && core) navigate('files'); if (p && core) core.addFile(p); } },
+      { label: core && core.recording ? t('menu.stopRecording') : t('menu.startRecording'), accelerator: 'Shift+Cmd+R', click: toggleRecording },
       { type: 'separator' },
-      { label: 'Open Recordings Folder', click: () => shell.openPath(cfg.recordingsDir) },
+      { label: t('menu.openFolder'), click: () => shell.openPath(cfg.recordingsDir) },
     ] },
     { role: 'editMenu' },
-    { label: 'View', submenu: [
-      { label: 'Live', accelerator: 'Cmd+1', click: () => navigate('live') },
-      { label: 'Files', accelerator: 'Cmd+2', click: () => navigate('files') },
+    { label: t('menu.view'), submenu: [
+      { label: t('menu.live'), accelerator: 'Cmd+1', click: () => navigate('live') },
+      { label: t('menu.files'), accelerator: 'Cmd+2', click: () => navigate('files') },
       { type: 'separator' },
-      { label: 'Display Window', accelerator: 'Cmd+3', click: openDisplay },
-      { label: 'Overlay Window', accelerator: 'Cmd+4', click: toggleOverlay },
-      { label: 'Full Screen Display', accelerator: 'Ctrl+Cmd+F', click: () => { const w = openDisplay(); w.setFullScreen(!w.isFullScreen()); } },
+      { label: t('menu.displayWindow'), accelerator: 'Cmd+3', click: openDisplay },
+      { label: t('menu.overlayWindow'), accelerator: 'Cmd+4', click: toggleOverlay },
+      { label: t('menu.fullscreenDisplay'), accelerator: 'Ctrl+Cmd+F', click: () => { const w = openDisplay(); w.setFullScreen(!w.isFullScreen()); } },
       { type: 'separator' },
-      { label: 'Pause Subtitles', click: () => core && core.applySettings({ streaming: !core.settings.streaming }, null) },
-      { label: 'Clear Screen', click: () => core && core.clear() },
+      { label: t('menu.pause'), click: () => core && core.applySettings({ streaming: !core.settings.streaming }, null) },
+      { label: t('menu.clear'), click: () => core && core.clear() },
       { type: 'separator' },
-      { label: 'Demo Mode', type: 'checkbox', checked: !!cfg.demo, click: (item) => { const c = loadConfig(); c.demo = item.checked; saveConfig(c); restartCore(); } },
-      { label: 'Restart Pipeline', click: () => restartCore() },
+      { label: t('menu.demo'), type: 'checkbox', checked: !!cfg.demo, click: (item) => { const c = loadConfig(); c.demo = item.checked; saveConfig(c); restartCore(); } },
+      { label: t('menu.restart'), click: () => restartCore() },
       { type: 'separator' },
       { role: 'reload' }, { role: 'toggleDevTools' },
     ] },
     { role: 'windowMenu' },
-    { label: 'Help', submenu: [
-      { label: 'Keyboard Shortcuts', click: () => dialog.showMessageBox({ message: 'Keyboard shortcuts', detail: '⇧⌘R  start / stop recording\n⌘1 / ⌘2  Live / Files\n⌘3 / ⌘4  Display / Overlay window\n⌃⌘F  full-screen display\n\nOn the Live and Display pages:\n+ / −  text size (Shift = bigger steps)\n[ / ]  fewer / more sentences kept\nShift+S  translation → both → original\nP  pause / resume subtitles\nX  clear the screen\nC  show / hide the panel (display page)\nF  full screen (display page)' }) },
-      { label: 'Open seesubtitles.com', click: () => shell.openExternal('https://seesubtitles.com') },
+    { label: t('menu.help'), submenu: [
+      { label: t('menu.shortcuts'), click: () => dialog.showMessageBox({ message: t('dlg.shortcutsTitle'), detail: t('dlg.shortcutsBody') }) },
+      { label: t('menu.openSite'), click: () => shell.openExternal('https://seesubtitles.com') },
     ] },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
@@ -419,19 +437,17 @@ ipcMain.handle('config:get', () => {
   const cfg = loadConfig();
   const keys = resolveKeys(cfg);
   return {
-    ...cfg, summaryKeyEnc: undefined, summaryKeySet: !!cfg.summaryKeyEnc, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc,
-    cloudKeysEnc: undefined, keysSource: keys ? keys.source : null, cloudKeysAt: keys && keys.source === 'cloud' ? keys.fetchedAt : null,
+    ...cfg, summaryKeyEnc: undefined, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc,
+    cloudKeysEnc: undefined, keysSource: keys ? keys.source : null, cloudKeysAt: keys && keys.source === 'cloud' ? keys.fetchedAt : null, summaryKeyFromCloud: !!cloudKeys(cfg).tokenhubKey,
     cloud: { ...cfg.cloud, token: undefined, loggedIn: !!cfg.cloud.token },
-    version: app.getVersion(), packaged: PACKAGED, defaultCloudUrl: DEFAULT_CLOUD_URL,
+    version: app.getVersion(), packaged: PACKAGED, defaultCloudUrl: DEFAULT_CLOUD_URL, language: cfg.language || 'system',
   };
 });
 ipcMain.handle('config:save', async (_e, patch) => {
   const cfg = loadConfig();
   const next = { ...cfg, ...patch, mp4: { ...cfg.mp4, ...(patch.mp4 || {}) }, cloud: cfg.cloud };
   delete next.secretKey;
-  delete next.summaryKey;
-  delete next.summaryKeySet;
-  if (patch.summaryKey) next.summaryKeyEnc = encryptSecret(String(patch.summaryKey).trim());
+  delete next.summaryKey; delete next.summaryKeySet; delete next.summaryKeyEnc; delete next.summaryProvider; delete next.summaryKeyFromCloud;
   delete next.secretKeySet;
   delete next.keysSource; delete next.cloudKeysAt; delete next.version; delete next.packaged; delete next.defaultCloudUrl; delete next.useCloudKeys; delete next.restart;
   if (patch.secretKey) next.secretKeyEnc = encryptSecret(String(patch.secretKey).trim());
@@ -439,6 +455,12 @@ ipcMain.handle('config:save', async (_e, patch) => {
   next.appid = String(next.appid || '').trim();
   next.secretId = String(next.secretId || '').trim();
   saveConfig(next);
+  if (patch.language !== undefined && patch.language !== cfg.language) {
+    const l = applyLanguage(next);
+    if (core) core.setLanguage(l);
+    rebuildMenu();
+    rebuildTray();
+  }
   if (patch.restart !== false) await restartCore();
   return { ok: true };
 });
@@ -447,6 +469,14 @@ ipcMain.handle('config:chooseFolder', async () => {
   return r.canceled ? null : r.filePaths[0];
 });
 ipcMain.handle('files:choose', () => chooseMediaFile());
+ipcMain.handle('clipboard:image', (_e, dataUrl) => { clipboard.writeImage(nativeImage.createFromDataURL(String(dataUrl))); return { ok: true }; });
+ipcMain.handle('files:saveImage', async (_e, dataUrl, name) => {
+  const ext = /^data:image\/jpeg/.test(String(dataUrl)) ? 'jpg' : 'png';
+  const r = await dialog.showSaveDialog(wins.control || undefined, { defaultPath: path.join(app.getPath('downloads'), String(name || `share.${ext}`)), filters: [{ name: ext.toUpperCase(), extensions: [ext] }] });
+  if (r.canceled || !r.filePath) return { ok: false };
+  fs.writeFileSync(r.filePath, Buffer.from(String(dataUrl).split(',')[1], 'base64'));
+  return { ok: true, path: r.filePath };
+});
 ipcMain.handle('config:chooseAudioFile', async () => {
   const r = await dialog.showOpenDialog(wins.settings, { properties: ['openFile'], filters: [{ name: 'WAV (16 kHz mono)', extensions: ['wav', 'pcm'] }] });
   return r.canceled ? null : r.filePaths[0];
@@ -470,7 +500,7 @@ app.whenReady().then(async () => {
   if (!cfg.demo && !resolveKeys(cfg) && cfg.firstRunDone) openSettings();
   // keys from the server: refresh once a day; updates: check shortly after launch and every 6 h
   const keys = resolveKeys(cfg);
-  if (cfg.cloud.token && (!keys || (keys.source === 'cloud' && Date.now() - (keys.fetchedAt || 0) > 24 * 3600_000))) {
+  if (cfg.cloud.token && (!keys || !cloudKeys(cfg).tokenhubKey || (keys.source === 'cloud' && Date.now() - (keys.fetchedAt || 0) > 24 * 3600_000))) {
     setTimeout(() => refreshCloudKeys(loadConfig()).then((changed) => { if (changed && !loadConfig().secretKeyEnc) restartCore(); }).catch((err) => consoleLog('warn', `keys from the server: ${err.message}`)), 3000);
   }
   setTimeout(() => updater.check().catch(() => {}), 15_000);

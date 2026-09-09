@@ -28,3 +28,17 @@ test('system prompt asks for a synthesized, logically ordered, skimmable digest'
   for (const must of ['综合而不是罗列', '逻辑顺序而不是演讲顺序', '不能丢', '简体中文', '时间戳', '一条要点只陈述一个判断', '## 一段话']) assert.ok(p.includes(must), must);
   assert.ok(!p.includes('要点索引'), 'no chronological index');
 });
+
+test('the summary request carries a thinking budget from the effort setting and needs the TokenHub key', () => {
+  const { SummaryQueue, sanitizeTimestamps } = require('../lib/summary');
+  const q = new SummaryQueue({ dir: '/tmp', apiKey: 'k', model: 'deepseek-v4-flash', effort: 'high' });
+  assert.equal(q.configured, true);
+  assert.equal(q.baseURL, 'https://tokenhub.tencentmaas.com');
+  assert.deepEqual(q.requestParams(), { thinking: { type: 'enabled', budget_tokens: 16000 } });
+  q.effort = 'low';
+  assert.deepEqual(q.requestParams(), { thinking: { type: 'disabled' } });
+  assert.deepEqual(new SummaryQueue({ dir: '/tmp', apiKey: '' }).status().configured, false);
+  // timestamps past the end of the recording are removed, the rest stay
+  assert.equal(sanitizeTimestamps('见 [12:30] 和 [1:05:00]，还有 [59:59] 处。', 3600_000), '见 [12:30] 和 ，还有 [59:59] 处。');
+  assert.equal(sanitizeTimestamps('[00:10] ok', 0), '[00:10] ok');
+});

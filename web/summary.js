@@ -9,12 +9,12 @@
   document.getElementById('playLink').href = `/playback?rec=${encodeURIComponent(rec)}`;
 
   const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  const toSec = (t) => t.split(':').map(Number).reduce((a, b) => a * 60 + b, 0);
+  const toSec = (v) => v.split(':').map(Number).reduce((a, b) => a * 60 + b, 0);
   function inline(s) {
     return esc(s)
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g, (m, t) => `<a class="ts" href="/playback?rec=${encodeURIComponent(rec)}&t=${toSec(t)}" target="playback">[${t}]</a>`);
+      .replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g, (m, ts) => `<a class="ts" href="/playback?rec=${encodeURIComponent(rec)}&ts=${toSec(ts)}" target="playback">[${ts}]</a>`);
   }
   function render(md) {
     const lines = md.replace(/<!--[\s\S]*?-->/g, '').split('\n');

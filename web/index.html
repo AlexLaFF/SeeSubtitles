@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="utf-8">
-<title>See Subtitles</title>
+<title data-i18n="brand">See Subtitles</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/style.css">
@@ -10,30 +10,32 @@
 <body class="display">
 <div id="stage"><div id="lines"></div></div>
 <div id="status" hidden></div>
-<div id="hint">C = controls · + / − = size</div>
+<div id="hint" data-i18n="disp.hint">C = controls · + / − = size</div>
 <div id="remoteHead" hidden><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span class="w">See Subtitles</span><span class="name" id="remoteName"></span><span class="state" id="remoteState"></span></div>
 <div id="remoteBar" hidden>
-  <div class="seg" id="segShow"><button data-m="target">中文</button><button data-m="source">粵語</button><button data-m="both">Both</button></div>
-  <div class="seg"><button id="szDown" title="smaller text">A−</button><button id="szUp" title="larger text">A+</button></div>
-  <button id="btnAwake" title="keep the screen on">Keep awake</button>
+  <div class="seg" id="segShow"><button data-m="target">中文</button><button data-m="source">粵語</button><button data-m="both" data-i18n="disp.remote.both">Both</button></div>
+  <div class="seg"><button id="szDown" data-i18n-title="disp.remote.smaller" title="smaller text">A−</button><button id="szUp" data-i18n-title="disp.remote.larger" title="larger text">A+</button></div>
+  <button id="btnAwake" data-i18n="disp.remote.awake" data-i18n-title="disp.remote.awakeTitle" title="keep the screen on">Keep awake</button>
 </div>
-<div id="ended" hidden><div class="card"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><h1>這場講座已經結束</h1><p>This talk has ended. Thank you for following along.</p><p class="m" id="endedMeta"></p></div></div>
+<div id="ended" hidden><div class="card"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><h1>這場講座已經結束</h1><p data-i18n="disp.remote.endedText">This talk has ended. Thank you for following along.</p><p class="m" id="endedMeta"></p></div></div>
 <div id="panel" class="ui" hidden>
   <div class="btns">
-    <button id="btnClear">Clear</button>
-    <button id="btnPause">Pause</button>
-    <button id="btnReconnect">Reconnect</button>
+    <button id="btnClear" data-i18n="disp.clear">Clear</button>
+    <button id="btnPause" data-i18n="disp.pause">Pause</button>
+    <button id="btnReconnect" data-i18n="disp.reconnect">Reconnect</button>
     <button id="btnRec">● Rec</button>
-    <button id="btnFs">Full screen</button>
-    <button id="btnControl">Control page ↗</button>
-    <button id="btnHide">Hide (C)</button>
-    <button id="btnCloseOverlay" class="danger" hidden>Close this overlay window</button>
+    <button id="btnFs" data-i18n="disp.fullscreen">Full screen</button>
+    <button id="btnControl" data-i18n="disp.controlPage">Controls ↗</button>
+    <button id="btnHide" data-i18n="disp.hide">Hide (C)</button>
+    <button id="btnCloseOverlay" class="danger" hidden data-i18n="disp.closeOverlay">Close this overlay window</button>
   </div>
   <div id="panelControls"></div>
-  <h3>Shortcuts</h3>
+  <h3 data-i18n="disp.shortcuts">Shortcuts</h3>
   <div class="kbd" id="kbd"></div>
 </div>
 <script src="/schema.js"></script>
+<script src="/locales.js"></script>
+<script src="/i18n.js"></script>
 <script src="/shared.js"></script>
 <script src="/controls.js"></script>
 <script src="/display.js"></script>
