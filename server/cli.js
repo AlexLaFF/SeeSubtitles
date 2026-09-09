@@ -34,6 +34,15 @@ try {
       auth.setRole(a, b);
       console.log(`${a} is now ${b}`);
       break;
+    case 'test-mail': {
+      const mailer = require('./lib/mail');
+      const cfg = mailer.configFromEnv();
+      if (!cfg) throw new Error('set SMTP_HOST, SMTP_USER, SMTP_PASS and NOTIFY_EMAIL first');
+      mailer.sendMail(cfg, { subject: 'See Subtitles: test message', text: 'Email from the server works. Sent ' + new Date().toISOString() })
+        .then(() => console.log(`sent to ${cfg.to} via ${cfg.host}:${cfg.port}`))
+        .catch((err) => { console.error(`mail failed: ${err.message}`); process.exitCode = 1; });
+      break;
+    }
     case 'set-plan': {
       const { IDS } = require('./lib/plans');
       if (!IDS.includes(b)) throw new Error(`plan must be one of ${IDS.join(', ')}`);

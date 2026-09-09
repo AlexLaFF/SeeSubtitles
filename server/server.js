@@ -16,6 +16,7 @@ const { latestRelease } = require('./lib/updates');
 const { UsageMonitor, parsePack } = require('./lib/usage');
 const { createAccount } = require('./lib/account');
 const { PLANS, Quotas } = require('./lib/plans');
+const mail = require('./lib/mail');
 
 loadEnv(path.join(__dirname, '..', '.env'));
 const PORT = Number(process.env.PORT) || 8080;
@@ -52,15 +53,28 @@ const auth = createAuth(db);
 const account = createAccount(db, { baseUrl: BASE_URL, log });
 const quotas = new Quotas(db);
 // A new account request can ping a chat webhook (Discord, Slack and anything that takes {text}/{content}).
+// …and/or an email from the operator's own mailbox (SMTP_HOST/PORT/USER/PASS, MAIL_FROM, NOTIFY_EMAIL in deploy/.env).
 const REQUEST_WEBHOOK_URL = (process.env.REQUEST_WEBHOOK_URL || '').trim();
+const MAIL = mail.configFromEnv();
 function notifyRequest(r) {
-  if (!REQUEST_WEBHOOK_URL) return;
-  const text = `New account request · ${r.name || '(no name)'} <${r.email}> · ${r.org || '(no organisation)'} · plan: ${r.plan || 'not chosen'}\n${String(r.note || '').trim()}\n${BASE_URL}/account`;
-  fetch(REQUEST_WEBHOOK_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, content: text.slice(0, 1900) }) })
-    .then((res) => { if (!res.ok) log('warn', `request webhook: HTTP ${res.status}`); })
-    .catch((err) => log('warn', `request webhook: ${err.message}`));
+  const line = `${r.name || '(no name)'} <${r.email}> · ${r.org || '(no organisation)'} · plan: ${r.plan || 'not chosen'}`;
+  const note = String(r.note || '').trim();
+  if (REQUEST_WEBHOOK_URL) {
+    const text = ['New account request · ' + line, note, `${BASE_URL}/account`].filter(Boolean).join('\n');
+    fetch(REQUEST_WEBHOOK_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, content: text.slice(0, 1900) }) })
+      .then((res) => { if (!res.ok) log('warn', `request webhook: HTTP ${res.status}`); })
+      .catch((err) => log('warn', `request webhook: ${err.message}`));
+  }
+  if (MAIL) {
+    const body = ['Someone asked for a See Subtitles account.', '', `Name: ${r.name || '(no name)'}`, `Email: ${r.email}`, `Organisation or event: ${r.org || '(none)'}`, `Plan: ${r.plan || 'not chosen'}`, 'What they will subtitle:', note || '(nothing written)', '', `Handle it under Account › All accounts: ${BASE_URL}/account`, `Create the account with: node server/cli.js add-user ${r.email}`].join('\n');
+    mail.sendMail(MAIL, { subject: `See Subtitles: account request from ${r.name || r.email}`, text: body })
+      .then(() => log('info', `request emailed to ${MAIL.to}`))
+      .catch((err) => log('warn', `request email: ${err.message}`));
+  }
 }
 if (REQUEST_WEBHOOK_URL) log('info', 'account requests are posted to the webhook');
+if (MAIL) log('info', `account requests are emailed to ${MAIL.to} via ${MAIL.host}`);
+else if (process.env.SMTP_HOST || process.env.NOTIFY_EMAIL) log('warn', 'email is not configured: SMTP_HOST, SMTP_USER, SMTP_PASS and NOTIFY_EMAIL are all needed');
 const planRow = (user) => account.userRow(user.id) || { id: user.id, role: 'user', plan: 'hobbyist' };
 const entitlements = (user) => quotas.snapshot(planRow(user));
 const live = new LiveSessions({ db, dir: path.join(DATA_DIR, 'sessions'), log });
