@@ -42,7 +42,7 @@
         <button id="btnFolder">${t('files.openFolder')}</button><button id="btnAdd" class="primary">${t('files.add')}</button></div>
       <div class="toolbar"><div class="pills" id="filters"></div><div id="bulk" class="btns" style="margin:0" hidden></div><div class="grow"></div><input type="text" id="search" placeholder="${t('files.search')}" style="width:220px"></div>
       <div class="body" style="flex-direction:column;overflow:auto">
-        <div class="ui" style="padding:0;overflow:hidden"><table><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" title="${t('files.selectAll')}"></th><th style="width:32%">${t('files.col.name')}</th><th>${t('files.col.date')}</th><th>${t('files.col.length')}</th><th>${t('files.col.subtitles')}</th><th>${t('files.col.mp4')}</th><th>${t('files.col.summary')}</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+        <div class="ui" style="padding:0;overflow:hidden"><table><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" title="${t('files.selectAll')}"></th><th style="width:32%">${t('files.col.name')}</th><th>${t('files.col.date')}</th><th>${t('files.col.length')}</th><th>${t('files.col.subtitles')}</th><th>${t('files.col.mp4')}</th><th>${t('files.col.actions')}</th></tr></thead><tbody id="rows"></tbody></table></div>
         <div class="drop" id="drop">${t('files.drop')}</div>
       </div>`;
     for (const [k, label] of [['all', t('files.filter.all')], ['rec', t('files.filter.rec')], ['added', t('files.filter.added')]]) {
@@ -108,20 +108,15 @@
         else if (mp.current && mp.current.base === r.base) { mp4.appendChild(el('span', { class: 'tag busy' }, `${mp.current.percent}%`)); }
         else if ((mp.queue || []).includes(r.base)) mp4.appendChild(el('span', { class: 'tag busy' }, t('files.tag.queued')));
         else mp4.textContent = '—';
-        const sum = tr.appendChild(el('td'));
-        if (sm.current && sm.current.base === r.base) sum.appendChild(el('span', { class: 'tag busy' }, stageName(sm.current.stage)));
-        else sum.textContent = r.summary ? '✓' : '—';
         const act = tr.appendChild(el('td'));
         const acts = el('div', { class: 'btns', style: 'margin:0;flex-wrap:nowrap;justify-content:flex-end' });
         const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
         const open = el('button', { class: 'small' }, t('files.open')); open.addEventListener('click', stop(() => App.go('files', { base: r.base })));
-        const dl = el('button', { class: 'small' }, t('files.download')); dl.addEventListener('click', stop(() => downloadMenu(dl, r)));
-        const sumBusy = (sm.current && sm.current.base === r.base) || (sm.queue || []).includes(r.base);
-        const sb = el('button', { class: 'small' }, r.summary ? t('files.viewSummary') : t('files.aiSummary'));
-        sb.disabled = sumBusy || !(r.zh || r.yue);
-        sb.addEventListener('click', stop(() => (r.summary ? App.go('files', { base: r.base, tab: 'summary' }) : generateSummary(r))));
-        const more = el('button', { class: 'small' }, t('files.more')); more.addEventListener('click', stop(() => moreMenu(more, r)));
-        acts.append(open, dl, sb, more);
+        const dl = el('button', { class: 'small' }, t('files.download')); dl.addEventListener('click', stop(() => downloadMenu(dl, [r])));
+        const refresh = () => loadRecordings().then(renderRows);
+        const more = el('button', { class: 'small' }, t('files.actions')); more.addEventListener('click', stop(() => App.menu(more, actionItems(r, { onRenamed: refresh, onDeleted: refresh }))));
+        if (sm.current && sm.current.base === r.base) acts.appendChild(el('span', { class: 'tag busy' }, `${t('files.aiSummary')} · ${stageName(sm.current.stage)}`));
+        acts.append(open, dl, more);
         act.appendChild(acts);
         tr.addEventListener('click', () => App.go('files', { base: r.base }));
       } else if (it.job) {
@@ -130,12 +125,11 @@
         else if (j.status === 'failed') subs.appendChild(el('span', { class: 'tag bad', title: j.error || '' }, t('files.tag.failed')));
         else { subs.appendChild(el('span', { class: 'tag busy' }, stageName(j.status))); subs.appendChild(progress(j.progress)); }
         tr.appendChild(el('td', {}, (j.files || []).some((f) => f.endsWith('.mp4')) ? '✓' : '—'));
-        tr.appendChild(el('td', {}, '—'));
         const act = tr.appendChild(el('td')); act.appendChild(el('button', { class: 'small' }, t('files.openWeb')));
         tr.addEventListener('click', () => { const c = Sub.status.cloud; if (c && c.url) App.openExternal(`${c.url}/jobs/${j.id}`); });
       } else {
         subs.appendChild(el('span', { class: 'tag busy' }, it.queued ? t('files.tag.queued') : t('files.tag.uploading', { pct: it.upload.percent })));
-        tr.appendChild(el('td', {}, '—')); tr.appendChild(el('td', {}, '—')); tr.appendChild(el('td'));
+        tr.appendChild(el('td', {}, '—')); tr.appendChild(el('td'));
       }
       tb.appendChild(tr);
     }
@@ -151,15 +145,11 @@
     const picked = () => recordings.filter((r) => selected.has(r.base));
     bar.appendChild(el('span', { class: 'muted', style: 'margin-right:4px' }, t('files.selected', { n: selected.size })));
     const b = (label, cls, fn) => { const x = el('button', { class: `small ${cls || ''}` }, label); x.addEventListener('click', fn); bar.appendChild(x); return x; };
-    b(t('files.bulkSummaries'), '', async () => { const rs = picked().filter((r) => r.zh || r.yue); const have = rs.filter((r) => r.summary).length; if (have && !confirm(t('files.bulkRegen', { n: have }))) return; for (const r of rs) await post('/api/recordings/summary', { base: r.base }); });
-    b(t('files.bulkMp4'), '', async () => { for (const r of picked().filter((r) => r.zh || r.yue)) await post('/api/recordings/mp4', { base: r.base }); });
-    b(t('files.bulkResub'), '', async () => { const c = Sub.status.cloud; if (!c || !c.loggedIn) return alert(t('files.loginFirst')); const rs = picked(); if (!confirm(t('files.bulkResubConfirm', { n: rs.length }))) return; for (const r of rs) await post('/api/recordings/resubtitle', { base: r.base }); });
-    const dl = b(t('files.download'), '', () => App.menu(dl, ['all', 'audio', 'subtitles', 'plain', 'mp4', 'summary'].map((k) => ({ label: t(`files.dlKind.${k}`), onClick: () => downloadArchive([...selected], k) }))));
-    b(t('files.bulkDelete'), 'danger', async () => {
-      const rs = picked(); if (!rs.length || !confirm(t('files.deleteConfirm', { n: rs.length }))) return;
-      const r = await post('/api/recordings/delete', { bases: rs.map((x) => x.base) });
-      if (r && !r.error) { selected.clear(); await loadRecordings(); renderRows(); }
-    });
+    b(t('files.aiSummary'), '', async () => { const rs = picked().filter((r) => r.zh || r.yue); const have = rs.filter((r) => r.summary).length; if (have && !confirm(t('files.bulkRegen', { n: have }))) return; for (const r of rs) await post('/api/recordings/summary', { base: r.base }); });
+    b(t('files.makeMp4'), '', async () => { for (const r of picked().filter((r) => r.zh || r.yue)) await post('/api/recordings/mp4', { base: r.base }); });
+    b(t('files.resub'), '', async () => { const c = Sub.status.cloud; if (!c || !c.loggedIn) return alert(t('files.loginFirst')); const rs = picked(); if (!confirm(t('files.bulkResubConfirm', { n: rs.length }))) return; for (const r of rs) await post('/api/recordings/resubtitle', { base: r.base }); });
+    const dl = b(t('files.download'), '', () => downloadMenu(dl, picked()));
+    b(t('files.deleteOne'), 'danger', async () => { if (await deleteRecordings(picked())) { selected.clear(); await loadRecordings(); renderRows(); } });
     b(t('files.clearSel'), 'ghost', () => { selected.clear(); renderRows(); });
   }
   function downloadArchive(bases, kind) {
@@ -168,20 +158,43 @@
   }
   const stageName = (st) => (I18n.has(`status.${st}`) ? t(`status.${st}`) : st);
   const post = (path, body) => Sub.post(path, body).then((x) => { if (x && x.error) alert(I18n.err(x)); return x; });
-  /** Download menu for a recording (list rows and the recording page share it). */
-  function downloadMenu(anchor, rr) {
-    const items = [];
-    const link = (name, label) => items.push({ label, href: `/recordings/${encodeURIComponent(name)}`, download: name });
-    link(rr.mp3, t('files.dl.audio'));
-    if (rr.zh) link(rr.zh, t('files.dl.zh'));
-    if (rr.yue) link(rr.yue, t('files.dl.yue'));
-    if (rr.zh) items.push({ label: t('files.dl.plainZh'), onClick: () => CleanDownloads.recording(rr, 'zh') });
-    if (rr.yue) items.push({ label: t('files.dl.plainYue'), onClick: () => CleanDownloads.recording(rr, 'yue') });
-    if (rr.mp4) link(rr.mp4, t('files.dl.mp4', { size: Sub.fmtBytes(rr.mp4Bytes) }));
-    if (rr.summary) link(rr.summary, t('files.dl.md'));
-    if (rr.summaryPdf) link(rr.summaryPdf, t('files.dl.pdf'));
-    else if (rr.summary) items.push({ label: t('files.makePdf'), onClick: () => post('/api/recordings/summary-pdf', { base: rr.base }) });
+  const KINDS = ['all', 'audio', 'subtitles', 'plain', 'mp4', 'summary'];
+  /** Download menu — the same six choices for one recording and for a selection. One file downloads directly, more become a zip. */
+  function downloadMenu(anchor, recs) {
+    const has = (k) => recs.some((r) => k === 'all' || k === 'audio' || k === 'plain' ? true : k === 'subtitles' ? (r.zh || r.yue) : k === 'mp4' ? r.mp4 : (r.summary || r.summaryPdf));
+    const items = KINDS.filter(has).map((k) => ({ label: t(`files.dlKind.${k}`), onClick: () => {
+      const one = recs.length === 1 ? recs[0] : null;
+      if (one && k === 'audio') return direct(one.mp3);
+      if (one && k === 'mp4') return direct(one.mp4);
+      if (one && k === 'summary' && !one.summaryPdf) return direct(one.summary);
+      return downloadArchive(recs.map((r) => r.base), k);
+    } }));
+    if (recs.length === 1 && recs[0].summary && !recs[0].summaryPdf) items.push({ label: t('files.makePdf'), onClick: () => post('/api/recordings/summary-pdf', { base: recs[0].base }) });
     App.menu(anchor, items);
+  }
+  const direct = (name) => { const a = el('a', { href: `/recordings/${encodeURIComponent(name)}`, download: name }); document.body.appendChild(a); a.click(); a.remove(); };
+  async function renameRecording(rr) {
+    const v = prompt(t('files.renamePrompt'), rr.base);
+    if (v === null || !v.trim() || v.trim() === rr.base) return null;
+    const r = await post('/api/recordings/rename', { base: rr.base, name: v });
+    return r && !r.error ? r.base : null;
+  }
+  async function deleteRecordings(recs) {
+    if (!recs.length || !confirm(t('files.deleteConfirm', { n: recs.length }))) return false;
+    const r = await post('/api/recordings/delete', { bases: recs.map((x) => x.base) });
+    return !!(r && !r.error);
+  }
+  /** The actions of one recording (row menu and recording page): rename, summary, MP4, re-subtitle, delete. */
+  function actionItems(rr, { onRenamed, onDeleted } = {}) {
+    const s = Sub.status || {}; const rs = s.resubtitle || {}; const mp = s.mp4 || {}; const sm = s.summary || {};
+    const busy = (q) => (q.current && q.current.base === rr.base) || (q.queue || []).includes(rr.base);
+    const items = [];
+    items.push({ label: t('files.rename'), onClick: async () => { const nb = await renameRecording(rr); if (nb && onRenamed) onRenamed(nb); } });
+    if (!busy(sm) && (rr.zh || rr.yue)) items.push({ label: rr.summary ? t('files.regenSummary') : t('files.aiSummary'), onClick: () => generateSummary(rr) });
+    if (!busy(mp) && (rr.zh || rr.yue)) items.push({ label: rr.mp4 ? t('files.remakeMp4') : t('files.makeMp4'), onClick: () => post('/api/recordings/mp4', { base: rr.base }) });
+    if (!busy(rs)) items.push({ label: t('files.resub'), onClick: () => resubtitle(rr) });
+    items.push({ label: t('files.deleteOne'), onClick: async () => { if (await deleteRecordings([rr]) && onDeleted) onDeleted(); } });
+    return items;
   }
   function generateSummary(rr) {
     if (rr.summary && !confirm(t('files.confirmRegen'))) return;
@@ -192,25 +205,14 @@
     if ((rr.zh || rr.yue) && !confirm(t('files.confirmResub'))) return;
     post('/api/recordings/resubtitle', { base: rr.base });
   }
-  /** "More ▾" menu of a recording: re-subtitle, MP4. */
-  function moreMenu(anchor, rr) {
-    const s = Sub.status || {}; const rs = s.resubtitle || {}; const mp = s.mp4 || {};
-    const busyResub = (rs.current && rs.current.base === rr.base) || (rs.queue || []).includes(rr.base);
-    const busyMp4 = (mp.current && mp.current.base === rr.base) || (mp.queue || []).includes(rr.base);
-    const items = [];
-    if (!busyResub) items.push({ label: t('files.resub'), onClick: () => resubtitle(rr) });
-    if (!busyMp4 && (rr.zh || rr.yue)) items.push({ label: rr.mp4 ? t('files.remakeMp4') : t('files.makeMp4'), onClick: () => post('/api/recordings/mp4', { base: rr.base }) });
-    if (!items.length) items.push({ label: t('files.busy'), onClick: () => {} });
-    App.menu(anchor, items);
-  }
   const progress = (pct) => { const p = el('span', { class: 'progress', style: 'margin-left:6px' }); p.appendChild(el('i', { style: `width:${Math.round(pct || 0)}%` })); return p; };
 
   // ------------------------------------------------------------------ detail (one recording)
   async function renderDetail(root, base) {
     mounted = 'detail';
     root.innerHTML = `
-      <div class="top"><button class="ghost" id="btnBack">${t('files.back')}</button><h1 id="dTitle"></h1><span id="dChip" class="chip"></span><div class="grow"></div>
-        <button id="btnResub">${t('files.resub')}</button><button id="btnMp4">${t('files.makeMp4')}</button><button id="btnSummary">${t('files.aiSummary')}</button><button id="btnDownload" class="primary">${t('files.download')}</button></div>
+      <div class="top"><button class="ghost" id="btnBack">${t('files.back')}</button><h1 id="dTitle" style="cursor:text" title="${t('files.rename')}"></h1><span id="dChip" class="chip"></span><div class="grow"></div>
+        <button id="btnSummary">${t('files.aiSummary')}</button><button id="btnDownload" class="primary">${t('files.download')}</button><button id="btnActions">${t('files.actions')}</button></div>
       <div class="body">
         <div class="col" style="width:620px;flex:none;overflow:auto">
           <div class="ui" style="padding:10px"><div class="stage-p" id="pstage"></div><audio id="audio" controls preload="metadata" style="width:100%;margin-top:8px"></audio>
@@ -296,10 +298,11 @@
       else box.appendChild(el('div', { class: 'empty' }, t('files.noSummary')));
     }
     const rec = () => recordings.find((x) => x.base === base) || r;
-    $('btnResub').addEventListener('click', () => resubtitle(rec()));
-    $('btnMp4').addEventListener('click', () => post('/api/recordings/mp4', { base }));
+    const doRename = async () => { const nb = await renameRecording(rec()); if (nb) App.go('files', { base: nb }, { replace: true }); };
+    $('dTitle').addEventListener('click', doRename);
     $('btnSummary').addEventListener('click', () => { const rr = rec(); if (rr.summary && !confirm(t('files.confirmRegen'))) return; post('/api/recordings/summary', { base }).then((x) => { if (x && !x.error) $('tabSum').click(); }); });
-    $('btnDownload').addEventListener('click', () => downloadMenu($('btnDownload'), rec()));
+    $('btnDownload').addEventListener('click', () => downloadMenu($('btnDownload'), [rec()]));
+    $('btnActions').addEventListener('click', () => App.menu($('btnActions'), actionItems(rec(), { onRenamed: (nb) => App.go('files', { base: nb }, { replace: true }), onDeleted: () => App.go('files', {}, { replace: true }) })));
     if (App.params.tab === 'summary') $('tabSum').click();
 
     view.updateDetail = async () => {
@@ -307,9 +310,8 @@
       const rs = s.resubtitle || {}; const mp = s.mp4 || {}; const sm = s.summary || {};
       const key = JSON.stringify([rs.current && rs.current.base === base ? rs.current : null, rs.last && rs.last.base === base ? rs.last.at : null, mp.current && mp.current.base === base ? mp.current.percent : null, sm.current && sm.current.base === base ? sm.current.stage : null]);
       const busy = (rs.current && rs.current.base === base) ? t('files.chip.busyResub', { stage: stageName(rs.current.stage), pct: rs.current.percent }) : (mp.current && mp.current.base === base) ? t('files.chip.busyMp4', { stage: stageName(mp.current.stage), pct: mp.current.percent }) : (sm.current && sm.current.base === base) ? t('files.chip.busySummary', { stage: stageName(sm.current.stage) }) : '';
-      $('btnResub').disabled = !!(rs.current && rs.current.base === base) || !(s.cloud && s.cloud.loggedIn);
-      $('btnMp4').disabled = !!(mp.current && mp.current.base === base) || !cues.length;
       $('btnSummary').disabled = !!(sm.current && sm.current.base === base) || !cues.length;
+      $('btnSummary').textContent = rec().summary ? t('files.regenSummary') : t('files.aiSummary');
       if (key === view.detailKey && $('dChip').dataset.done) return;
       const changed = view.detailKey && key !== view.detailKey && !busy; // something finished: reload files/cues
       view.detailKey = key;

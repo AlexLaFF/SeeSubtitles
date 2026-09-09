@@ -89,3 +89,27 @@ test('bulk download zips the chosen kinds and delete removes a whole recording s
   const left = await (await fetch(`${server.base}/api/recordings`, { headers: H })).json();
   assert.deepEqual(left.map((r) => r.base), ['9月6号11点00分']);
 });
+
+test('a recording set can be renamed; bad names and clashes are handled', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'subtitle-rename-'));
+  const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
+  for (const base of ['9月6号10点00分', '营养讲座']) {
+    fs.writeFileSync(path.join(rec, names.fileName(base, 'mp3')), 'fixture');
+    fs.writeFileSync(path.join(rec, names.fileName(base, 'zh')), '1\n00:00:01,000 --> 00:00:03,000\n大家好。\n');
+  }
+  fs.writeFileSync(path.join(rec, '9月6号10点00分中文字幕.zh.live.srt'), 'live');
+  const server = await createLocalServer({
+    webDir: path.resolve(__dirname, '../../web'), schemaFile: require.resolve('@subs/core/schema'),
+    dataDir: path.join(root, 'data'), recordingsDir: rec, transcriptsDir: path.join(root, 'transcripts'),
+    demo: true, token: 'tk', env: { MP4_AUTO: '0' }, consoleLog() {},
+  });
+  t.after(async () => { await server.shutdown(); fs.rmSync(root, { recursive: true, force: true }); });
+  const post = (data) => fetch(`${server.base}/api/recordings/rename`, { method: 'POST', headers: { cookie: 'token=tk', 'content-type': 'application/json' }, body: JSON.stringify(data) }).then((r) => r.json());
+  assert.deepEqual(await post({ base: '9月6号10点00分', name: ' 第一天/上午 讲座 ' }), { ok: true, base: '第一天 上午 讲座' });
+  assert.deepEqual(fs.readdirSync(rec).filter((f) => f.startsWith('第一天')).sort(), ['第一天 上午 讲座中文字幕.zh.live.srt', '第一天 上午 讲座中文字幕.zh.srt', '第一天 上午 讲座录音.mp3']);
+  assert.equal((await post({ base: '第一天 上午 讲座', name: '营养讲座' })).base, '营养讲座-2', 'a clash gets a numbered name');
+  assert.equal((await post({ base: '营养讲座', name: '   ' })).code, 'name_empty');
+  assert.equal((await post({ base: 'nope', name: 'x' })).code, 'unknown_recording');
+  const list = await (await fetch(`${server.base}/api/recordings`, { headers: { cookie: 'token=tk' } })).json();
+  assert.deepEqual(list.map((r) => r.base).sort(), ['营养讲座', '营养讲座-2']);
+});
