@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>See Subtitles — Log in</title>
+<title data-i18n="web.loginTitle">See Subtitles — Log in</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/app.css">
@@ -10,30 +10,36 @@
 <body class="control app">
 <div class="login">
   <div class="ui">
-    <h2>See Subtitles</h2>
-    <p class="muted">Live Cantonese → Mandarin subtitles, remote displays and video subtitling.</p>
+    <h2 data-i18n="brand">See Subtitles</h2>
+    <p class="muted" data-i18n="web.tagline">Live Cantonese → Mandarin subtitles, remote displays and video subtitling.</p>
     <form id="form">
-      <label>Email<input id="email" type="email" autocomplete="username" required></label>
-      <label>Password<input id="password" type="password" autocomplete="current-password" required minlength="8"></label>
-      <label id="inviteRow" hidden>Invite code<input id="invite" autocomplete="off"></label>
+      <label><span data-i18n="settings.email">Email</span><input id="email" type="email" autocomplete="username" required></label>
+      <label><span data-i18n="settings.password">Password</span><input id="password" type="password" autocomplete="current-password" required minlength="8"></label>
+      <label id="inviteRow" hidden><span data-i18n="settings.invite">Invite code</span><input id="invite" autocomplete="off"></label>
       <div class="alert" id="err" hidden></div>
       <button class="primary" type="submit" id="submit">Log in</button>
       <p class="muted" id="switchRow" hidden><a href="#" id="switch">Create an account</a></p>
     </form>
+    <p class="muted" style="margin-top:14px;font-size:12px"><a href="#" data-lang="en">English</a> · <a href="#" data-lang="zh">中文</a></p>
   </div>
 </div>
+<script src="/locales.js"></script>
+<script src="/i18n.js"></script>
 <script>
 (async () => {
   const $ = (id) => document.getElementById(id);
+  I18n.apply();
+  document.querySelectorAll('a[data-lang]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); I18n.remember(a.dataset.lang); I18n.apply(); render(); }));
   let signup = 'closed';
   try { signup = (await fetch('/api/config').then((x) => x.json())).signup || 'closed'; } catch { /* keep login only */ }
   let creating = false;
   const render = () => {
-    $('submit').textContent = creating ? 'Create account' : 'Log in';
-    $('switch').textContent = creating ? 'I already have an account' : 'Create an account';
+    $('submit').textContent = creating ? t('settings.createAccount') : t('settings.login');
+    $('switch').textContent = creating ? t('settings.toggleLogin') : t('settings.toggleSignup');
     $('inviteRow').hidden = !(creating && signup === 'invite');
     $('password').autocomplete = creating ? 'new-password' : 'current-password';
   };
+  render();
   if (signup !== 'closed') { $('switchRow').hidden = false; $('switch').addEventListener('click', (e) => { e.preventDefault(); creating = !creating; render(); }); }
   $('form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -41,8 +47,8 @@
     err.hidden = true;
     const body = { email: $('email').value, password: $('password').value };
     if (creating) body.invite = $('invite').value;
-    const r = await fetch(creating ? '/api/signup' : '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json()).catch(() => ({ error: 'network error' }));
-    if (r.error) { err.textContent = r.error; err.hidden = false; return; }
+    const r = await fetch(creating ? '/api/signup' : '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json()).catch(() => ({ error: t('web.networkError') }));
+    if (r.error) { err.textContent = I18n.err(r); err.hidden = false; return; }
     const next = new URLSearchParams(location.search).get('next');
     location.href = next && next.startsWith('/') ? next : '/';
   });

@@ -30,7 +30,7 @@
     for (const n of document.querySelectorAll('.side .nav')) n.classList.toggle('active', n.dataset.view === view);
     App.main.innerHTML = '';
     v.render(App.main, App.params);
-    document.title = `See Subtitles — ${v.title}`;
+    document.title = t('app.title', { view: v.title });
   };
 
   App.refresh = () => { if (App.current && App.current.update) App.current.update(); };
@@ -60,19 +60,25 @@
     const c = Sub.status && Sub.status.cloud;
     const box = document.getElementById('account');
     box.innerHTML = '';
-    box.appendChild(el('b', {}, c && c.loggedIn ? c.email : 'not logged in'));
-    box.appendChild(el('span', {}, c && c.loggedIn ? `${c.url.replace(/^https?:\/\//, '')} · ${c.session ? 'sharing' : 'connected'}` : 'log in under Settings'));
+    box.appendChild(el('b', {}, c && c.loggedIn ? c.email : t('account.notLoggedIn')));
+    box.appendChild(el('span', {}, c && c.loggedIn ? `${c.url.replace(/^https?:\/\//, '')} · ${c.session ? t('account.sharing') : t('account.connected')}` : t('account.hint')));
   }
 
   App.start = function () {
     App.main = document.getElementById('main');
+    // language: the app's setting arrives in `init`; ?lang= overrides for this page load (testing)
+    const qlang = new URLSearchParams(location.search).get('lang');
+    if (qlang) I18n.setLanguage(qlang);
+    I18n.apply();
+    I18n.onChange(() => { I18n.apply(); renderAccount(); if (App.current) App.show(Object.keys(App.views).find((k) => App.views[k] === App.current), App.params); });
+    Sub.on('language', (d) => { if (!qlang) I18n.setLanguage(d.language); });
     for (const n of document.querySelectorAll('.side .nav')) n.addEventListener('click', () => App.go(n.dataset.view));
     window.addEventListener('popstate', () => { const r = App.route(location.pathname); App.show(r.view, r.params); });
     const r = App.route(location.pathname);
     App.show(r.view, r.params);
     if (window.desktop && window.desktop.onNavigate) window.desktop.onNavigate((view, params) => App.go(view, params || {}));
     document.addEventListener('keydown', (e) => { if (Sub.keyAction(e)) e.preventDefault(); });
-    Sub.on('init', (d) => { Controls.setDevices(d.devices); Controls.setPresets(d.presets); Controls.setOverlay(d.status.overlay); Controls.sync(d.settings, true); renderAccount(); for (const v of Object.values(App.views)) if (v.init) v.init(d); App.refresh(); });
+    Sub.on('init', (d) => { if (d.language && !qlang) I18n.setLanguage(d.language); Controls.setDevices(d.devices); Controls.setPresets(d.presets); Controls.setOverlay(d.status.overlay); Controls.sync(d.settings, true); renderAccount(); for (const v of Object.values(App.views)) if (v.init) v.init(d); App.refresh(); });
     Sub.on('status', (s) => { Controls.setOverlay(s.overlay); renderAccount(); App.refresh(); });
     Sub.on('settings', (d) => { if (d.from !== Sub.clientId) Controls.sync(d.settings); App.refresh(); });
     Sub.on('local', App.refresh);

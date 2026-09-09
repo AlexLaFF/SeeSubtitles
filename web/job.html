@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>See Subtitles — Job</title>
+<title data-i18n="web.jobTitle">See Subtitles — Job</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/style.css">
 <link rel="stylesheet" href="/app.css">
 </head>
 <body class="control app">
-<div class="topbar"><a href="/">← See Subtitles</a><h1 id="title">Job</h1><span class="spacer"></span><span class="muted" id="who"></span></div>
+<div class="topbar"><a href="/" data-i18n="web.back">← See Subtitles</a><h1 id="title" data-i18n="web.job">Job</h1><span class="spacer"></span><span class="muted" id="who"></span></div>
 <main>
 <div class="alert" id="alert" hidden></div>
 <div class="ui" id="progressBox">
@@ -22,27 +22,29 @@
       <div class="subs" id="subs"></div>
     </div>
     <div class="ui">
-      <h2>Downloads</h2>
+      <h2 data-i18n="web.downloads">Downloads</h2>
       <div class="files" id="files"></div>
-      <h2 style="margin-top:14px">Burn subtitles into the video</h2>
+      <h2 style="margin-top:14px" data-i18n="web.burn">Burn subtitles into the video</h2>
       <div class="btns">
-        <select id="mp4which"><option value="trans">translation</option><option value="both">translation + original</option><option value="text">original</option></select>
-        <button id="btnMp4">Render MP4</button>
+        <select id="mp4which"><option value="trans" data-i18n="web.which.trans">translation</option><option value="both" data-i18n="web.which.both">translation + original</option><option value="text" data-i18n="web.which.text">original</option></select>
+        <button id="btnMp4" data-i18n="web.renderMp4">Render MP4</button>
         <span class="muted" id="mp4Text"></span>
       </div>
     </div>
   </div>
   <div class="ui">
     <div class="sticky btns">
-      <h2 style="display:inline;margin-right:10px">Cues</h2>
-      <button class="primary" id="btnSave" disabled>Save changes</button>
-      <button id="btnShift">Shift all…</button>
+      <h2 style="display:inline;margin-right:10px" data-i18n="web.cues">Cues</h2>
+      <button class="primary" id="btnSave" disabled data-i18n="files.save">Save changes</button>
+      <button id="btnShift" data-i18n="files.shiftAll">Shift all…</button>
       <span class="muted" id="saveText"></span>
     </div>
     <div class="cues" id="cues"></div>
   </div>
 </div>
 </main>
+<script src="/locales.js"></script>
+<script src="/i18n.js"></script>
 <script src="/job.js"></script>
 </body>
 </html>

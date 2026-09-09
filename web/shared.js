@@ -118,16 +118,9 @@
     }
   };
 
-  Sub.SHORTCUTS = [
-    ['+ / −  or  ↑ / ↓', 'Text size (Shift = bigger steps)'],
-    ['[ / ]', 'Fewer / more sentences kept on screen'],
-    ['Shift+S', 'Cycle: translation → both → original'],
-    ['P', 'Pause / resume streaming'],
-    ['X', 'Clear the screen'],
-    ['Shift+R', 'Start / stop recording (MP3 + SRT)'],
-    ['C', 'Show / hide this panel (display page)'],
-    ['F', 'Full screen (display page)'],
-    ['Esc', 'Hide the panel'],
+  Sub.SHORTCUTS = [ // [keys, catalog key]
+    ['+ / −  or  ↑ / ↓', 'sc.size'], ['[ / ]', 'sc.lines'], ['Shift+S', 'sc.cycle'], ['P', 'sc.pause'], ['X', 'sc.clear'],
+    ['Shift+R', 'sc.record'], ['C', 'sc.panel'], ['F', 'sc.fullscreen'], ['Esc', 'sc.esc'],
   ];
 
   Sub.fmtBytes = (b) => (b >= 1e9 ? `${(b / 1e9).toFixed(2)} GB` : b >= 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.round(b / 1e3)} KB`);

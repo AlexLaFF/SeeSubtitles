@@ -58,6 +58,7 @@ function readJson(req) {
  * @param {function} [opts.displayStatus] () => {open, fullscreen}
  * @param {function} [opts.onOpenExternal] (url) => void
  * @param {function} [opts.onOpenFolder]  () => void
+ * @param {string}   [opts.language]      'en' | 'zh' — sent to every page in `init`; setLanguage() switches live
  * @param {function} [opts.consoleLog]   (level, text) — defaults to console
  */
 async function createLocalServer(opts) {
@@ -121,9 +122,9 @@ async function createLocalServer(opts) {
   const presetsPayload = () => ({ builtin: schema.PRESETS, user: userPresets });
   /** "Add file…": upload any video/audio file to the hosted server as a subtitling job, using the live languages. */
   function addFile(file) {
-    if (!opts.uploads) throw new Error('cloud link not available');
+    if (!opts.uploads) { const e = new Error('cloud link not available'); e.code = 'cloud_unavailable'; throw e; }
     const cloud = opts.cloudStatus ? opts.cloudStatus() : null;
-    if (!cloud || !cloud.loggedIn) throw new Error('Log in under Settings first');
+    if (!cloud || !cloud.loggedIn) { const e = new Error('Log in under Settings first'); e.code = 'login_first'; throw e; }
     const SOURCE = { yue: 'yue', zh: 'zh', zh_en: 'mixed', en: 'en', ja: 'ja', ko: 'ko' };
     const TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko' };
     const sourceLang = SOURCE[settings.source];
@@ -329,7 +330,7 @@ async function createLocalServer(opts) {
   async function refreshDevices() {
     const r = await listDevices('ffmpeg', env.AUDIO_BACKEND || 'auto');
     if (r.error) log('error', r.error);
-    devices = [{ id: 'default', name: 'System default input' }, ...r.devices.map((d) => ({ id: String(d.id), name: `${d.name}${d.default ? ' (system default)' : ''}` }))];
+    devices = [{ id: 'default', name: 'System default input' }, ...r.devices.map((d) => ({ id: String(d.id), name: d.name, default: !!d.default }))]; // pages label these through the catalog
     if (r.backend === 'native' && /^\d+$/.test(settings.audioDevice) && !r.devices.some((d) => String(d.id) === settings.audioDevice)) {
       const legacy = await listDevicesFfmpeg();
       const match = legacy.devices.find((d) => String(d.index) === settings.audioDevice);
@@ -389,7 +390,8 @@ async function createLocalServer(opts) {
   }
 
   // ---------------------------------------------------------------- http
-  const stateSnapshot = () => ({ serverId: SERVER_ID, settings, lines: transcript.recent(50), status: status(), devices, logs: logs.slice(-60), presets: presetsPayload() });
+  let language = opts.language === 'zh' ? 'zh' : 'en';
+  const stateSnapshot = () => ({ serverId: SERVER_ID, language, settings, lines: transcript.recent(50), status: status(), devices, logs: logs.slice(-60), presets: presetsPayload() });
 
   function sse(req, res, url) {
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
@@ -409,7 +411,7 @@ async function createLocalServer(opts) {
       if (p === '/api/recordings') return send(res, 200, listRecordings());
       if (p === '/api/recordings/cues') {
         const base = String(url.searchParams.get('base') || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
+        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         return send(res, 200, { base, cues: readCues(opts.recordingsDir, base) });
       }
       if (p === '/api/cloud/jobs') {
@@ -437,7 +439,7 @@ async function createLocalServer(opts) {
         try { return send(res, 200, presetAction(body)); } catch (err) { return send(res, 400, { error: err.message }); }
       case '/api/recordings/summary': {
         const base = String(body.base || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
+        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         if (!summaries.configured) return send(res, 400, { error: 'Add your Anthropic API key in Settings → AI summaries' });
         const queued = summaries.add(base);
         log('info', queued ? `AI summary requested for ${base}` : `AI summary for ${base} already in progress`);
@@ -454,7 +456,7 @@ async function createLocalServer(opts) {
       }
       case '/api/recordings/cues': {
         const base = String(body.base || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
+        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         try { const cues = writeCues(opts.recordingsDir, base, body.cues); log('info', `subtitles of ${base} edited (${cues.length} cues)`); return send(res, 200, { ok: true, cues }); } catch (err) { return send(res, 400, { error: err.message }); }
       }
       case '/api/recordings/open-folder':
@@ -471,19 +473,19 @@ async function createLocalServer(opts) {
         return send(res, 200, { ok: true });
       }
       case '/api/files/add': {
-        try { return send(res, 200, { ok: true, queued: addFile(String(body.path || '')), uploads: opts.uploads.status() }); } catch (err) { return send(res, 400, { error: err.message }); }
+        try { return send(res, 200, { ok: true, queued: addFile(String(body.path || '')), uploads: opts.uploads.status() }); } catch (err) { return send(res, 400, { error: err.message, code: err.code || (/not found/.test(err.message) ? 'file_not_found' : undefined) }); }
       }
       case '/api/recordings/resubtitle': {
         const base = String(body.base || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
-        if (!opts.resubtitle) return send(res, 400, { error: 'cloud link not available' });
+        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
+        if (!opts.resubtitle) return send(res, 400, { error: 'cloud link not available', code: 'cloud_unavailable' });
         const cloud = opts.cloudStatus ? opts.cloudStatus() : null;
-        if (!cloud || !cloud.loggedIn) return send(res, 400, { error: 'Log in to the cloud server in Settings → Cloud first' });
+        if (!cloud || !cloud.loggedIn) return send(res, 400, { error: 'Log in under Settings first', code: 'login_first' });
         // live codes → the cloud's upload languages (ENGINES / TARGETS in server/lib/jobs.js)
         const SOURCE = { yue: 'yue', zh: 'zh', zh_en: 'mixed', en: 'en', ja: 'ja', ko: 'ko' };
         const TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko' };
         const sourceLang = SOURCE[settings.source];
-        if (!sourceLang) return send(res, 400, { error: `the cloud does not transcribe "${settings.source}" uploads yet` });
+        if (!sourceLang) return send(res, 400, { error: `the cloud does not transcribe "${settings.source}" uploads yet`, code: 'unsupported_source', lang: settings.source });
         const targetLang = TARGET[settings.target] || 'none';
         const queued = opts.resubtitle.add({ base, dir: opts.recordingsDir, sourceLang, targetLang });
         log('info', queued ? `re-subtitle requested for ${base} (${sourceLang} → ${targetLang})` : `re-subtitle for ${base} already in progress`);
@@ -491,13 +493,13 @@ async function createLocalServer(opts) {
       }
       case '/api/recordings/mp4': {
         const base = String(body.base || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording' });
+        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         const queued = mp4.add(base);
         log('info', queued ? `MP4 export requested for ${base}` : `MP4 export for ${base} already in progress`);
         return send(res, 200, { ok: true, queued, mp4: mp4.status() });
       }
       case '/api/demo/line':
-        if (!DEMO) return send(res, 403, { error: 'demo mode only' });
+        if (!DEMO) return send(res, 403, { error: 'demo mode only', code: 'demo_only' });
         transcript.apply({ voiceId: 'demo', sentenceId: String(body.id || 'x'), sourceText: body.sourceText || '', targetText: body.targetText || '', sentenceEnd: !!body.ended, wallStart: Date.now(), wallEnd: Date.now() });
         return send(res, 200, { ok: true });
       case '/api/record': {
@@ -516,7 +518,7 @@ async function createLocalServer(opts) {
         overlayRegister(body);
         return send(res, 200, { ok: true });
       case '/api/cloud':
-        if (!opts.onCloud) return send(res, 400, { error: 'cloud link not available' });
+        if (!opts.onCloud) return send(res, 400, { error: 'cloud link not available', code: 'cloud_unavailable' });
         try { return send(res, 200, await opts.onCloud(body)); } catch (err) { return send(res, 400, { error: err.message }); }
       default:
         return send(res, 404, { error: 'unknown endpoint' });
@@ -622,6 +624,7 @@ async function createLocalServer(opts) {
     get recording() { return recorder.recording; },
     clear: () => { transcript.clear(); broadcast('clear', {}); },
     addFile,
+    setLanguage: (l) => { language = l === 'zh' ? 'zh' : 'en'; broadcast('language', { language }); },
     recordingsDir: opts.recordingsDir,
     pageUrl: (page = '/', extra = '') => `${base}${page}${opts.token ? `${page.includes('?') ? '&' : '?'}token=${opts.token}` : ''}${extra}`,
     shutdown,

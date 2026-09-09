@@ -6,6 +6,7 @@
   const api = (p, opts) => fetch(p, opts).then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || r.statusText); return j; });
   const el = (tag, attrs = {}, text) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); if (text != null) e.textContent = text; return e; };
   const alertBox = (msg) => { const a = $('alert'); a.textContent = msg; a.hidden = !msg; };
+  I18n.apply();
   const fmt = (ms) => { const s = Math.max(0, ms) / 1000; const m = Math.floor(s / 60); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}:${(s % 60).toFixed(2).padStart(5, '0')}`; };
 
   let job = null;
@@ -19,24 +20,24 @@
     $('title').textContent = j.filename;
     const pct = j.status === 'done' ? 100 : j.progress;
     $('bar').style.width = `${pct}%`;
-    const stage = { uploading: 'waiting for upload', queued: 'queued', extracting: 'extracting audio', recognizing: 'recognising speech (Tencent)', segmenting: 'building cues', translating: 'translating', rendering: 'writing subtitle files', done: 'done', failed: 'failed' }[j.status] || j.status;
-    $('statusText').textContent = `${stage}${j.status !== 'done' && j.status !== 'failed' ? ` · ${Math.round(pct)}%` : ''}${j.error ? ` — ${j.error}` : ''}${j.duration ? ` · ${(j.duration / 60).toFixed(1)} min` : ''} · ${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}`;
+    const stage = I18n.has(`status.${j.status}`) ? t(`status.${j.status}`) : j.status;
+    $('statusText').textContent = `${stage}${j.status !== 'done' && j.status !== 'failed' ? ` · ${Math.round(pct)}%` : ''}${j.error ? ` — ${j.error}` : ''}${j.duration ? t('web.min', { n: (j.duration / 60).toFixed(1) }) : ''} · ${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}`;
     $('progressBox').className = `ui ${j.status === 'failed' ? 'bad' : ''}`;
     if (j.status === 'done') {
       $('work').hidden = false;
       if (!loadedCues) { loadedCues = true; loadCues(); }
       renderFiles();
     }
-    if (j.render) { $('mp4Text').textContent = `rendering ${j.render.which}… ${j.render.percent}%`; $('btnMp4').disabled = true; } else { $('btnMp4').disabled = false; if (j.renderError) $('mp4Text').textContent = `⚠ ${j.renderError}`; else if (/rendering/.test($('mp4Text').textContent)) $('mp4Text').textContent = 'MP4 ready (see downloads)'; }
+    if (j.render) { $('mp4Text').textContent = t('web.rendering', { which: j.render.which, pct: j.render.percent }); $('btnMp4').disabled = true; $('mp4Text').dataset.rendering = '1'; } else { $('btnMp4').disabled = false; if (j.renderError) $('mp4Text').textContent = `⚠ ${j.renderError}`; else if ($('mp4Text').dataset.rendering) { $('mp4Text').textContent = t('web.mp4Ready'); delete $('mp4Text').dataset.rendering; } }
   }
   function renderFiles() {
     const box = $('files');
     box.innerHTML = '';
     for (const f of job.files || []) {
       const m = /\.(original|translated)\.([^.]+)\.plain\.txt$/.exec(f);
-      box.appendChild(el('a', { href: `/jobs/${id}/files/${encodeURIComponent(f)}?download` }, m ? `Plain text · ${m[1] === 'original' ? 'original' : 'translation'} (${m[2]})` : f));
+      box.appendChild(el('a', { href: `/jobs/${id}/files/${encodeURIComponent(f)}?download` }, m ? t('web.plain', { which: m[1] === 'original' ? t('web.original') : t('web.translation'), lang: m[2] }) : f));
     }
-    if (!(job.files || []).length) box.appendChild(el('span', { class: 'muted' }, 'none yet'));
+    if (!(job.files || []).length) box.appendChild(el('span', { class: 'muted' }, t('web.none')));
   }
 
   async function loadCues() {
@@ -55,7 +56,7 @@
       const row = el('div', { class: 'cue', 'data-i': i });
       const t = el('div', { class: 't' }, `${fmt(c.start)}\n${fmt(c.end)}`);
       t.style.whiteSpace = 'pre';
-      t.title = 'click to seek';
+      t.title = I18n.t('web.seek');
       t.onclick = () => { $('video').currentTime = c.start / 1000; $('video').play().catch(() => {}); };
       row.appendChild(t);
       const texts = el('div');
@@ -64,10 +65,10 @@
       row.appendChild(texts);
       const ops = el('div', { class: 'ops' });
       const mk = (label, title, fn) => { const b = el('button', { title }, label); b.onclick = fn; ops.appendChild(b); };
-      mk('−.1', 'start 100 ms earlier', () => { c.start = Math.max(0, c.start - 100); if (i > 0) c.start = Math.max(c.start, cues[i - 1].end); markDirty(true); });
-      mk('+.1', 'start 100 ms later', () => { c.start = Math.min(c.end - 200, c.start + 100); markDirty(true); });
-      mk('⤵', 'merge with next cue', () => { const n = cues[i + 1]; if (!n) return; c.end = n.end; c.text = `${c.text} ${n.text}`.trim(); c.trans = `${c.trans || ''} ${n.trans || ''}`.trim(); cues.splice(i + 1, 1); markDirty(true); });
-      mk('✕', 'delete cue', () => { cues.splice(i, 1); markDirty(true); });
+      mk('−.1', I18n.t('web.earlier'), () => { c.start = Math.max(0, c.start - 100); if (i > 0) c.start = Math.max(c.start, cues[i - 1].end); markDirty(true); });
+      mk('+.1', I18n.t('web.later'), () => { c.start = Math.min(c.end - 200, c.start + 100); markDirty(true); });
+      mk('⤵', I18n.t('web.mergeNext'), () => { const n = cues[i + 1]; if (!n) return; c.end = n.end; c.text = `${c.text} ${n.text}`.trim(); c.trans = `${c.trans || ''} ${n.trans || ''}`.trim(); cues.splice(i + 1, 1); markDirty(true); });
+      mk('✕', I18n.t('web.deleteCue'), () => { cues.splice(i, 1); markDirty(true); });
       row.appendChild(ops);
       box.appendChild(row);
     });
@@ -75,32 +76,32 @@
   function markDirty(rerender) {
     dirty = true;
     $('btnSave').disabled = false;
-    $('saveText').textContent = 'unsaved changes';
+    $('saveText').textContent = I18n.t('web.unsaved');
     if (rerender) renderCues();
   }
   $('btnSave').onclick = async () => {
     $('btnSave').disabled = true;
-    $('saveText').textContent = 'saving…';
+    $('saveText').textContent = I18n.t('web.saving');
     try {
       const data = await api(`/api/jobs/${id}/cues`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cues }) });
       cues = data.cues;
       dirty = false;
-      $('saveText').textContent = 'saved — subtitle files regenerated';
+      $('saveText').textContent = I18n.t('web.savedRegen');
       renderCues();
       renderJob(await api(`/api/jobs/${id}`));
     } catch (err) { $('saveText').textContent = ''; $('btnSave').disabled = false; alertBox(err.message); }
   };
   $('btnShift').onclick = () => {
-    const v = prompt('Shift every cue by how many milliseconds? (negative = earlier)', '0');
+    const v = prompt(I18n.t('files.shiftPrompt'), '0');
     const ms = Number(v);
     if (!v || !Number.isFinite(ms) || !ms) return;
     for (const c of cues) { c.start = Math.max(0, c.start + ms); c.end = Math.max(c.start + 200, c.end + ms); }
     markDirty(true);
   };
   $('btnMp4').onclick = async () => {
-    if (dirty && !confirm('You have unsaved cue edits; render with the last saved version?')) return;
+    if (dirty && !confirm(I18n.t('web.unsavedRender'))) return;
     $('btnMp4').disabled = true;
-    $('mp4Text').textContent = 'rendering… 0%';
+    $('mp4Text').textContent = I18n.t('web.rendering', { which: $('mp4which').value, pct: 0 }); $('mp4Text').dataset.rendering = '1';
     try { await api(`/api/jobs/${id}/mp4`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ which: $('mp4which').value }) }); } catch (err) { $('mp4Text').textContent = `⚠ ${err.message}`; $('btnMp4').disabled = false; }
   };
 

@@ -5,6 +5,7 @@
 //  2. Fallback when that is not possible (unsigned build, dev copy): compare the server's latest version and
 //     offer to open the DMG for a manual drag-to-Applications.
 const { app, dialog, shell } = require('electron');
+const { t } = require('./i18n');
 
 function compareVersions(a, b) {
   const pa = String(a || '0').split('-')[0].split('.').map((n) => Number(n) || 0);
@@ -38,7 +39,7 @@ class Updater {
       this.state.downloading = false;
       this.state.downloaded = true;
       this.log('info', `update ${info.version} downloaded`);
-      const r = await dialog.showMessageBox({ type: 'info', buttons: ['Restart now', 'Later'], defaultId: 0, cancelId: 1, message: `Subtitles ${info.version} is ready`, detail: 'Restart to finish the update. It will also install the next time you quit.' });
+      const r = await dialog.showMessageBox({ type: 'info', buttons: [t('upd.restart'), t('upd.later')], defaultId: 0, cancelId: 1, message: t('upd.ready', { version: info.version }), detail: t('upd.readyDetail') });
       if (r.response === 0) autoUpdater.quitAndInstall();
     });
     autoUpdater.on('error', (err) => { this.state.downloading = false; this._fallback(err).catch(() => {}); });
@@ -57,13 +58,13 @@ class Updater {
       const current = app.getVersion();
       if (!info || !info.version || compareVersions(info.version, current) <= 0) {
         this.state.available = null;
-        if (interactive) await dialog.showMessageBox({ message: `Subtitles ${current} is up to date.`, detail: info && info.version ? `Latest on ${this.cloud.cfg.url}: ${info.version}` : 'No release has been published on the server yet.' });
+        if (interactive) await dialog.showMessageBox({ message: t('upd.upToDate', { version: current }), detail: info && info.version ? t('upd.latest', { url: this.cloud.cfg.url, version: info.version }) : t('upd.none') });
         return null;
       }
       this.state.available = info;
       this.log('info', `update available: ${info.version} (running ${current})`);
       if (!this.packaged) {
-        if (interactive) await dialog.showMessageBox({ message: `Version ${info.version} is available`, detail: 'This copy runs from source. Update it with "git pull" in the repo and restart, or install the packaged app from the DMG.' });
+        if (interactive) await dialog.showMessageBox({ message: t('upd.available', { version: info.version }), detail: t('upd.fromSource') });
         return info;
       }
       try {
@@ -71,14 +72,14 @@ class Updater {
         au.setFeedURL({ provider: 'generic', url: `${this.cloud.cfg.url.replace(/\/$/, '')}/updates` });
         this.state.downloading = true;
         await au.checkForUpdates();
-        if (interactive) await dialog.showMessageBox({ message: `Downloading Subtitles ${info.version}…`, detail: 'You will be asked to restart when it is ready.' });
+        if (interactive) await dialog.showMessageBox({ message: t('upd.downloading', { version: info.version }), detail: t('upd.downloadingDetail') });
       } catch (err) {
         await this._fallback(err);
       }
       return info;
     } catch (err) {
       this.state.error = err.message;
-      if (interactive) await dialog.showMessageBox({ type: 'warning', message: 'Update check failed', detail: err.message });
+      if (interactive) await dialog.showMessageBox({ type: 'warning', message: t('upd.failed'), detail: err.message });
       return null;
     } finally {
       this.state.checking = false;
@@ -91,7 +92,7 @@ class Updater {
     this.log('warn', this.state.error);
     if (!info || this._offered === info.version) return;
     this._offered = info.version;
-    const r = await dialog.showMessageBox({ type: 'info', buttons: ['Download', 'Later'], defaultId: 0, cancelId: 1, message: `Subtitles ${info.version} is available`, detail: 'This copy cannot update itself in place. Download the new version, open the DMG and drag Subtitles to Applications.' });
+    const r = await dialog.showMessageBox({ type: 'info', buttons: [t('upd.download'), t('upd.later')], defaultId: 0, cancelId: 1, message: t('upd.available', { version: info.version }), detail: t('upd.manual') });
     if (r.response === 0 && (info.dmg || info.zip)) shell.openExternal(info.dmg || info.zip);
   }
 }
