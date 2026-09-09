@@ -4,6 +4,7 @@
 // per-user glossary (hotwords) the desktop app and the web share.
 const crypto = require('node:crypto');
 const { hashPassword, verifyPassword } = require('./auth');
+const { IDS: PLAN_IDS, monthKey } = require('./plans');
 
 const RESET_TTL_MS = 24 * 3600 * 1000;
 const GLOSSARY_MAX = 128;
@@ -41,7 +42,7 @@ function cleanGlossary(items) {
 const hotwordsText = (items) => items.map((i) => `${i.term}|${i.weight}`).join('\n');
 
 function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
-  const userRow = (id) => db.get('SELECT id, email, role, created_at FROM users WHERE id = ?', id);
+  const userRow = (id) => db.get('SELECT id, email, role, plan, created_at FROM users WHERE id = ?', id);
   const isAdmin = (user) => { const u = userRow(user.id); return !!u && u.role === 'admin'; };
 
   function changePassword(user, current, next) {
@@ -68,12 +69,20 @@ function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
 
   // ---- team (administrators)
   function team() {
-    const users = db.all(`SELECT u.id, u.email, u.role, u.created_at, (SELECT MAX(last_used) FROM tokens t WHERE t.user_id = u.id) AS last_active,
-      (SELECT COUNT(*) FROM live_sessions s WHERE s.user_id = u.id) AS sessions, (SELECT COUNT(*) FROM jobs j WHERE j.user_id = u.id) AS jobs FROM users u ORDER BY u.id`);
+    const users = db.all(`SELECT u.id, u.email, u.role, u.plan, u.created_at, (SELECT MAX(last_used) FROM tokens t WHERE t.user_id = u.id) AS last_active,
+      (SELECT COUNT(*) FROM live_sessions s WHERE s.user_id = u.id) AS sessions, (SELECT COUNT(*) FROM jobs j WHERE j.user_id = u.id) AS jobs,
+      COALESCE((SELECT live_seconds FROM usage x WHERE x.user_id = u.id AND x.month = ?), 0) AS live_seconds,
+      COALESCE((SELECT file_seconds FROM usage x WHERE x.user_id = u.id AND x.month = ?), 0) AS file_seconds FROM users u ORDER BY u.id`, monthKey(), monthKey());
     const invites = db.all(`SELECT i.code, i.created_at, i.used_at, c.email AS created_by, u.email AS used_by FROM invites i
       LEFT JOIN users c ON c.id = i.created_by LEFT JOIN users u ON u.id = i.used_by ORDER BY i.created_at DESC LIMIT 100`);
     const requests = db.all('SELECT id, name, email, org, note, created_at, handled_at FROM requests ORDER BY (handled_at IS NOT NULL), created_at DESC LIMIT 100');
     return { users, invites, requests };
+  }
+  function setPlan(userId, plan) {
+    if (!PLAN_IDS.includes(plan)) throw new Error(`plan must be one of ${PLAN_IDS.join(', ')}`);
+    const r = db.run('UPDATE users SET plan = ? WHERE id = ?', plan, Number(userId));
+    if (!r.changes) throw new Error('no such user');
+    log('info', `plan of user ${userId} set to ${plan}`);
   }
   function createInvite(byUserId) {
     const code = crypto.randomBytes(6).toString('base64url');
@@ -144,7 +153,7 @@ function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
     return { items: clean, updatedAt: now };
   }
 
-  return { isAdmin, userRow, changePassword, listTokens, revokeTokens, team, createInvite, deleteInvite, setRole, createReset, resetInfo, resetPassword, requestAccount, handleRequest, getGlossary, putGlossary };
+  return { isAdmin, userRow, changePassword, listTokens, revokeTokens, team, setPlan, createInvite, deleteInvite, setRole, createReset, resetInfo, resetPassword, requestAccount, handleRequest, getGlossary, putGlossary };
 }
 
 module.exports = { createAccount, cleanGlossary, hotwordsText, deviceName, RESET_TTL_MS, GLOSSARY_MAX };

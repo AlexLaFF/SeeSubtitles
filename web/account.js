@@ -37,7 +37,9 @@
   // ---- profile
   function renderProfile() {
     const s = sec('profile', t('acct.profile'));
-    s.append(row(t('settings.email'), me.user.email), row(t('acct.role'), roleName(me.user.role)), row(t('acct.since'), fmtDate(me.user.created_at)));
+    const p = me.plan;
+    const planLine = p ? (p.plan === 'admin' ? `${t('plan.admin')} · ${t('plan.unlimited')}` : `${t(`plan.${p.plan}`)} · ${t('plan.usage', { live: UsageTiles.hrs(p.used.liveSeconds), liveMax: UsageTiles.hrs(p.limits.liveSeconds), files: UsageTiles.hrs(p.used.fileSeconds), fileMax: UsageTiles.hrs(p.limits.fileSeconds) })}`) : '–';
+    s.append(row(t('settings.email'), me.user.email), row(t('acct.role'), roleName(me.user.role)), row(t('acct.plan'), planLine), row(t('acct.since'), fmtDate(me.user.created_at)));
     s.appendChild(hint(t('acct.profileHint')));
   }
 
@@ -97,12 +99,22 @@
     if (!team) return;
     teamBox.innerHTML = '';
     // members
-    const table = el('table'); table.appendChild(el('thead')).appendChild(el('tr')).append(el('th', {}, t('acct.memberCol')), el('th', {}, t('acct.role')), el('th', {}, t('acct.lastActive')), el('th', {}, t('acct.sessions')), el('th', {}, t('acct.jobs')), el('th'));
+    const table = el('table'); table.appendChild(el('thead')).appendChild(el('tr')).append(el('th', {}, t('acct.memberCol')), el('th', {}, t('acct.role')), el('th', {}, t('acct.plan')), el('th', {}, t('acct.thisMonth')), el('th', {}, t('acct.lastActive')), el('th', {}, t('acct.sessions')), el('th', {}, t('acct.jobs')), el('th'));
     const tb = table.appendChild(el('tbody'));
     for (const u of team.users) {
       const tr = el('tr');
       tr.appendChild(el('td', {}, u.email));
       tr.appendChild(el('td', {}, roleName(u.role)));
+      const planCell = tr.appendChild(el('td'));
+      if (u.role === 'admin') planCell.textContent = t('plan.unlimited');
+      else {
+        const sel = el('select', { class: 'small' });
+        for (const id of Object.keys(team.plans || {})) sel.appendChild(el('option', { value: id }, t(`plan.${id}`)));
+        sel.value = u.plan || 'hobbyist';
+        sel.onchange = () => api(`/api/team/users/${u.id}/plan`, { plan: sel.value }).then(renderTeamRows).catch((e) => { alertBox(e.message); renderTeamRows(); });
+        planCell.appendChild(sel);
+      }
+      tr.appendChild(el('td', { class: 'muted' }, t('acct.planUsage', { live: UsageTiles.hrs(u.live_seconds), files: UsageTiles.hrs(u.file_seconds) })));
       tr.appendChild(el('td', { class: 'muted' }, fmtAgo(u.last_active)));
       tr.appendChild(el('td', {}, String(u.sessions))); tr.appendChild(el('td', {}, String(u.jobs)));
       const ops = el('td', { class: 'r' });
@@ -115,7 +127,7 @@
           const box = el('div', { class: 'linkbox' });
           box.append(el('div', {}, t('acct.resetText', { email: r.email })));
           const line = el('div', { class: 'v' }); line.append(field({ readonly: 'readonly', value: r.url }), copyBtn(r.url)); box.appendChild(line);
-          tr.after(el('tr', { class: 'sub' })); tr.nextSibling.appendChild(el('td', { colspan: 6 })).appendChild(box);
+          tr.after(el('tr', { class: 'sub' })); tr.nextSibling.appendChild(el('td', { colspan: 8 })).appendChild(box);
         } catch (e) { alertBox(e.message); }
       };
       ops.append(role, reset); tr.appendChild(ops); tb.appendChild(tr);

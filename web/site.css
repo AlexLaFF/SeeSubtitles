@@ -118,7 +118,7 @@ html[lang^="zh"] .site .hero h1 em { font-family: var(--cjk); font-style: normal
 .site .fine.c { text-align: center; margin: 22px auto 0; max-width: 720px; }
 .site .plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: stretch; }
 .site .plan { border: 1px solid var(--line); border-radius: 14px; padding: 26px 24px; background: var(--surface); display: flex; flex-direction: column; gap: 14px; }
-.site .plan.pro { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.site .plan.business { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .site .plan h3 { margin: 0; font: 600 20px/1.2 var(--ui); display: flex; align-items: baseline; gap: 10px; }
 .site .plan h3 small { font: 500 13px/1 var(--ui); color: var(--accent-text); background: var(--accent-soft); padding: 4px 8px; border-radius: 999px; }
 .site .plan .price { font: 600 40px/1 var(--ui); letter-spacing: -.02em; }

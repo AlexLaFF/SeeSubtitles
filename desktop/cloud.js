@@ -26,6 +26,7 @@ class CloudLink {
   status() {
     return {
       loggedIn: !!this.cfg.token,
+      plan: this.plan || null, // /api/me plan snapshot: limits, what is used this month (null until fetched)
       url: this.cfg.url || null,
       email: this.cfg.email || null,
       session: this.session ? { id: this.session.id, code: this.session.code } : null,
@@ -37,10 +38,26 @@ class CloudLink {
     };
   }
 
+  /** The account's plan and this month's usage; refreshed on attach, every ten minutes and with every usage report. */
+  async refreshPlan() {
+    if (!this.cfg.token) { this.plan = null; return null; }
+    try { const me = await this._fetch('/api/me', null, { method: 'GET' }); this.plan = me && me.plan ? me.plan : null; } catch (err) { this.log('warn', `plan: ${err.message}`); }
+    return this.plan;
+  }
+  /** Seconds of live subtitles since the last report; the answer carries the plan so the app can stop at the limit. */
+  async reportLive(seconds) {
+    if (!this.cfg.token) return null;
+    const r = await this._fetch('/api/usage/live', { seconds: Math.round(seconds) });
+    if (r && r.plan) this.plan = r.plan;
+    return this.plan;
+  }
+
   attach(core, cloudCfg) {
     this.core = core;
     this.cfg = { ...this.cfg, ...(cloudCfg || {}) };
     this.stopped = false;
+    clearInterval(this.planTimer);
+    if (this.cfg.token) { this.refreshPlan(); this.planTimer = setInterval(() => this.refreshPlan(), 10 * 60_000); this.planTimer.unref(); }
     if (this.cfg.token && this.cfg.publish) this.startSession().catch((err) => { this.error = err.message; this.log('warn', err.message); });
   }
 
@@ -48,6 +65,9 @@ class CloudLink {
     this.stopped = true;
     clearTimeout(this.timer);
     this.timer = null;
+    clearInterval(this.planTimer);
+    this.planTimer = null;
+    this.plan = null;
     if (this.session) this.stopSession().catch(() => {});
     this.core = null;
   }

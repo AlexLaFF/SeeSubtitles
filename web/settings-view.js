@@ -37,7 +37,9 @@
     const who = el('div', { class: 'status-line', style: 'flex:1' }, cfg.cloud.email || '');
     const status = el('div', { class: 'status-line', id: 'accStatus', style: 'flex:1' });
     const btnLogout = el('button', { class: 'small' }, t('settings.logout'));
-    acc.append(row(t('settings.email'), who), row(t('settings.status'), status, btnLogout));
+    const planLine = el('div', { class: 'status-line', style: 'flex:1' });
+    acc.append(row(t('settings.email'), who), row(t('settings.plan'), planLine), row(t('settings.status'), status, btnLogout));
+    const hrs = (s) => (Math.round((s || 0) / 360) / 10).toFixed(1);
     const manage = el('a', { href: '#' }, t('settings.manageAccount'));
     manage.addEventListener('click', (e) => { e.preventDefault(); App.openExternal(`${cfg.cloud.url || cfg.defaultCloudUrl}/account`); });
     const h = el('div', { class: 'hint', style: 'margin-left:160px' }); h.append(manage, ` · ${t('settings.manageHint')}`); acc.appendChild(h);
@@ -98,6 +100,8 @@
     }
     renderDevices();
     const renderAcc = (c) => {
+      const p = c && c.loggedIn && c.plan;
+      planLine.textContent = !p ? '…' : p.plan === 'admin' ? `${t('plan.admin')} · ${t('plan.unlimited')}` : `${t(`plan.${p.plan}`)} · ${t('plan.usage', { live: hrs(p.used.liveSeconds), liveMax: hrs(p.limits.liveSeconds), files: hrs(p.used.fileSeconds), fileMax: hrs(p.limits.fileSeconds) })}`;
       if (!c || !c.loggedIn) { status.textContent = t('settings.notLoggedIn'); return; }
       status.textContent = (c.session ? t('settings.sharingTo', { url: c.shareUrl }) : t('account.connected')) + (c.error ? `\n${c.error}` : '');
     };

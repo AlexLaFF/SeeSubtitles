@@ -166,3 +166,9 @@ body.shell { margin: 0; padding: 0; background: var(--bg); color: var(--fg); fon
 .shell .fr .fields select { width: 100%; }
 .shell .fr .stage-p { height: 120px; padding: 12px 16px; } .shell .fr .stage-p .l { font-size: 18px; } .shell .fr .stage-p .l .s { font-size: 12px; }
 .shell .fr .hint.c { text-align: center; margin: 0; }
+
+/* the text prompt sheet (replaces window.prompt, which Electron does not have) */
+.shell .sheet.ask { width: min(480px, calc(100vw - 60px)); }
+.shell .sheet.ask .body { padding: 0 20px 4px; }
+.shell .sheet.ask input { width: 100%; box-sizing: border-box; }
+.shell .sheet.ask .sf { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px 16px; }

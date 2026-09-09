@@ -171,6 +171,7 @@ async function startCore() {
     onCloseOverlay: closeOverlay,
     onCloud: (body) => cloudAction(body),
     cloudStatus: () => cloud.status(),
+    onLiveUsage: (seconds) => (cloud.status().loggedIn ? cloud.reportLive(seconds) : null),
     resubtitle,
     uploads,
     cloudJobs: async () => (cloud.status().loggedIn ? cloud._fetch('/api/jobs', null, { method: 'GET' }) : []),
@@ -215,6 +216,7 @@ async function cloudAction(body) {
       cfg.cloud = { ...cfg.cloud, url: r.url, email: body.email, token: encryptSecret(r.token) };
       saveConfig(cfg);
       cloud.attach(core, cloudConfig(cfg));
+      await cloud.refreshPlan();
       // keys come from the server; start the pipeline with them unless the user entered their own
       let keys = 'unchanged';
       try { keys = (await refreshCloudKeys(cfg)) ? 'updated' : 'unchanged'; } catch (err) { keys = `unavailable: ${err.message}`; }

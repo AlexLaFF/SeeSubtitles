@@ -109,6 +109,7 @@
     const me = await api('/api/me').catch(() => null);
     if (!me) { location.href = '/login'; return; }
     $('who').textContent = me.user.email;
+    UsageTiles.plan($('planStats'), me.plan);
     if (!me.creds) alertBox(t('web.noCreds'));
     const langs = await api('/api/languages');
     for (const [k, v] of Object.entries(langs.sources)) $('sourceLang').appendChild(el('option', { value: k }, v));

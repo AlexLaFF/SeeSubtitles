@@ -57,7 +57,7 @@
     const selected = () => { const o = sel.options[sel.selectedIndex]; return o ? { name: o.value, user: o.dataset.user === '1' } : null; };
     const btn = (label, cls, fn) => { const b = el('button', cls ? { class: cls } : {}, label); b.addEventListener('click', fn); btns.appendChild(b); return b; };
     btn(t('ctl.apply'), 'primary', () => { const s = selected(); if (s) post({ action: 'apply', name: s.name }); });
-    btn(t('ctl.saveAs'), '', () => { const name = prompt(t('ctl.presetPrompt')); if (name && name.trim()) post({ action: 'save', name: name.trim() }).then(() => { sel.dataset.want = name.trim(); }); });
+    btn(t('ctl.saveAs'), '', async () => { const name = await askText(t('ctl.presetPrompt')); if (name && name.trim()) post({ action: 'save', name: name.trim() }).then(() => { sel.dataset.want = name.trim(); }); });
     const upd = btn(t('ctl.update'), '', () => { const s = selected(); if (s && s.user && confirm(t('ctl.presetOverwrite', { name: s.name }))) post({ action: 'save', name: s.name }); });
     const del = btn(t('ctl.delete'), 'danger', () => { const s = selected(); if (s && s.user && confirm(t('ctl.presetDelete', { name: s.name }))) post({ action: 'delete', name: s.name }); });
     sel.addEventListener('change', () => { const s = selected(); upd.disabled = del.disabled = !(s && s.user); });

@@ -1,6 +1,6 @@
 {
   "name": "@subs/desktop",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "private": true,
   "description": "Subtitles desktop app for macOS: live Cantonese→Mandarin subtitles, overlay window, recording",
   "main": "main.js",

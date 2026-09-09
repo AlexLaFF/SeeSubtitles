@@ -15,6 +15,7 @@ const { createLimiter, SIGNUP_MODES } = require('./lib/auth');
 const { latestRelease } = require('./lib/updates');
 const { UsageMonitor, parsePack } = require('./lib/usage');
 const { createAccount } = require('./lib/account');
+const { PLANS, Quotas } = require('./lib/plans');
 
 loadEnv(path.join(__dirname, '..', '.env'));
 const PORT = Number(process.env.PORT) || 8080;
@@ -49,13 +50,25 @@ function log(level, text) {
 const db = openDb(DATA_DIR);
 const auth = createAuth(db);
 const account = createAccount(db, { baseUrl: BASE_URL, log });
+const quotas = new Quotas(db);
+const planRow = (user) => account.userRow(user.id) || { id: user.id, role: 'user', plan: 'hobbyist' };
+const entitlements = (user) => quotas.snapshot(planRow(user));
 const live = new LiveSessions({ db, dir: path.join(DATA_DIR, 'sessions'), log });
 let creds = null;
 try { creds = getCredentials(); } catch (err) { log('error', `${err.message} — upload jobs will fail until the Tencent keys are set`); }
 const billingCreds = process.env.TENCENT_BILLING_SECRET_ID && process.env.TENCENT_BILLING_SECRET_KEY ? { secretId: process.env.TENCENT_BILLING_SECRET_ID.trim(), secretKey: process.env.TENCENT_BILLING_SECRET_KEY.trim() } : null;
 const usage = new UsageMonitor({ creds, billingCreds, pack: parsePack(process.env.TENCENT_PACK), pipeline: process.env.TENCENT_PACK_COVERS === 'all' ? 'all' : 'live', log });
 if (process.env.TENCENT_PACK && !usage.pack) log('warn', `TENCENT_PACK "${process.env.TENCENT_PACK}" is not <hours>h@<YYYY-MM-DD>; the dashboard shows usage without the pack`);
-const jobs = new JobRunner({ db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe' });
+const jobs = new JobRunner({
+  db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe',
+  // the plan's file hours: refuse a file that does not fit in what is left this month, otherwise count it
+  onDuration: (job, seconds) => {
+    const row = account.userRow(job.user_id); if (!row) return;
+    const left = quotas.remaining(row, 'file');
+    if (left < seconds) throw new Error(`this file is ${Math.ceil(seconds / 60)} min; ${Math.floor(left / 60)} min of file subtitling remain in the ${quotas.snapshot(row).name} plan this month`);
+    quotas.add(row.id, 'file', seconds);
+  },
+});
 log('info', `clean transcripts ready for ${jobs.backfillPlainExports()} existing jobs`);
 log('info', `accounts: sign-up ${SIGNUP_MODE}`);
 // The Team page is for administrators. ADMIN_EMAIL names one; otherwise, while no account is an administrator, the
@@ -169,7 +182,9 @@ async function api(req, res, url, user) {
 
   if (!user) return fail(res, 401, 'login required');
 
-  if (p === '/api/me') { const u = account.userRow(user.id) || {}; return send(res, 200, { user: { id: user.id, email: user.email, role: u.role === 'admin' ? 'admin' : 'user', created_at: u.created_at || null }, baseUrl: BASE_URL, creds: !!creds, signup: SIGNUP_MODE }); }
+  if (p === '/api/me') { const u = account.userRow(user.id) || {}; return send(res, 200, { user: { id: user.id, email: user.email, role: u.role === 'admin' ? 'admin' : 'user', created_at: u.created_at || null }, plan: entitlements(user), baseUrl: BASE_URL, creds: !!creds, signup: SIGNUP_MODE }); }
+  // the desktop app reports the seconds its live subtitles ran; the answer carries the plan so the app can stop at the limit
+  if (p === '/api/usage/live' && req.method === 'POST') { const body = await readJson(req, 1e3); quotas.add(user.id, 'live', Math.min(3600, Math.max(0, Number(body.seconds) || 0))); return send(res, 200, { ok: true, plan: entitlements(user) }); }
   if (p === '/api/usage') return send(res, 200, await usage.snapshot());
   // account
   if (p === '/api/account/password' && req.method === 'POST') { const body = await readJson(req, 1e4); try { account.changePassword(user, body.current, body.next); return send(res, 200, { ok: true }); } catch (err) { return fail(res, 400, err.message); } }
@@ -181,10 +196,11 @@ async function api(req, res, url, user) {
   if (p.startsWith('/api/team')) {
     if (!account.isAdmin(user)) return fail(res, 403, 'administrators only');
     try {
-      if (p === '/api/team' && req.method === 'GET') return send(res, 200, account.team());
+      if (p === '/api/team' && req.method === 'GET') return send(res, 200, { ...account.team(), plans: PLANS });
       if (p === '/api/team/invites' && req.method === 'POST') return send(res, 200, { ok: true, code: account.createInvite(user.id) });
       if ((r = m(/^\/api\/team\/invites\/([A-Za-z0-9_-]+)$/)) && req.method === 'DELETE') { account.deleteInvite(r[1]); return send(res, 200, { ok: true }); }
       if ((r = m(/^\/api\/team\/users\/(\d+)\/role$/)) && req.method === 'POST') { const body = await readJson(req, 1e4); account.setRole(user, Number(r[1]), body.role); return send(res, 200, { ok: true }); }
+      if ((r = m(/^\/api\/team\/users\/(\d+)\/plan$/)) && req.method === 'POST') { const body = await readJson(req, 1e4); account.setPlan(Number(r[1]), body.plan); return send(res, 200, { ok: true }); }
       if ((r = m(/^\/api\/team\/users\/(\d+)\/reset$/)) && req.method === 'POST') return send(res, 200, { ok: true, ...account.createReset(Number(r[1])) });
       if ((r = m(/^\/api\/team\/requests\/(\d+)\/handled$/)) && req.method === 'POST') { account.handleRequest(Number(r[1]), user.id); return send(res, 200, { ok: true }); }
     } catch (err) { return fail(res, 400, err.message); }
@@ -193,7 +209,7 @@ async function api(req, res, url, user) {
     if (!creds) return fail(res, 503, 'the server has no Tencent keys configured');
     if (!SHARE_KEYS) return fail(res, 403, 'this server does not hand out keys to desktop apps (open sign-up); enter your own keys in Settings');
     log('info', `desktop keys handed to ${user.email}`);
-    const tokenhubKey = (process.env.TOKENHUB_API_KEY || '').trim();
+    const tokenhubKey = entitlements(user).limits.summaries ? (process.env.TOKENHUB_API_KEY || '').trim() : ''; // AI summaries are a plan feature
     return send(res, 200, { tencent: { appid: creds.appid, secretId: creds.secretId, secretKey: creds.secretKey, expiresAt: null }, tokenhub: tokenhubKey ? { apiKey: tokenhubKey } : null, fetchedAt: Date.now() });
   }
   if (p === '/api/logout' && req.method === 'POST') { auth.revoke(user.token); return send(res, 200, { ok: true }, undefined, { 'set-cookie': auth.clearCookie() }); }
@@ -201,6 +217,7 @@ async function api(req, res, url, user) {
   // live sessions
   if (p === '/api/sessions' && req.method === 'GET') return send(res, 200, live.list(user.id).map((s) => ({ ...s, shareUrl: `${BASE_URL || ''}/d/${s.code}` })));
   if (p === '/api/sessions' && req.method === 'POST') {
+    if (!entitlements(user).limits.sharing) return fail(res, 403, 'sharing to phones and screens is not in the Hobbyist plan', { code: 'plan_sharing' });
     const body = await readJson(req, 1e4);
     const s = live.create(user.id, body.name);
     return send(res, 200, { ...s, shareUrl: `${BASE_URL || ''}/d/${s.code}` });
@@ -222,6 +239,7 @@ async function api(req, res, url, user) {
   if (p === '/api/jobs' && req.method === 'POST') {
     const body = await readJson(req, 1e4);
     if (Number(body.size) > MAX_UPLOAD) return fail(res, 413, `file is larger than ${MAX_UPLOAD / 1024 ** 3} GB`);
+    if (quotas.remaining(planRow(user), 'file') <= 0) return fail(res, 403, 'the file subtitling hours of this month are used up', { code: 'plan_quota' });
     try { const j = jobs.create(user.id, { filename: body.filename, size: body.size, sourceLang: body.sourceLang, targetLang: body.targetLang }); return send(res, 200, jobs.view(j)); } catch (err) { return fail(res, 400, err.message); }
   }
   if ((r = m(/^\/api\/jobs\/([a-f0-9]+)(?:\/([a-z0-9]+))?$/))) {

@@ -22,6 +22,9 @@
     Sub._overrides.fontSize = Math.max(18, Math.round((Number(settings.fontSize) || 100) * scale));
   };
 
+  // Ask for one line of text. Browsers use the built-in dialog; Electron has none, so the desktop shell installs
+  // its own sheet under the same name before any view runs. Resolves with the text, or null when cancelled.
+  if (!window.askText) window.askText = (message, value = '') => { try { return Promise.resolve(window.prompt(message, value)); } catch { return Promise.resolve(null); } };
   Sub.on = (ev, fn) => { (Sub._listeners[ev] ||= []).push(fn); return Sub; };
   Sub.emit = (ev, data) => { for (const fn of Sub._listeners[ev] || []) fn(data); };
 

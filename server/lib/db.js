@@ -75,12 +75,20 @@ CREATE TABLE IF NOT EXISTS glossary (        -- per-user hotword list shared bet
   items TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS usage (           -- seconds of live subtitles and file recognition per account and month
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  month TEXT NOT NULL,                       -- YYYY-MM (UTC)
+  live_seconds INTEGER NOT NULL DEFAULT 0,
+  file_seconds INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, month)
+);
 `;
 // Columns added after the first release (CREATE TABLE IF NOT EXISTS does not alter existing tables).
 const MIGRATIONS = [
   ['users', 'role', "ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'"], // user | admin
   ['live_sessions', 'peak_viewers', 'ALTER TABLE live_sessions ADD COLUMN peak_viewers INTEGER NOT NULL DEFAULT 0'],
   ['live_sessions', 'total_viewers', 'ALTER TABLE live_sessions ADD COLUMN total_viewers INTEGER NOT NULL DEFAULT 0'],
+  ['users', 'plan', "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'hobbyist'"], // hobbyist | business | enterprise (server/lib/plans.js)
 ];
 
 function openDb(dataDir) {

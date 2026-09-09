@@ -43,6 +43,30 @@
 
   App.openExternal = (url) => Sub.post('/api/open', { url });
 
+  /** One-line text prompt as a sheet (Electron has no window.prompt). Enter confirms, Escape cancels → null. */
+  window.askText = (message, value = '') => new Promise((resolve) => {
+    document.querySelectorAll('.shell .scrim.ask').forEach((x) => x.remove());
+    const scrim = el('div', { class: 'scrim ask' });
+    const sheet = el('div', { class: 'sheet ask' });
+    const input = el('input', { type: 'text', value: value || '' });
+    const cancel = el('button', {}, t('common.cancel'));
+    const ok = el('button', { class: 'primary' }, t('common.ok'));
+    const done = (v) => { scrim.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(null); } };
+    cancel.addEventListener('click', () => done(null));
+    ok.addEventListener('click', () => done(input.value));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(input.value); } });
+    scrim.addEventListener('click', (e) => { if (e.target === scrim) done(null); });
+    document.addEventListener('keydown', onKey);
+    const body = el('div', { class: 'body' }); body.appendChild(input);
+    const foot = el('div', { class: 'sf' }); foot.append(cancel, ok);
+    const head = el('div', { class: 'sh' }); head.appendChild(el('h2', {}, message));
+    sheet.append(head, body, foot);
+    scrim.appendChild(sheet);
+    document.body.appendChild(scrim);
+    input.focus(); input.select();
+  });
+
   /** Small dropdown menu anchored below a button. items: [{label, href?, download?, onClick?}] */
   App.menu = function (anchor, items) {
     document.querySelectorAll('.shell .menu').forEach((m) => m.remove());

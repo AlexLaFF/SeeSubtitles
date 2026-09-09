@@ -92,8 +92,8 @@
       renderJob(await api(`/api/jobs/${id}`));
     } catch (err) { $('saveText').textContent = ''; $('btnSave').disabled = false; alertBox(err.message); }
   };
-  $('btnShift').onclick = () => {
-    const v = prompt(I18n.t('files.shiftPrompt'), '0');
+  $('btnShift').onclick = async () => {
+    const v = await askText(I18n.t('files.shiftPrompt'), '0');
     const ms = Number(v);
     if (!v || !Number.isFinite(ms) || !ms) return;
     for (const c of cues) { c.start = Math.max(0, c.start + ms); c.end = Math.max(c.start + 200, c.end + ms); }

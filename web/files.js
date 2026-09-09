@@ -148,7 +148,7 @@
     const picked = () => recordings.filter((r) => selected.has(r.base));
     bar.appendChild(el('span', { class: 'muted', style: 'margin-right:4px' }, t('files.selected', { n: selected.size })));
     const b = (label, cls, fn) => { const x = el('button', { class: `small ${cls || ''}` }, label); x.addEventListener('click', fn); bar.appendChild(x); return x; };
-    b(t('files.aiSummary'), '', async () => { const rs = picked().filter((r) => r.zh || r.yue); const have = rs.filter((r) => r.summary).length; if (have && !confirm(t('files.bulkRegen', { n: have }))) return; for (const r of rs) await post('/api/recordings/summary', { base: r.base }); });
+    if (canSummarise()) b(t('files.aiSummary'), '', async () => { const rs = picked().filter((r) => r.zh || r.yue); const have = rs.filter((r) => r.summary).length; if (have && !confirm(t('files.bulkRegen', { n: have }))) return; for (const r of rs) await post('/api/recordings/summary', { base: r.base }); });
     b(t('files.makeMp4'), '', async () => { for (const r of picked().filter((r) => r.zh || r.yue)) await post('/api/recordings/mp4', { base: r.base }); });
     b(t('files.resub'), '', async () => { const c = Sub.status.cloud; if (!c || !c.loggedIn) return alert(t('files.loginFirst')); const rs = picked(); if (!confirm(t('files.bulkResubConfirm', { n: rs.length }))) return; for (const r of rs) await post('/api/recordings/resubtitle', { base: r.base }); });
     const dl = b(t('files.download'), '', () => downloadMenu(dl, picked()));
@@ -177,7 +177,7 @@
   }
   const direct = (name) => { const a = el('a', { href: `/recordings/${encodeURIComponent(name)}`, download: name }); document.body.appendChild(a); a.click(); a.remove(); };
   async function renameRecording(rr) {
-    const v = prompt(t('files.renamePrompt'), rr.base);
+    const v = await askText(t('files.renamePrompt'), rr.base);
     if (v === null || !v.trim() || v.trim() === rr.base) return null;
     const r = await post('/api/recordings/rename', { base: rr.base, name: v });
     return r && !r.error ? r.base : null;
@@ -187,13 +187,15 @@
     const r = await post('/api/recordings/delete', { bases: recs.map((x) => x.base) });
     return !!(r && !r.error);
   }
+  /** AI summaries are a plan feature; an account without them (or without a login) sees no summary actions. */
+  const canSummarise = () => { const c = Sub.status && Sub.status.cloud; const p = c && c.loggedIn && c.plan; return !p || !!p.limits.summaries; };
   /** The actions of one recording (row menu and recording page): rename, summary, MP4, re-subtitle, delete. */
   function actionItems(rr, { onRenamed, onDeleted } = {}) {
     const s = Sub.status || {}; const rs = s.resubtitle || {}; const mp = s.mp4 || {}; const sm = s.summary || {};
     const busy = (q) => (q.current && q.current.base === rr.base) || (q.queue || []).includes(rr.base);
     const items = [];
     items.push({ label: t('files.rename'), onClick: async () => { const nb = await renameRecording(rr); if (nb && onRenamed) onRenamed(nb); } });
-    if (!busy(sm) && (rr.zh || rr.yue)) items.push({ label: rr.summary ? t('files.regenSummary') : t('files.aiSummary'), onClick: () => generateSummary(rr) });
+    if (canSummarise() && !busy(sm) && (rr.zh || rr.yue)) items.push({ label: rr.summary ? t('files.regenSummary') : t('files.aiSummary'), onClick: () => generateSummary(rr) });
     if (!busy(mp) && (rr.zh || rr.yue)) items.push({ label: rr.mp4 ? t('files.remakeMp4') : t('files.makeMp4'), onClick: () => post('/api/recordings/mp4', { base: rr.base }) });
     if (!busy(rs)) items.push({ label: t('files.resub'), onClick: () => resubtitle(rr) });
     items.push({ label: t('files.deleteOne'), onClick: async () => { if (await deleteRecordings([rr]) && onDeleted) onDeleted(); } });
@@ -293,7 +295,7 @@
       if (r2 && r2.error) return alert(I18n.err(r2));
       dirty = 0; $('btnSave').disabled = true; $('editCount').textContent = t('files.saved'); sync(true);
     });
-    $('btnShift').addEventListener('click', () => { const v = prompt(t('files.shiftPrompt'), '0'); const ms = Number(v); if (!v || !Number.isFinite(ms) || !ms) return; for (const c of cues) { c.start = Math.max(0, c.start + ms); c.end = Math.max(c.start + 200, c.end + ms); } markDirty(); renderCues(); });
+    $('btnShift').addEventListener('click', async () => { const v = await askText(t('files.shiftPrompt'), '0'); const ms = Number(v); if (!v || !Number.isFinite(ms) || !ms) return; for (const c of cues) { c.start = Math.max(0, c.start + ms); c.end = Math.max(c.start + 200, c.end + ms); } markDirty(); renderCues(); });
     $('tabSubs').addEventListener('click', () => { $('tabSubs').classList.add('on'); $('tabSum').classList.remove('on'); $('cues').hidden = false; $('cueBar').hidden = false; $('sumBox').hidden = true; $('dHint').hidden = false; });
     $('tabSum').addEventListener('click', () => { $('tabSum').classList.add('on'); $('tabSubs').classList.remove('on'); $('cues').hidden = true; $('cueBar').hidden = true; $('sumBox').hidden = false; $('dHint').hidden = true; renderSummary(); });
     function renderSummary() {
@@ -316,6 +318,7 @@
       const key = JSON.stringify([rs.current && rs.current.base === base ? rs.current : null, rs.last && rs.last.base === base ? rs.last.at : null, mp.current && mp.current.base === base ? mp.current.percent : null, sm.current && sm.current.base === base ? sm.current.stage : null]);
       const busy = (rs.current && rs.current.base === base) ? t('files.chip.busyResub', { stage: stageName(rs.current.stage), pct: rs.current.percent }) : (mp.current && mp.current.base === base) ? t('files.chip.busyMp4', { stage: stageName(mp.current.stage), pct: mp.current.percent }) : (sm.current && sm.current.base === base) ? t('files.chip.busySummary', { stage: stageName(sm.current.stage) }) : '';
       $('btnSummary').disabled = !!(sm.current && sm.current.base === base) || !cues.length;
+      $('btnSummary').hidden = !canSummarise();
       $('btnSummary').textContent = rec().summary ? t('files.regenSummary') : t('files.aiSummary');
       if (key === view.detailKey && $('dChip').dataset.done) return;
       const changed = view.detailKey && key !== view.detailKey && !busy; // something finished: reload files/cues

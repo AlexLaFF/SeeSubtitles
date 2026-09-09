@@ -23,5 +23,17 @@
     if (u.month && !u.pack) bits.push(t('usage.setPack'));
     if (bits.length) note.appendChild(el('span', { class: 'chip' }, bits.join(' · ')));
   }
-  window.UsageTiles = { render, fmtDur };
+  const hrs = (s) => (Math.round((s || 0) / 360) / 10).toFixed(1);
+  /** The account's plan and this month's hours (from /api/me → plan). */
+  function plan(box, p) {
+    box.innerHTML = '';
+    if (!p) { box.hidden = true; return; }
+    const tile = (k, v, d) => { const x = el('div', { class: 'stat' }); x.appendChild(el('div', { class: 'k' }, k)); x.appendChild(el('div', { class: 'v' }, v)); if (d) x.appendChild(el('div', { class: 'd' }, d)); box.appendChild(x); };
+    const name = t(`plan.${p.plan}`);
+    tile(t('plan.tile'), name, p.plan === 'admin' ? t('plan.unlimited') : t('plan.perMonth', { price: p.price }));
+    tile(t('plan.liveTile'), p.limits.liveSeconds == null ? t('plan.noLimit', { used: hrs(p.used.liveSeconds) }) : t('plan.of', { used: hrs(p.used.liveSeconds), max: hrs(p.limits.liveSeconds) }), t('plan.since', { month: p.month }));
+    tile(t('plan.fileTile'), p.limits.fileSeconds == null ? t('plan.noLimit', { used: hrs(p.used.fileSeconds) }) : t('plan.of', { used: hrs(p.used.fileSeconds), max: hrs(p.limits.fileSeconds) }), [p.limits.sharing ? t('plan.hasSharing') : t('plan.noSharing'), p.limits.summaries ? t('plan.hasSummaries') : t('plan.noSummaries')].join(' · '));
+    box.hidden = false;
+  }
+  window.UsageTiles = { render, fmtDur, plan, hrs };
 })();

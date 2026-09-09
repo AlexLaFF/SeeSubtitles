@@ -249,11 +249,11 @@
   /** The A4 poster page for the door or the first slide, in its own window (the local server serves it). */
   const openPoster = (cloud) => window.open(`/poster?url=${encodeURIComponent(cloud.shareUrl)}&name=${encodeURIComponent(cloud.sessionName || '')}`);
 
-  function toggleRecording() {
+  async function toggleRecording() {
     const on = Sub.status.recorder && Sub.status.recorder.recording;
     if (on && !confirm(t('live.confirmStop'))) return;
     let name = '';
-    if (!on) { const v = prompt(t('live.namePrompt'), ''); if (v === null) return; name = v.trim(); }
+    if (!on) { const v = await askText(t('live.namePrompt'), ''); if (v === null) return; name = v.trim(); }
     Sub.post('/api/record', { action: on ? 'stop' : 'start', name }).then((r) => { if (r && r.error) alert(I18n.err(r)); });
   }
   let shareBusy = false;
@@ -264,6 +264,7 @@
     shareBusy = true;
     Sub.post('/api/cloud', { action: 'publish', on: !c.session }).then((r) => { shareBusy = false; if (r && r.error) alert(I18n.err(r)); });
   }
+  const hrs = (s) => (Math.round((s || 0) / 360) / 10).toFixed(1);
   /** "ap-guangzhou 106.55.89.122" → "Guangzhou" */
   const edgeName = (edge) => String(edge || '').replace(/ .*/, '').replace(/^ap-/, '').replace(/^\w/, (c) => c.toUpperCase());
 
@@ -294,11 +295,23 @@
     const c2 = el('span', { class: 'chip', title: cap.device || '' }); const bar = el('span', { class: 'bar' }); bar.appendChild(el('i', { style: `width:${pct}%` })); c2.append(bar, db == null ? `${t('live.chip.mic')} · ${t('live.chip.noAudio')}` : `${t('live.chip.mic')} ${db.toFixed(0)} dB${db < -50 ? ` · ${t('live.chip.veryQuiet')}` : ''}`); chips.appendChild(c2);
     const rc = s.recorder || {};
     if (rc.recording && rc.current) { const c3 = el('span', { class: 'chip rec' }); c3.append(el('span', { class: 'dot' }), t('live.chip.recording', { time: Sub.fmtClock(rc.current.elapsedMs) })); chips.appendChild(c3); }
+    // the plan's live hours (accounts with a limit only)
+    const plan = s.cloud && s.cloud.loggedIn && s.cloud.plan;
+    const exhausted = !!(plan && plan.limits.liveSeconds != null && plan.used.liveSeconds >= plan.limits.liveSeconds);
+    if (plan && plan.limits.liveSeconds != null) {
+      const left = plan.limits.liveSeconds - plan.used.liveSeconds;
+      const c4 = el('span', { class: `chip ${exhausted ? 'bad' : left < plan.limits.liveSeconds * 0.1 ? 'warn' : ''}` });
+      c4.append(el('span', { class: 'dot' }), exhausted ? t('live.chip.liveExhausted') : t('live.chip.liveHours', { used: hrs(plan.used.liveSeconds), total: hrs(plan.limits.liveSeconds) }));
+      chips.appendChild(c4);
+    }
     // toolbar: record is the one filled action; Start subtitles fills in only while paused
     $('btnRec').textContent = rc.recording ? t('live.stopRecording') : t('live.startRecording');
     $('btnRec').className = 'danger';
     $('btnPause').textContent = s.streaming === false ? t('live.startSubtitles') : t('live.pauseSubtitles');
     $('btnPause').className = s.streaming === false && s.creds ? 'primary' : '';
+    $('btnPause').disabled = exhausted && s.streaming === false;
+    const canShare = !plan || plan.limits.sharing;
+    $('btnShare').hidden = !canShare;
     const cloud = s.cloud;
     $('btnShare').textContent = cloud && cloud.session ? t('live.stopSharing') : t('live.shareLink');
     $('btnShare').className = '';
@@ -316,7 +329,8 @@
     dr.appendChild(wrap);
     // share link: the QR beside the address, then the actions
     const sr = $('shareRow'); sr.innerHTML = '';
-    if (!cloud || !cloud.loggedIn) { const b = el('button', { class: 'small' }, t('live.share.login')); b.addEventListener('click', () => App.go('settings')); sr.appendChild(b); }
+    if (!canShare) sr.appendChild(el('span', { class: 'hint', style: 'margin:0' }, t('live.share.planLocked')));
+    else if (!cloud || !cloud.loggedIn) { const b = el('button', { class: 'small' }, t('live.share.login')); b.addEventListener('click', () => App.go('settings')); sr.appendChild(b); }
     else if (cloud.session) {
       const w2 = el('div', { style: 'display:flex;gap:12px;align-items:flex-start' });
       const qrBox = el('div', { class: 'qr', title: t('live.share.qrTitle') }); qrBox.innerHTML = qrSvg(cloud.shareUrl, 3); qrBox.addEventListener('click', () => showQr(cloud.shareUrl));

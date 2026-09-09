@@ -64,7 +64,7 @@
 
   // the plans: prices in USD per month; the feature lines carry both languages
   const PLANS = [
-    { id: 'basic', price: 29, cny: 210, en: 'Basic', zh: '基础版',
+    { id: 'hobbyist', price: 28, cny: 200, en: 'Hobbyist', zh: '爱好者版',
       forEn: 'One Mac, one room: subtitles on the venue screen or over the slides, and recordings to keep.',
       forZh: '一台 Mac、一个会场：字幕显示在会场屏幕或幻灯片上，录音留档。',
       lines: [
@@ -75,24 +75,24 @@
         { en: 'Sharing to phones and other screens (QR code, link)', zh: '分享到手机和其他屏幕（二维码、链接）', no: true },
         { en: 'AI summaries', zh: 'AI 总结', no: true },
       ] },
-    { id: 'pro', price: 89, cny: 640, en: 'Pro', zh: '专业版', best: true,
+    { id: 'business', price: 88, cny: 630, en: 'Business', zh: '商务版', best: true,
       forEn: 'Every seat in the room follows along, and every talk ends with a summary.',
       forZh: '全场每一部手机都能跟读，每场讲话结束都有一份总结。',
       lines: [
         { en: '40 hours of live subtitles a month', zh: '每月 40 小时实时字幕' },
         { en: '20 hours of file subtitling a month', zh: '每月 20 小时文件字幕' },
-        { en: 'Everything in Basic', zh: '基础版的全部功能' },
+        { en: 'Everything in Hobbyist', zh: '爱好者版的全部功能' },
         { en: 'Share to every phone and screen: QR code, link, printable poster', zh: '分享到每一部手机和屏幕：二维码、链接、可打印海报' },
         { en: 'AI summary for every recording, as Markdown or PDF', zh: '每段录音的 AI 总结，Markdown 或 PDF' },
         { en: 'Cloud re-subtitling of recordings and a glossary synced to your account', zh: '录音的云端重新加字幕，词汇表随账号同步' },
       ] },
-    { id: 'enterprise', price: 399, cny: 2850, from: true, en: 'Enterprise', zh: '企业版',
+    { id: 'enterprise', price: 388, cny: 2780, en: 'Enterprise', zh: '企业版',
       forEn: 'Several people, many rooms, a team that manages itself.',
       forZh: '多人、多会场，团队自行管理。',
       lines: [
         { en: '200 hours of live subtitles a month', zh: '每月 200 小时实时字幕' },
         { en: '100 hours of file subtitling a month', zh: '每月 100 小时文件字幕' },
-        { en: 'Everything in Pro', zh: '专业版的全部功能' },
+        { en: 'Everything in Business', zh: '商务版的全部功能' },
         { en: 'Team accounts: members, roles, shared glossary, usage per member', zh: '团队账号：成员、角色、共享词汇表、按成员统计用量' },
         { en: 'Invoice billing and a named contact', zh: '对公开票，专人对接' },
         { en: 'Higher limits on request', zh: '可按需提高限额' },

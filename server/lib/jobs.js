@@ -69,9 +69,10 @@ class JobRunner extends EventEmitter {
    * @param {string} [o.model]        translation model for the chosen backend
    * @param {Function} [o.translate]  override (tests): ({text, source, target}) → Promise<string>
    */
-  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null }) {
+  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null, onDuration = null }) {
     super();
     this.db = db;
+    this.onDuration = onDuration; // (job, seconds) → may throw to refuse the file (plan quota); called once the duration is known
     this.dir = dir;
     this.creds = creds;
     this.baseUrl = String(baseUrl || '').replace(/\/$/, '');
@@ -200,6 +201,7 @@ class JobRunner extends EventEmitter {
     const meta = await probe(this.ffprobe, src);
     if (!meta.hasAudio) throw new Error('the file has no audio track');
     if (meta.duration > MAX_DURATION_S) throw new Error(`audio is ${(meta.duration / 3600).toFixed(1)} h; the limit is 5 h`);
+    if (this.onDuration && !job.task_id) await this.onDuration(job, meta.duration); // a resumed recognition was already counted
     this._update(id, { duration: meta.duration });
 
     // 1. extract 16 kHz mono audio (skip if resuming a recognition)

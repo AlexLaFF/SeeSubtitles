@@ -34,6 +34,14 @@ try {
       auth.setRole(a, b);
       console.log(`${a} is now ${b}`);
       break;
+    case 'set-plan': {
+      const { IDS } = require('./lib/plans');
+      if (!IDS.includes(b)) throw new Error(`plan must be one of ${IDS.join(', ')}`);
+      const r = db.run('UPDATE users SET plan = ? WHERE email = ?', b, String(a).trim().toLowerCase());
+      if (!r.changes) throw new Error('no such user');
+      console.log(`${a} is on the ${b} plan`);
+      break;
+    }
     case 'list-users':
       for (const u of db.all('SELECT id, email, role, created_at FROM users ORDER BY id')) console.log(`#${u.id}  ${u.email}  ${u.role}  ${new Date(u.created_at).toISOString()}`);
       break;
@@ -46,7 +54,7 @@ try {
       for (const i of db.all('SELECT code, created_at, used_by, used_at FROM invites ORDER BY created_at')) console.log(`${i.code}  ${i.used_at ? `used by #${i.used_by} ${new Date(i.used_at).toISOString()}` : 'unused'}`);
       break;
     default:
-      console.log('usage: cli.js add-user <email> [password] | set-password <email> <password> | set-role <email> admin|user | list-users | add-invite [count] | list-invites');
+      console.log('usage: cli.js add-user <email> [password] | set-password <email> <password> | set-role <email> admin|user | set-plan <email> hobbyist|business|enterprise | list-users | add-invite [count] | list-invites');
       process.exit(1);
   }
 } catch (err) {

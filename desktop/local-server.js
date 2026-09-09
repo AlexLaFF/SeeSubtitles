@@ -306,6 +306,29 @@ async function createLocalServer(opts) {
     stream.on('status', () => broadcast('status', status()));
   }
 
+  // ---- live hours: the seconds the Tencent stream is connected while subtitles run, reported to the account every
+  // minute; when the plan's month is used up the subtitles pause (an administrator has no limit, own keys none either).
+  let liveUnreported = 0;
+  let liveTickAt = Date.now();
+  function liveExhausted() {
+    const c = opts.cloudStatus ? opts.cloudStatus() : null;
+    const p = c && c.loggedIn && c.plan;
+    if (!p || !p.limits || p.limits.liveSeconds == null) return false;
+    return p.used.liveSeconds + liveUnreported >= p.limits.liveSeconds;
+  }
+  async function liveTick(flush = false) {
+    const now = Date.now();
+    const dt = (now - liveTickAt) / 1000; liveTickAt = now;
+    if (stream && settings.streaming && stream.status().state === 'ready') liveUnreported += Math.min(dt, 60);
+    if ((liveUnreported >= 60 || (flush && liveUnreported >= 1)) && opts.onLiveUsage) {
+      const s = Math.round(liveUnreported); liveUnreported = 0;
+      try { await opts.onLiveUsage(s); } catch (err) { liveUnreported += s; log('warn', `live hours not reported: ${err.message}`); }
+    }
+    if (settings.streaming && liveExhausted()) { log('error', 'the live subtitle hours of this month are used up — subtitles paused (upgrade the plan or wait for next month)'); applySettings({ streaming: false }, null); }
+  }
+  const liveTimer = setInterval(() => liveTick().catch(() => {}), 10_000);
+  liveTimer.unref();
+
   function status() {
     return {
       demo: DEMO,
@@ -369,6 +392,7 @@ async function createLocalServer(opts) {
         stream.setOptions(patch); // graceful rotation to a connection with the new parameters
       }
       if (changed.includes('streaming')) {
+        if (settings.streaming && liveExhausted()) { settings.streaming = false; log('error', 'the live subtitle hours of this month are used up — upgrade the plan or wait for next month'); }
         if (settings.streaming) { log('info', 'streaming resumed'); stream.start(); } else { log('info', 'streaming paused'); stream.stop(); }
       }
     }
@@ -672,6 +696,8 @@ async function createLocalServer(opts) {
 
   let shuttingDown = null;
   function shutdown() {
+    clearInterval(liveTimer);
+    liveTick(true).catch(() => {});
     if (shuttingDown) return shuttingDown;
     shuttingDown = (async () => {
       log('info', 'shutting down local server');
