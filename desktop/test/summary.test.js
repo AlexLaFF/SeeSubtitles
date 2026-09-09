@@ -29,17 +29,15 @@ test('system prompt asks for a synthesized, logically ordered, skimmable digest'
   assert.ok(!p.includes('要点索引'), 'no chronological index');
 });
 
-test('TokenHub provider sends a thinking budget instead of Claude effort, and needs no Anthropic key', () => {
+test('the summary request carries a thinking budget from the effort setting and needs the TokenHub key', () => {
   const { SummaryQueue, sanitizeTimestamps } = require('../lib/summary');
-  const q = new SummaryQueue({ dir: '/tmp', provider: 'seesubtitles', apiKey: 'k', baseURL: 'https://tokenhub.tencentmaas.com', model: 'deepseek-v4-flash', effort: 'high' });
+  const q = new SummaryQueue({ dir: '/tmp', apiKey: 'k', model: 'deepseek-v4-flash', effort: 'high' });
   assert.equal(q.configured, true);
+  assert.equal(q.baseURL, 'https://tokenhub.tencentmaas.com');
   assert.deepEqual(q.requestParams(), { thinking: { type: 'enabled', budget_tokens: 16000 } });
   q.effort = 'low';
   assert.deepEqual(q.requestParams(), { thinking: { type: 'disabled' } });
-  const c = new SummaryQueue({ dir: '/tmp', provider: 'anthropic', apiKey: '', model: 'claude-opus-5', effort: 'medium' });
-  assert.equal(c.configured, !!process.env.ANTHROPIC_AUTH_TOKEN);
-  assert.deepEqual(c.requestParams().output_config, { effort: 'medium' });
-  assert.deepEqual(new SummaryQueue({ dir: '/tmp', provider: 'seesubtitles', apiKey: '' }).status().configured, false);
+  assert.deepEqual(new SummaryQueue({ dir: '/tmp', apiKey: '' }).status().configured, false);
   // timestamps past the end of the recording are removed, the rest stay
   assert.equal(sanitizeTimestamps('见 [12:30] 和 [1:05:00]，还有 [59:59] 处。', 3600_000), '见 [12:30] 和 ，还有 [59:59] 处。');
   assert.equal(sanitizeTimestamps('[00:10] ok', 0), '[00:10] ok');

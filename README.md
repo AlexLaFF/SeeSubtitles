@@ -50,9 +50,9 @@ Ported the local-tool commits after `3cff4b8`, through `2be9fbc` (September 7, 2
 - AI learning summaries with the latest concise synthesis prompt, progress, Markdown viewing,
   clickable recording timestamps, and formatted A4 PDF export. By default they run through Tencent
   TokenHub (DeepSeek V4 Flash; V4 Pro, Kimi K3 and MiniMax M3 selectable) using the key the server
-  hands to logged-in desktops, so no VPN is needed in mainland China; **Settings → AI summaries** can
-  switch to Anthropic Claude with your own key. Effort maps to the model's thinking budget; timestamps
-  beyond the recording's length are dropped. PDFs use the app's bundled Chromium.
+  hands to logged-in desktops, so no VPN is needed in mainland China and no key is typed. Effort maps to
+  the model's thinking budget; timestamps beyond the recording's length are dropped. PDFs use the app's
+  bundled Chromium.
 - Chinese recording-set filenames with legacy recordings still discoverable and playable.
   New audio, subtitles, MP4, summaries and PDFs follow the same naming scheme. Existing files
   are not renamed automatically. Optional migration previews changes before applying them:

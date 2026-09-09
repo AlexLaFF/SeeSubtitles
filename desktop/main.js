@@ -44,8 +44,7 @@ const DEFAULT_CONFIG = {
   appid: '', secretId: '', secretKeyEnc: '',
   cloudKeysEnc: '', // Tencent keys handed out by the server after login (encrypted JSON), used when no manual keys are set
   language: 'system', // system | en | zh — every window, menu and dialog
-  summaryProvider: 'seesubtitles', // seesubtitles (DeepSeek etc. through TokenHub, key from the server, no VPN) | anthropic (own key)
-  summaryKeyEnc: '', summaryModel: 'deepseek-v4-flash', summaryLanguage: 'zh', summaryEffort: 'high',
+  summaryModel: 'deepseek-v4-flash', summaryLanguage: 'zh', summaryEffort: 'high', // Chinese models through TokenHub; the key comes with the login
   recordingsDir: path.join(app.getPath('videos'), 'See Subtitles'),
   demo: false, audioFile: '', edge: 'auto', bitrate: '128k', startPaused: true,
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
@@ -88,10 +87,9 @@ function cloudKeys(cfg) {
   if (!cfg.cloudKeysEnc) return {};
   try { return JSON.parse(decryptSecret(cfg.cloudKeysEnc)) || {}; } catch { return {}; }
 }
-/** Summary generator settings for the chosen provider. */
+/** Summary generator settings: TokenHub with the key the server handed out. */
 function summaryConfig(cfg) {
-  if (cfg.summaryProvider === 'anthropic') return { provider: 'anthropic', apiKey: decryptSecret(cfg.summaryKeyEnc), baseURL: undefined, model: cfg.summaryModel && !/^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'claude-opus-5' };
-  return { provider: 'seesubtitles', apiKey: cloudKeys(cfg).tokenhubKey || '', baseURL: 'https://tokenhub.tencentmaas.com', model: cfg.summaryModel && /^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'deepseek-v4-flash' };
+  return { apiKey: cloudKeys(cfg).tokenhubKey || '', baseURL: 'https://tokenhub.tencentmaas.com', model: cfg.summaryModel && /^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'deepseek-v4-flash' };
 }
 /** Ask the server for the Tencent keys (after login, and once a day). Returns true when they changed. */
 async function refreshCloudKeys(cfg) {
@@ -429,7 +427,7 @@ ipcMain.handle('config:get', () => {
   const cfg = loadConfig();
   const keys = resolveKeys(cfg);
   return {
-    ...cfg, summaryKeyEnc: undefined, summaryKeySet: !!cfg.summaryKeyEnc, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc,
+    ...cfg, summaryKeyEnc: undefined, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc,
     cloudKeysEnc: undefined, keysSource: keys ? keys.source : null, cloudKeysAt: keys && keys.source === 'cloud' ? keys.fetchedAt : null, summaryKeyFromCloud: !!cloudKeys(cfg).tokenhubKey,
     cloud: { ...cfg.cloud, token: undefined, loggedIn: !!cfg.cloud.token },
     version: app.getVersion(), packaged: PACKAGED, defaultCloudUrl: DEFAULT_CLOUD_URL, language: cfg.language || 'system',
@@ -439,9 +437,7 @@ ipcMain.handle('config:save', async (_e, patch) => {
   const cfg = loadConfig();
   const next = { ...cfg, ...patch, mp4: { ...cfg.mp4, ...(patch.mp4 || {}) }, cloud: cfg.cloud };
   delete next.secretKey;
-  delete next.summaryKey;
-  delete next.summaryKeySet;
-  if (patch.summaryKey) next.summaryKeyEnc = encryptSecret(String(patch.summaryKey).trim());
+  delete next.summaryKey; delete next.summaryKeySet; delete next.summaryKeyEnc; delete next.summaryProvider; delete next.summaryKeyFromCloud;
   delete next.secretKeySet;
   delete next.keysSource; delete next.cloudKeysAt; delete next.version; delete next.packaged; delete next.defaultCloudUrl; delete next.useCloudKeys; delete next.restart;
   if (patch.secretKey) next.secretKeyEnc = encryptSecret(String(patch.secretKey).trim());

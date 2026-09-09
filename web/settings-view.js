@@ -90,22 +90,12 @@
     // ---- Summaries
     const su = sec('summaries');
     const CLOUD_MODELS = ['deepseek-v4-flash', 'deepseek-v4-pro', 'kimi-k3', 'minimax-m3'];
-    const provider = select([['seesubtitles', t('sumprov.seesubtitles')], ['anthropic', t('sumprov.anthropic')]], cfg.summaryProvider || 'seesubtitles');
     const cloudModel = select(CLOUD_MODELS.map((m) => [m, t(`summodel.${m}`)]), CLOUD_MODELS.includes(cfg.summaryModel) ? cfg.summaryModel : 'deepseek-v4-flash');
-    const claudeModel = input({ value: CLOUD_MODELS.includes(cfg.summaryModel) || !cfg.summaryModel ? 'claude-opus-5' : cfg.summaryModel });
     const sumKeyStatus = el('div', { class: 'status-line', style: 'flex:1' });
-    const sumKey = el('input', { type: 'password', placeholder: cfg.summaryKeySet ? t('settings.keysSavedPh') : 'sk-ant-…' });
     const sumLang = select([['zh', t('sumlang.zh')], ['en', t('sumlang.en')], ['yue', t('sumlang.yue')]], cfg.summaryLanguage || 'zh');
     const sumEffort = select([['low', t('effort.low')], ['medium', t('effort.medium')], ['high', t('effort.high')]], cfg.summaryEffort || 'high');
-    const rowCloudModel = row(t('settings.sumModel'), cloudModel); const rowClaudeModel = row(t('settings.sumModel'), claudeModel);
-    const rowKeyStatus = row(t('settings.sumKeyStatus'), sumKeyStatus); const rowKey = row(t('settings.anthropicKey'), sumKey); const keyHint = hint(t('settings.anthropicHint'));
-    su.append(hint(t('settings.sumHint')), row(t('settings.sumProvider'), provider), rowCloudModel, rowKeyStatus, rowClaudeModel, rowKey, keyHint, row(t('settings.sumLang'), sumLang), row(t('settings.effort'), sumEffort));
-    const renderProvider = (c) => {
-      const cloud = provider.value === 'seesubtitles';
-      rowCloudModel.hidden = !cloud; rowKeyStatus.hidden = !cloud; rowClaudeModel.hidden = cloud; rowKey.hidden = cloud; keyHint.hidden = cloud;
-      sumKeyStatus.textContent = c.summaryKeyFromCloud ? t('settings.sumKey.cloud') : t('settings.sumKey.none');
-    };
-    provider.addEventListener('change', () => renderProvider(cfg));
+    su.append(hint(t('settings.sumHint')), row(t('settings.sumModel'), cloudModel), row(t('settings.sumKeyStatus'), sumKeyStatus), hint(t('settings.sumKeyHint')), row(t('settings.sumLang'), sumLang), row(t('settings.effort'), sumEffort));
+    const renderProvider = (c) => { sumKeyStatus.textContent = c.summaryKeyFromCloud ? t('settings.sumKey.cloud') : t('settings.sumKey.none'); };
     renderProvider(cfg);
 
     // ---- Recording
@@ -141,13 +131,13 @@
       btnSave.disabled = true; saved.textContent = t('settings.saving');
       await d.saveConfig({
         appid: appid.value, secretId: secretId.value, secretKey: secretKey.value, edge: edge.value,
-        summaryProvider: provider.value, summaryKey: sumKey.value, summaryModel: provider.value === 'seesubtitles' ? cloudModel.value : (claudeModel.value.trim() || 'claude-opus-5'), summaryLanguage: sumLang.value, summaryEffort: sumEffort.value,
+        summaryModel: cloudModel.value, summaryLanguage: sumLang.value, summaryEffort: sumEffort.value,
         recordingsDir: dir.value, bitrate: bitrate.value,
         mp4: { auto: mp4auto.value === '1', size: mp4size.value, fontSize: Number(mp4font.value) || 64, show: mp4show.value, encoder: mp4enc.value },
         startPaused: startup.value === '1', demo: demo.value === '1',
       });
-      secretKey.value = ''; sumKey.value = '';
-      const c2 = await d.getConfig(); secretKey.placeholder = c2.secretKeySet ? t('settings.keysSavedPh') : ''; sumKey.placeholder = c2.summaryKeySet ? t('settings.keysSavedPh') : '';
+      secretKey.value = '';
+      const c2 = await d.getConfig(); secretKey.placeholder = c2.secretKeySet ? t('settings.keysSavedPh') : '';
       renderKeys(c2); renderProvider(c2);
       saved.textContent = t('settings.savedRestarted'); btnSave.disabled = false;
     });
