@@ -87,3 +87,48 @@ body.app .auth .card p.muted { margin: 0 0 8px; }
 body.app .auth .card button[type=submit] { width: 100%; height: var(--control-lg); justify-content: center; margin-top: 12px; font-size: 13px; }
 body.app .auth .card .hint { margin: 12px 0 0; }
 @media (max-width: 900px) { body.app .auth { grid-template-columns: 1fr; } body.app .auth .left { border-right: 0; border-bottom: 1px solid var(--line); padding: 28px 24px; } body.app .auth h1 { font-size: 26px; margin-top: 8px; } body.app .auth .stage { display: none; } }
+
+/* account page: side nav + stacked sections, rows with a fixed label column */
+body.app .set { display: flex; gap: 20px; align-items: flex-start; }
+body.app .snav { width: 160px; flex: none; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 72px; }
+body.app .snav .nav { display: block; padding: 6px 10px; border-radius: 8px; color: var(--fg-2); font-size: 13px; font-weight: 500; text-decoration: none; }
+body.app .snav .nav:hover { background: var(--surface-2); color: var(--fg); }
+body.app .set .col { flex: 1; min-width: 0; gap: 16px; }
+body.app .set section.ui { padding: 14px 18px 12px; }
+body.app .set h2 { display: flex; align-items: baseline; gap: 8px; }
+body.app .set h3 { font: 600 13px/1.3 var(--ui); margin: 14px 0 6px; }
+body.app .set .row { display: grid; grid-template-columns: 160px 1fr; align-items: center; gap: 8px; margin: 6px 0; }
+body.app .set .row label { margin: 0; color: var(--fg-2); font-size: 12.5px; }
+body.app .set .v { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+body.app .set .v input[type=text], body.app .set .v input[type=password] { flex: 1; min-width: 200px; max-width: 420px; }
+body.app .set .hint.ind { margin: 8px 0 0 168px; }
+body.app .set td.r { text-align: right; white-space: nowrap; } body.app .set td.r button { margin-left: 4px; }
+body.app .set td.wrap { max-width: 320px; }
+body.app .set tr.muted td { color: var(--fg-3); }
+body.app .set tr.sub td { background: var(--surface-2); }
+body.app .set .linkbox { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--fg-2); }
+body.app .set .linkbox input { flex: 1; font-family: var(--mono); font-size: 12px; max-width: none; }
+body.app .set .block { margin-top: 14px; }
+body.app .set .invites { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+body.app .set .invites code { font: 13px var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 2px 8px; }
+body.app .set .gl td { padding: 4px 6px 4px 0; border-bottom: 0; }
+body.app .set .gl th { padding-left: 0; }
+body.app .set .gl input[type=text] { width: 100%; max-width: none; min-width: 0; font-family: var(--cjk); }
+body.app .set .gl input[type=number] { width: 70px; }
+body.app .set .foot { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+body.app .set .foot .spacer { flex: 1; }
+body.app .set .pastebox { margin: 8px 0; }
+body.app .set .pastebox textarea { width: 100%; box-sizing: border-box; font-family: var(--cjk); }
+body.app .set .stats { margin: 4px 0 8px; }
+@media (max-width: 800px) { body.app .set { flex-direction: column; } body.app .snav { display: none; } body.app .set .row { grid-template-columns: 1fr; } body.app .set .hint.ind { margin-left: 0; } }
+/* one card in the middle of the window: password reset */
+body.app .center { min-height: 100vh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; }
+body.app .center .card { width: 400px; max-width: 100%; padding: 26px 28px; box-shadow: none; box-sizing: border-box; }
+body.app .center .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+body.app .center .brand svg { width: 24px; height: 24px; border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
+body.app .center .brand span { font: italic 400 22px/1 var(--display); }
+body.app .center h2 { font: 600 20px/1.2 var(--ui); margin: 0 0 4px; }
+body.app .center p.muted { margin: 0 0 8px; }
+body.app .center button[type=submit] { width: 100%; height: var(--control-lg); justify-content: center; margin-top: 12px; font-size: 13px; }
+body.app .center .hint { margin: 12px 0 0; }
+body.app .center a { color: var(--accent-text); }

@@ -14,6 +14,7 @@ const { JobRunner, ENGINES, TARGETS } = require('./lib/jobs');
 const { createLimiter, SIGNUP_MODES } = require('./lib/auth');
 const { latestRelease } = require('./lib/updates');
 const { UsageMonitor, parsePack } = require('./lib/usage');
+const { createAccount } = require('./lib/account');
 
 loadEnv(path.join(__dirname, '..', '.env'));
 const PORT = Number(process.env.PORT) || 8080;
@@ -47,6 +48,7 @@ function log(level, text) {
 
 const db = openDb(DATA_DIR);
 const auth = createAuth(db);
+const account = createAccount(db, { baseUrl: BASE_URL, log });
 const live = new LiveSessions({ db, dir: path.join(DATA_DIR, 'sessions'), log });
 let creds = null;
 try { creds = getCredentials(); } catch (err) { log('error', `${err.message} — upload jobs will fail until the Tencent keys are set`); }
@@ -141,11 +143,40 @@ async function api(req, res, url, user) {
     return undefined;
   }
   if (p === '/api/languages') return send(res, 200, { sources: Object.fromEntries(Object.entries(ENGINES).map(([k, v]) => [k, v.label])), targets: TARGETS });
+  if (p === '/api/request-account' && req.method === 'POST') {
+    if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
+    const body = await readJson(req, 1e4);
+    try { return send(res, 200, { ok: true, ...account.requestAccount(body) }); } catch (err) { return fail(res, 400, err.message); }
+  }
+  if ((r = m(/^\/api\/reset\/([A-Za-z0-9_-]+)$/)) && req.method === 'GET') { const info = account.resetInfo(r[1]); return info ? send(res, 200, { ok: true, email: info.email }) : fail(res, 404, 'this reset link is invalid or has expired'); }
+  if (p === '/api/reset' && req.method === 'POST') {
+    if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
+    const body = await readJson(req, 1e4);
+    try { return send(res, 200, { ok: true, email: account.resetPassword(body.token, body.password) }); } catch (err) { return fail(res, 400, err.message); }
+  }
 
   if (!user) return fail(res, 401, 'login required');
 
-  if (p === '/api/me') return send(res, 200, { user: { id: user.id, email: user.email }, baseUrl: BASE_URL, creds: !!creds });
+  if (p === '/api/me') { const u = account.userRow(user.id) || {}; return send(res, 200, { user: { id: user.id, email: user.email, role: u.role === 'admin' ? 'admin' : 'user', created_at: u.created_at || null }, baseUrl: BASE_URL, creds: !!creds, signup: SIGNUP_MODE }); }
   if (p === '/api/usage') return send(res, 200, await usage.snapshot());
+  // account
+  if (p === '/api/account/password' && req.method === 'POST') { const body = await readJson(req, 1e4); try { account.changePassword(user, body.current, body.next); return send(res, 200, { ok: true }); } catch (err) { return fail(res, 400, err.message); } }
+  if (p === '/api/account/tokens' && req.method === 'GET') return send(res, 200, account.listTokens(user));
+  if (p === '/api/account/tokens/revoke' && req.method === 'POST') { const body = await readJson(req, 1e4); return send(res, 200, { ok: true, revoked: account.revokeTokens(user, { id: body.id, all: !!body.all }) }); }
+  if (p === '/api/glossary' && req.method === 'GET') return send(res, 200, account.getGlossary(user.id));
+  if (p === '/api/glossary' && req.method === 'PUT') { const body = await readJson(req, 2e5); try { return send(res, 200, account.putGlossary(user.id, body.items)); } catch (err) { return fail(res, 400, err.message); } }
+  // team (administrators)
+  if (p.startsWith('/api/team')) {
+    if (!account.isAdmin(user)) return fail(res, 403, 'administrators only');
+    try {
+      if (p === '/api/team' && req.method === 'GET') return send(res, 200, account.team());
+      if (p === '/api/team/invites' && req.method === 'POST') return send(res, 200, { ok: true, code: account.createInvite(user.id) });
+      if ((r = m(/^\/api\/team\/invites\/([A-Za-z0-9_-]+)$/)) && req.method === 'DELETE') { account.deleteInvite(r[1]); return send(res, 200, { ok: true }); }
+      if ((r = m(/^\/api\/team\/users\/(\d+)\/role$/)) && req.method === 'POST') { const body = await readJson(req, 1e4); account.setRole(user, Number(r[1]), body.role); return send(res, 200, { ok: true }); }
+      if ((r = m(/^\/api\/team\/users\/(\d+)\/reset$/)) && req.method === 'POST') return send(res, 200, { ok: true, ...account.createReset(Number(r[1])) });
+      if ((r = m(/^\/api\/team\/requests\/(\d+)\/handled$/)) && req.method === 'POST') { account.handleRequest(Number(r[1]), user.id); return send(res, 200, { ok: true }); }
+    } catch (err) { return fail(res, 400, err.message); }
+  }
   if (p === '/api/desktop/credentials') {
     if (!creds) return fail(res, 503, 'the server has no Tencent keys configured');
     if (!SHARE_KEYS) return fail(res, 403, 'this server does not hand out keys to desktop apps (open sign-up); enter your own keys in Settings');
@@ -232,12 +263,15 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/schema.js') return send(res, 200, fs.readFileSync(SCHEMA_FILE), MIME['.js']);
     if (p === '/login') return page(res, 'login.html');
+    if (p === '/poster') return page(res, 'poster.html');
+    if (/^\/reset\/[A-Za-z0-9_-]+$/.test(p)) return page(res, 'reset.html');
     if (p === '/healthz') return send(res, 200, 'ok', MIME['.txt']);
-    // pages that need a login
+    // pages that need a login; the front page is the website for everyone else
     const user = auth.authenticate(req);
-    if (p === '/' || (r = /^\/jobs\/([a-f0-9]+)$/.exec(p))) {
+    if (p === '/' && !user) return page(res, 'site.html');
+    if (p === '/' || p === '/account' || (r = /^\/jobs\/([a-f0-9]+)$/.exec(p))) {
       if (!user) return redirect(res, `/login?next=${encodeURIComponent(p)}`);
-      return page(res, p === '/' ? 'app.html' : 'job.html');
+      return page(res, p === '/' ? 'app.html' : p === '/account' ? 'account.html' : 'job.html');
     }
     if ((r = /^\/jobs\/([a-f0-9]+)\/files\/(.+)$/.exec(p))) {
       if (!user) return fail(res, 401, 'login required');

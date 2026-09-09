@@ -540,7 +540,7 @@ async function createLocalServer(opts) {
     return fs.createReadStream(file).pipe(res);
   }
 
-  const PAGES = { '/': 'index.html', '/control': 'desktop.html', '/files': 'desktop.html', '/settings': 'desktop.html', '/summary': 'summary.html' };
+  const PAGES = { '/': 'index.html', '/control': 'desktop.html', '/files': 'desktop.html', '/settings': 'desktop.html', '/summary': 'summary.html', '/poster': 'poster.html' };
   function authorised(req, url) {
     if (!opts.token) return true;
     if (url.searchParams.get('token') === opts.token) return true;

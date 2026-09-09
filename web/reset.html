@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>See Subtitles — New password</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/tokens.css">
+<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body class="control app">
+<div class="center">
+  <div class="ui card" id="card">
+    <div class="brand"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span>See Subtitles</span></div>
+    <div id="loading" class="muted">checking the link…</div>
+    <form id="form" hidden>
+      <h2>Choose a new password</h2>
+      <p class="muted" id="who"></p>
+      <label>New password <span class="hint">· at least 8 characters</span><input id="password" type="password" autocomplete="new-password" required minlength="8"></label>
+      <label>Repeat it<input id="again" type="password" autocomplete="new-password" required minlength="8"></label>
+      <div class="alert" id="err" hidden></div>
+      <button class="primary" type="submit" id="submit">Save and log in</button>
+      <p class="hint">Every device signed in to this account is signed out. The desktop app asks you to log in again.</p>
+    </form>
+    <div id="bad" hidden>
+      <h2>This link no longer works</h2>
+      <p class="muted">Reset links work once and expire after 24 hours. Ask the person who runs See Subtitles for a new one.</p>
+      <p><a href="/login">Back to log in</a></p>
+    </div>
+    <div id="done" hidden>
+      <h2>Password saved</h2>
+      <p class="muted" id="doneText">Logging you in…</p>
+      <p><a href="/login" id="doneLink">Log in</a></p>
+    </div>
+  </div>
+</div>
+<script>
+(async () => {
+  const $ = (id) => document.getElementById(id);
+  const token = location.pathname.split('/')[2] || '';
+  const info = await fetch(`/api/reset/${encodeURIComponent(token)}`).then((r) => r.json()).catch(() => ({ error: 'network error' }));
+  $('loading').hidden = true;
+  if (info.error) { $('bad').hidden = false; return; }
+  $('who').textContent = `for ${info.email}`;
+  $('form').hidden = false;
+  $('password').focus();
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = $('err'); err.hidden = true;
+    if ($('password').value !== $('again').value) { err.textContent = 'the two passwords differ'; err.hidden = false; return; }
+    $('submit').disabled = true;
+    const r = await fetch('/api/reset', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, password: $('password').value }) }).then((x) => x.json()).catch(() => ({ error: 'network error' }));
+    if (r.error) { err.textContent = r.error; err.hidden = false; $('submit').disabled = false; return; }
+    $('form').hidden = true; $('done').hidden = false;
+    // the reset answered with the account's email: log in with the new password right away
+    const login = await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: r.email, password: $('password').value }) }).then((x) => x.json()).catch(() => ({ error: 'network error' }));
+    if (login.error) { $('doneText').textContent = 'Log in with your new password.'; return; }
+    $('doneText').textContent = `Logged in as ${r.email}.`; $('doneLink').textContent = 'Open the overview'; $('doneLink').href = '/';
+    setTimeout(() => { location.href = '/'; }, 800);
+  });
+})();
+</script>
+</body>
+</html>

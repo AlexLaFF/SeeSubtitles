@@ -64,11 +64,13 @@
     box.appendChild(el('span', {}, c && c.loggedIn ? `${c.url.replace(/^https?:\/\//, '')} · ${c.session ? 'sharing' : 'connected'}` : 'log in under Settings'));
   }
 
-  App.start = function () {
+  App.start = async function () {
     App.main = document.getElementById('main');
     for (const n of document.querySelectorAll('.side .nav')) n.addEventListener('click', () => App.go(n.dataset.view));
     window.addEventListener('popstate', () => { const r = App.route(location.pathname); App.show(r.view, r.params); });
-    const r = App.route(location.pathname);
+    let r = App.route(location.pathname);
+    // first run in the desktop app: the welcome cards instead of Live, until the last card is dismissed
+    if (window.desktop && App.views.welcome) { try { const cfg = await window.desktop.getConfig(); if (!cfg.firstRunDone && !cfg.demo) r = { view: 'welcome', params: {} }; } catch { /* plain Live */ } }
     App.show(r.view, r.params);
     if (window.desktop && window.desktop.onNavigate) window.desktop.onNavigate((view, params) => App.go(view, params || {}));
     document.addEventListener('keydown', (e) => { if (Sub.keyAction(e)) e.preventDefault(); });

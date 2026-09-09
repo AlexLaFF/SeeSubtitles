@@ -45,6 +45,8 @@ const DEFAULT_CONFIG = {
   demo: false, audioFile: '', edge: 'auto', bitrate: '128k',
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
   cloud: { url: DEFAULT_CLOUD_URL, email: '', token: '', publish: false },
+  glossary: [],        // [{term, weight, note}] → the pipeline's hotwords; synced with the account (Live › Glossary)
+  firstRunDone: null,  // null = never decided (older configs): settled at start-up from what the config already holds
 };
 function loadConfig() {
   try {
@@ -213,6 +215,11 @@ async function cloudAction(body) {
       if (on) await cloud.startSession(body.name || '');
       else await cloud.stopSession();
       return { ok: true, cloud: cloud.status() };
+    }
+    case 'glossary': {
+      // { items } stores the list on the account; without items it fetches the account's list
+      if (Array.isArray(body.items)) return { ok: true, ...(await cloud._fetch('/api/glossary', { items: body.items }, { method: 'PUT' })) };
+      return { ok: true, ...(await cloud._fetch('/api/glossary', null, { method: 'GET' })) };
     }
     default:
       throw new Error('unknown cloud action');
@@ -426,7 +433,7 @@ ipcMain.handle('config:save', async (_e, patch) => {
   delete next.summaryKeySet;
   if (patch.summaryKey) next.summaryKeyEnc = encryptSecret(String(patch.summaryKey).trim());
   delete next.secretKeySet;
-  delete next.keysSource; delete next.cloudKeysAt; delete next.version; delete next.packaged; delete next.defaultCloudUrl; delete next.useCloudKeys;
+  delete next.keysSource; delete next.cloudKeysAt; delete next.version; delete next.packaged; delete next.defaultCloudUrl; delete next.useCloudKeys; delete next.restart;
   if (patch.secretKey) next.secretKeyEnc = encryptSecret(String(patch.secretKey).trim());
   if (patch.useCloudKeys) { next.secretKeyEnc = ''; next.appid = ''; next.secretId = ''; } // back to the server-provided keys
   next.appid = String(next.appid || '').trim();
@@ -453,12 +460,14 @@ ipcMain.handle('updates:status', () => updater.status());
 // ------------------------------------------------------------------ lifecycle
 app.whenReady().then(async () => {
   const cfg = loadConfig();
+  // an install that already has an account or keys never sees the first-run cards
+  if (cfg.firstRunDone == null) { cfg.firstRunDone = !!(cfg.cloud.token || resolveKeys(cfg) || cfg.demo); saveConfig(cfg); }
   if (!cfg.demo && process.platform === 'darwin') {
     try { await systemPreferences.askForMediaAccess('microphone'); } catch { /* prompt not available */ }
   }
   await startCore();
   openControl();
-  if (!cfg.demo && !resolveKeys(cfg)) openSettings();
+  if (!cfg.demo && !resolveKeys(cfg) && cfg.firstRunDone) openSettings();
   // keys from the server: refresh once a day; updates: check shortly after launch and every 6 h
   const keys = resolveKeys(cfg);
   if (cfg.cloud.token && (!keys || (keys.source === 'cloud' && Date.now() - (keys.fetchedAt || 0) > 24 * 3600_000))) {

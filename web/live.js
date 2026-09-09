@@ -72,7 +72,8 @@
       </div>
       <div class="body">
         <div class="col scroll" style="width:600px;flex:none">
-          <div class="ui"><h3><span class="n">1</span>Source</h3><div id="srcFields"></div><div id="srcFolds"></div></div>
+          <div class="ui logincard" id="loginCard" hidden><b>Log in to start</b><p>Your Tencent keys, the share link and cloud re-subtitling come with the account. Recording works without it.</p><button class="primary small" id="btnLoginCard">Log in under Settings</button></div>
+          <div class="ui"><h3><span class="n">1</span>Source</h3><div id="srcFields"></div><div class="row wide" id="glossRowWrap"><label>Glossary</label><div id="glossRow"></div></div><div id="srcFolds"></div></div>
           <div class="ui"><h3><span class="n">2</span>Subtitle look</h3><div id="lookFields"></div><div id="lookFolds"></div></div>
           <div class="ui"><h3><span class="n">3</span>Where it shows</h3>
             <div class="row wide"><label>Display window</label><div id="displayRow"></div></div>
@@ -101,10 +102,12 @@
     $('btnShare').addEventListener('click', toggleShare);
     $('btnPause').addEventListener('click', () => Sub.update({ streaming: !Sub.settings.streaming }));
     $('btnClear').addEventListener('click', () => Sub.post('/api/clear'));
+    $('btnLoginCard').addEventListener('click', () => App.go('settings'));
     // 1 Source
     Controls.renderFields($('srcFields'), ['audioDevice', 'source', 'target', 'transModel']);
-    const tune = fold('Recognition tuning: hotwords, pause length, forced split, filler words, noise');
-    Controls.renderFields(tune.inner, ['hotwords', 'vadSilenceTime', 'maxSpeakTime', 'filterModal', 'noiseThreshold']);
+    renderGlossaryRow();
+    const tune = fold('Recognition tuning: pause length, forced split, filler words, noise');
+    Controls.renderFields(tune.inner, App.desktop() ? ['vadSilenceTime', 'maxSpeakTime', 'filterModal', 'noiseThreshold'] : ['hotwords', 'vadSilenceTime', 'maxSpeakTime', 'filterModal', 'noiseThreshold']);
     const reh = fold('Rehearse with an audio file instead of the microphone');
     reh.inner.id = 'rehearse';
     const conn = fold('Connection details');
@@ -142,6 +145,21 @@
     f.style.width = '1920px'; f.style.height = '1080px'; f.style.transform = `scale(${scale})`;
     box.style.height = `${Math.round(1080 * scale)}px`;
   }
+
+  /** The glossary lives in the app's config (and on the account); in a plain browser the hotwords textarea stays. */
+  async function renderGlossaryRow() {
+    const box = $('glossRow'); if (!box) return;
+    if (!App.desktop() || !window.Glossary) { $('glossRowWrap').hidden = true; return; }
+    if (!Glossary.loaded) await Glossary.load();
+    if (!$('glossRow')) return;
+    box.innerHTML = '';
+    const n = Glossary.items.length;
+    const b = el('button', { class: 'small' }, n ? `Glossary… · ${n} term${n === 1 ? '' : 's'}` : 'Glossary…');
+    b.addEventListener('click', () => Glossary.open());
+    box.appendChild(b);
+    box.appendChild(el('span', { class: 'hint', style: 'margin:0 0 0 8px' }, n ? 'names and terms the recogniser favours' : 'names, places and terms the recogniser should favour'));
+  }
+  view.glossaryChanged = renderGlossaryRow;
 
   async function renderRehearse() {
     const box = $('rehearse'); if (!box) return;
@@ -209,6 +227,7 @@
     else if (s.creds && st.state === 'reconnecting' && BILLING[code]) text = `Tencent refused the connection (${code}): ${BILLING[code]}. Subtitles are paused; recording continues. The app retries every 30 s.`;
     else if (s.creds && st.state === 'reconnecting' && st.reconnects >= 3 && st.lastError) text = `Connection keeps failing: ${st.lastError.message}`;
     alert.textContent = text; alert.hidden = !text;
+    $('loginCard').hidden = !!(s.creds || s.demo || App.offline);
     // chips
     const chips = $('chips'); chips.innerHTML = '';
     let cls = 'warn'; let label = st.state || '…';
@@ -256,6 +275,7 @@
       right.appendChild(line);
       const line2 = el('div', { style: 'display:flex;gap:8px;align-items:center;flex-wrap:wrap' });
       const big = el('button', { class: 'small' }, 'Show QR large'); big.addEventListener('click', () => showQr(cloud.shareUrl)); line2.appendChild(big);
+      const poster = el('button', { class: 'small' }, 'Print QR poster'); poster.addEventListener('click', () => window.open(`/poster?url=${encodeURIComponent(cloud.shareUrl)}&name=${encodeURIComponent(cloud.sessionName || '')}`)); line2.appendChild(poster);
       const stop = el('button', { class: 'small' }, 'Stop sharing'); stop.addEventListener('click', toggleShare); line2.appendChild(stop);
       line2.appendChild(el('span', { class: 'hint', style: 'margin:0' }, `${cloud.sent} events sent${cloud.queued ? `, ${cloud.queued} queued` : ''}${cloud.error ? ` · ⚠ ${cloud.error}` : ''} · audio stays on this Mac`));
       right.appendChild(line2);
@@ -272,6 +292,8 @@
     rr.appendChild(rwrap);
     $('recDir').textContent = `${s.recordingsDir || (rc.dir || '')} · MP4 with burned-in subtitles after recording: ${s.mp4Auto === false ? 'off' : 'on'}`;
     const fr = $('footRight'); if (fr) fr.textContent = s.demo ? 'Demo mode · scripted sentences' : st.state === 'ready' ? `Tencent 實時語音翻譯${st.rotateAt ? ` · rotation in ${Sub.fmtAgo(st.rotateAt - now)}` : ''}` : '';
+    const gb = $('glossRow') && $('glossRow').querySelector('button');
+    if (gb && window.Glossary && Glossary.loaded) { const n = Glossary.items.length; gb.textContent = n ? `Glossary… · ${n} term${n === 1 ? '' : 's'}` : 'Glossary…'; }
   };
 
   App.register('live', view);

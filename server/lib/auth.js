@@ -110,7 +110,7 @@ function createAuth(db) {
     if (inv) db.run('UPDATE invites SET used_by = ?, used_at = ? WHERE code = ?', user.id, Date.now(), inv.code);
     return user;
   }
-  return { login, authenticate, revoke, cookieHeader, clearCookie, addUser, setPassword, setRole, createInvite, signup, issueToken };
+  return { login, authenticate, revoke, cookieHeader, clearCookie, addUser, setPassword, setRole, createInvite, signup, issueToken, userForToken };
 }
 
 module.exports = { createAuth, createLimiter, hashPassword, verifyPassword, parseCookies, COOKIE, SIGNUP_MODES };

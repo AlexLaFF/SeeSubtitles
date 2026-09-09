@@ -29,6 +29,7 @@ class CloudLink {
       url: this.cfg.url || null,
       email: this.cfg.email || null,
       session: this.session ? { id: this.session.id, code: this.session.code } : null,
+      sessionName: this.session ? this.session.name : null,
       shareUrl: this.session ? this.session.shareUrl : null,
       queued: this.queue.length,
       sent: this.sent,
@@ -149,7 +150,7 @@ class CloudLink {
   async startSession(name) {
     if (this.session) return this.session;
     const r = await this._fetch('/api/sessions', { name: name || `Live ${new Date().toLocaleString()}` });
-    this.session = { id: r.id, code: r.code, shareUrl: `${this.cfg.url}/d/${r.code}` };
+    this.session = { id: r.id, code: r.code, name: name || '', shareUrl: `${this.cfg.url}/d/${r.code}` };
     this.error = null;
     this.failures = 0;
     // seed the session with the current state so a display that opens now is not blank

@@ -87,6 +87,7 @@
       tr.appendChild(el('td', {}, s.ended_at ? `${s.peak_viewers || 0} peak` : `${s.viewers} now · ${s.peak_viewers || 0} peak`));
       const lp = el('span', { class: `pill ${s.ended_at ? '' : 'live'}` }); lp.append(el('span', { class: 'dot' }), s.ended_at ? 'ended' : 'live'); tr.appendChild(el('td')).appendChild(lp);
       const downloads = tr.appendChild(el('td'));
+      if (!s.ended_at) { downloads.appendChild(el('a', { href: `/poster?url=${encodeURIComponent(s.shareUrl)}&name=${encodeURIComponent(s.name || '')}`, target: '_blank' }, 'QR poster')); downloads.appendChild(document.createElement('br')); }
       downloads.appendChild(el('a', { href: `/api/sessions/${s.id}/transcript` }, 'transcript'));
       for (const [which, label] of [['source', 'Plain text · original'], ['target', 'Plain text · translation']]) {
         downloads.appendChild(document.createElement('br'));
@@ -96,24 +97,10 @@
     }
   }
 
-  const fmtDur = (s) => { const h = Math.floor(s / 3600); const m = Math.round((s % 3600) / 60); return h ? `${h} h ${m} m` : `${m} min`; };
   // What the account consumed this month, what is left of the resource pack (if the server knows its size), the balance.
   async function loadUsage() {
     const u = await api('/api/usage').catch((e) => ({ errors: { usage: e.message } }));
-    const box = $('stats');
-    box.innerHTML = '';
-    const tile = (k, v, d) => { const t = el('div', { class: 'stat' }); t.appendChild(el('div', { class: 'k' }, k)); t.appendChild(el('div', { class: 'v' }, v)); if (d) t.appendChild(el('div', { class: 'd' }, d)); box.appendChild(t); };
-    if (u.month) {
-      tile('Live this month', fmtDur(u.month.live), `since ${u.month.since} · ${u.month.count} requests`);
-      tile('Files this month', fmtDur(u.month.files), 'recognised on this server');
-    }
-    if (u.pack) { const pct = Math.round(u.pack.fraction * 100); tile('Resource pack', `${pct}% left`, `${fmtDur(u.pack.remainingSeconds)} of ${fmtDur(u.pack.seconds)} bought ${u.pack.since}${u.pack.covers === 'all' ? '' : ' · live subtitles'}`); }
-    if (u.balance && u.balance.yuan != null) tile('Account balance', `¥${u.balance.yuan.toFixed(2)}`, u.balance.oweYuan ? `owing ¥${u.balance.oweYuan.toFixed(2)}` : 'Tencent Cloud');
-    box.hidden = !box.children.length;
-    const note = $('ovNote'); note.innerHTML = '';
-    const bits = Object.entries(u.errors || {}).map(([k, v]) => `${k}: ${v}`);
-    if (u.month && !u.pack) bits.push('set TENCENT_PACK on the server to see what is left of the resource pack');
-    if (bits.length) note.appendChild(el('span', { class: 'chip' }, bits.join(' · ')));
+    UsageTiles.render($('stats'), $('ovNote'), u);
   }
 
   (async () => {

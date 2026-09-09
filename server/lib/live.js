@@ -24,7 +24,7 @@ class LiveSessions {
     if (st) return st;
     const row = this.db.get('SELECT * FROM live_sessions WHERE id = ?', id);
     if (!row) return null;
-    st = { id, code: row.code, name: row.name, settings: null, lines: [], byId: new Map(), clients: new Set(), live: !row.ended_at, seq: 0, file: path.join(this.dir, `${id}.jsonl`), lastEventAt: row.created_at };
+    st = { id, code: row.code, name: row.name, settings: null, lines: [], byId: new Map(), clients: new Set(), live: !row.ended_at, seq: 0, file: path.join(this.dir, `${id}.jsonl`), lastEventAt: row.created_at, peak: row.peak_viewers || 0, total: row.total_viewers || 0 };
     // rebuild the tail of the transcript from the log so a viewer that opens later still sees recent lines
     try {
       const text = fs.readFileSync(st.file, 'utf8');
@@ -111,7 +111,7 @@ class LiveSessions {
   }
 
   _status(st) {
-    return { remote: true, live: st.live, viewers: st.clients.size, lastEventAt: st.lastEventAt, stream: { state: st.live ? 'remote' : 'ended' }, now: Date.now() };
+    return { remote: true, live: st.live, viewers: st.clients.size, peak: st.peak, lastEventAt: st.lastEventAt, stream: { state: st.live ? 'remote' : 'ended' }, now: Date.now() };
   }
 
   _broadcast(st, ev, data) {
@@ -127,7 +127,11 @@ class LiveSessions {
     res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
     res.write(':ok\n\n');
     st.clients.add(res);
-    const init = { serverId: `remote-${st.id}`, remote: true, session: { code: st.code, name: st.name }, settings: st.settings || defaults, lines: st.lines.slice(-INIT_LINES), status: this._status(st) };
+    // every phone that opens the link counts once; the peak is the most that followed at the same time
+    st.total += 1;
+    st.peak = Math.max(st.peak, st.clients.size);
+    this.db.run('UPDATE live_sessions SET peak_viewers = ?, total_viewers = ? WHERE id = ?', st.peak, st.total, st.id);
+    const init = { serverId: `remote-${st.id}`, remote: true, session: { code: st.code, name: st.name }, settings: { ...defaults, ...(st.settings || {}) }, lines: st.lines.slice(-INIT_LINES), status: this._status(st) };
     res.write(`event: init\ndata: ${JSON.stringify(init)}\n\n`);
     const hb = setInterval(() => { res.write(':hb\n\n'); }, 15_000);
     const statusTimer = setInterval(() => res.write(`event: status\ndata: ${JSON.stringify(this._status(st))}\n\n`), 5000);
@@ -136,7 +140,7 @@ class LiveSessions {
   }
 
   list(userId) {
-    return this.db.all('SELECT id, code, name, created_at, ended_at, lines FROM live_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 200', userId)
+    return this.db.all('SELECT id, code, name, created_at, ended_at, lines, peak_viewers, total_viewers FROM live_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 200', userId)
       .map((r) => ({ ...r, viewers: this.active.has(r.id) ? this.active.get(r.id).clients.size : 0 }));
   }
 
