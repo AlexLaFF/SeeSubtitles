@@ -107,6 +107,12 @@ sign-up form that needs a code from `cli.js add-invite`; `open` lets anyone sign
 own jobs and live sessions; `cli.js set-role <email> admin` marks administrators for future admin pages. Login
 and sign-up are rate-limited per IP and per email.
 
+The dashboard shows Tencent usage for the month (`asr:GetUsageByDate`, allowed by the ASR policy the keys already
+have) and, with `TENCENT_PACK=<hours>h@<purchase date>`, what is left of the 实时语音翻译 resource pack; Tencent has no
+API for a pack's remaining quota, so the pack size comes from you. `TENCENT_BILLING_SECRET_ID/KEY`, a separate key
+with `billing:DescribeAccountBalance` (preset `QcloudFinanceBillReadOnlyAccess`), adds the account balance; keep it
+off the main key, which is handed to desktop apps.
+
 Caddy obtains the TLS certificate for `DOMAIN` automatically. Data (SQLite, uploads, session logs) lives in
 the `subs-data` volume; back it up with `docker run --rm -v subs-data:/data -v $PWD:/out alpine tar czf /out/subs-data.tgz /data`.
 

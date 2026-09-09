@@ -13,6 +13,7 @@ const { LiveSessions } = require('./lib/live');
 const { JobRunner, ENGINES, TARGETS } = require('./lib/jobs');
 const { createLimiter, SIGNUP_MODES } = require('./lib/auth');
 const { latestRelease } = require('./lib/updates');
+const { UsageMonitor, parsePack } = require('./lib/usage');
 
 loadEnv(path.join(__dirname, '..', '.env'));
 const PORT = Number(process.env.PORT) || 8080;
@@ -49,6 +50,9 @@ const auth = createAuth(db);
 const live = new LiveSessions({ db, dir: path.join(DATA_DIR, 'sessions'), log });
 let creds = null;
 try { creds = getCredentials(); } catch (err) { log('error', `${err.message} — upload jobs will fail until the Tencent keys are set`); }
+const billingCreds = process.env.TENCENT_BILLING_SECRET_ID && process.env.TENCENT_BILLING_SECRET_KEY ? { secretId: process.env.TENCENT_BILLING_SECRET_ID.trim(), secretKey: process.env.TENCENT_BILLING_SECRET_KEY.trim() } : null;
+const usage = new UsageMonitor({ creds, billingCreds, pack: parsePack(process.env.TENCENT_PACK), pipeline: process.env.TENCENT_PACK_COVERS === 'all' ? 'all' : 'live', log });
+if (process.env.TENCENT_PACK && !usage.pack) log('warn', `TENCENT_PACK "${process.env.TENCENT_PACK}" is not <hours>h@<YYYY-MM-DD>; the dashboard shows usage without the pack`);
 const jobs = new JobRunner({ db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe' });
 log('info', `clean transcripts ready for ${jobs.backfillPlainExports()} existing jobs`);
 log('info', `accounts: sign-up ${SIGNUP_MODE}`);
@@ -141,6 +145,7 @@ async function api(req, res, url, user) {
   if (!user) return fail(res, 401, 'login required');
 
   if (p === '/api/me') return send(res, 200, { user: { id: user.id, email: user.email }, baseUrl: BASE_URL, creds: !!creds });
+  if (p === '/api/usage') return send(res, 200, await usage.snapshot());
   if (p === '/api/desktop/credentials') {
     if (!creds) return fail(res, 503, 'the server has no Tencent keys configured');
     if (!SHARE_KEYS) return fail(res, 403, 'this server does not hand out keys to desktop apps (open sign-up); enter your own keys in Settings');

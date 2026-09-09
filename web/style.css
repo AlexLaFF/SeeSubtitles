@@ -10,7 +10,13 @@ html, body { margin: 0; height: 100%; }
 body.display { background: var(--bg); color: var(--font-color); overflow: hidden; font-family: var(--font-family); }
 body.display.overlay { -webkit-user-select: none; user-select: none; }
 #stage { position: fixed; inset: 0; box-sizing: border-box; padding: var(--pad-top) var(--pad-x) var(--pad-y);
-  display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+  display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; transition: padding-right .25s ease; }
+/* while the control panel is open the subtitles centre in the space beside it instead of running underneath;
+   below 900px the panel already fills the window, so nothing is reserved */
+@media (min-width: 900px) {
+  body.panel-open #stage { padding-right: calc(var(--pad-x) + 420px); }
+  body.panel-open #hint { right: 432px; }
+}
 body.overlay #stage { -webkit-app-region: drag; }
 /* text pushed past the top edge fades out over about half a row instead of being cut mid-glyph */
 body.fade #stage {

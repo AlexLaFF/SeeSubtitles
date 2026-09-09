@@ -95,6 +95,26 @@
     }
   }
 
+  const fmtDur = (s) => { const h = Math.floor(s / 3600); const m = Math.round((s % 3600) / 60); return h ? `${h} h ${m} m` : `${m} min`; };
+  // What the account consumed this month, what is left of the resource pack (if the server knows its size), the balance.
+  async function loadUsage() {
+    const u = await api('/api/usage').catch((e) => ({ errors: { usage: e.message } }));
+    const box = $('usage');
+    box.innerHTML = '';
+    box.className = '';
+    if (u.month) box.appendChild(el('div', {}, `This month (since ${u.month.since}): live ${fmtDur(u.month.live)} · files ${fmtDur(u.month.files)} · ${u.month.count} requests`));
+    if (u.pack) {
+      const pct = Math.round(u.pack.fraction * 100);
+      box.appendChild(el('div', {}, `Resource pack: ${fmtDur(u.pack.remainingSeconds)} left of ${fmtDur(u.pack.seconds)} bought ${u.pack.since} (${pct}%)${u.pack.covers === 'all' ? '' : ' · live subtitles only'}`));
+      const bar = el('div', { class: 'bar', title: `${pct}% left` });
+      bar.appendChild(el('i')).style.width = `${pct}%`;
+      box.appendChild(bar);
+    } else if (u.month) box.appendChild(el('div', { class: 'muted' }, 'To see what is left of the resource pack, set TENCENT_PACK (hours@purchase date) on the server.'));
+    if (u.balance && u.balance.yuan != null) box.appendChild(el('div', {}, `Account balance ¥${u.balance.yuan.toFixed(2)}${u.balance.oweYuan ? ` · owing ¥${u.balance.oweYuan.toFixed(2)}` : ''}`));
+    for (const [k, v] of Object.entries(u.errors || {})) box.appendChild(el('div', { class: 'muted' }, `${k}: ${v}`));
+    if (!box.children.length) box.appendChild(el('div', { class: 'muted' }, 'no usage data'));
+  }
+
   (async () => {
     const me = await api('/api/me').catch(() => null);
     if (!me) { location.href = '/login'; return; }
@@ -107,6 +127,8 @@
     $('targetLang').value = 'zh';
     loadJobs();
     loadSessions();
+    loadUsage();
     setInterval(() => { loadJobs(); loadSessions(); }, 5000);
+    setInterval(loadUsage, 5 * 60_000); // the server caches the Tencent answer for ten minutes
   })();
 })();

@@ -135,6 +135,7 @@
 
   function togglePanel(force) {
     panel.hidden = force === undefined ? !panel.hidden : !force;
+    document.body.classList.toggle('panel-open', !panel.hidden); // the stage reflows beside the panel (style.css)
   }
   function toggleFullscreen() {
     if (document.fullscreenElement) document.exitFullscreen();
