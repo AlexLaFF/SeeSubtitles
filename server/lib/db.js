@@ -75,6 +75,12 @@ CREATE TABLE IF NOT EXISTS glossary (        -- per-user hotword list shared bet
   items TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS orgs (            -- an Enterprise account's team: members share the owner's plan, hours and glossary
+  id INTEGER PRIMARY KEY,
+  owner_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS usage (           -- seconds of live subtitles and file recognition per account and month
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   month TEXT NOT NULL,                       -- YYYY-MM (UTC)
@@ -89,6 +95,7 @@ const MIGRATIONS = [
   ['live_sessions', 'peak_viewers', 'ALTER TABLE live_sessions ADD COLUMN peak_viewers INTEGER NOT NULL DEFAULT 0'],
   ['live_sessions', 'total_viewers', 'ALTER TABLE live_sessions ADD COLUMN total_viewers INTEGER NOT NULL DEFAULT 0'],
   ['users', 'plan', "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'hobbyist'"], // hobbyist | business | enterprise (server/lib/plans.js)
+  ['users', 'org_id', 'ALTER TABLE users ADD COLUMN org_id INTEGER REFERENCES orgs(id) ON DELETE SET NULL'], // member of a team
 ];
 
 function openDb(dataDir) {

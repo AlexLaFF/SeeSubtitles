@@ -41,7 +41,12 @@ class CloudLink {
   /** The account's plan and this month's usage; refreshed on attach, every ten minutes and with every usage report. */
   async refreshPlan() {
     if (!this.cfg.token) { this.plan = null; return null; }
-    try { const me = await this._fetch('/api/me', null, { method: 'GET' }); this.plan = me && me.plan ? me.plan : null; } catch (err) { this.log('warn', `plan: ${err.message}`); }
+    try {
+      const me = await this._fetch('/api/me', null, { method: 'GET' });
+      this.plan = me && me.plan ? me.plan : null;
+      this.role = me && me.user ? me.user.role : null;
+      if (this.role === 'admin' && this.onPending) { try { this.onPending(await this._fetch('/api/requests/pending', null, { method: 'GET' })); } catch { /* next time */ } }
+    } catch (err) { this.log('warn', `plan: ${err.message}`); }
     return this.plan;
   }
   /** Seconds of live subtitles since the last report; the answer carries the plan so the app can stop at the limit. */

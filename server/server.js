@@ -51,6 +51,16 @@ const db = openDb(DATA_DIR);
 const auth = createAuth(db);
 const account = createAccount(db, { baseUrl: BASE_URL, log });
 const quotas = new Quotas(db);
+// A new account request can ping a chat webhook (Discord, Slack and anything that takes {text}/{content}).
+const REQUEST_WEBHOOK_URL = (process.env.REQUEST_WEBHOOK_URL || '').trim();
+function notifyRequest(r) {
+  if (!REQUEST_WEBHOOK_URL) return;
+  const text = `New account request · ${r.name || '(no name)'} <${r.email}> · ${r.org || '(no organisation)'} · plan: ${r.plan || 'not chosen'}\n${String(r.note || '').trim()}\n${BASE_URL}/account`;
+  fetch(REQUEST_WEBHOOK_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, content: text.slice(0, 1900) }) })
+    .then((res) => { if (!res.ok) log('warn', `request webhook: HTTP ${res.status}`); })
+    .catch((err) => log('warn', `request webhook: ${err.message}`));
+}
+if (REQUEST_WEBHOOK_URL) log('info', 'account requests are posted to the webhook');
 const planRow = (user) => account.userRow(user.id) || { id: user.id, role: 'user', plan: 'hobbyist' };
 const entitlements = (user) => quotas.snapshot(planRow(user));
 const live = new LiveSessions({ db, dir: path.join(DATA_DIR, 'sessions'), log });
@@ -171,7 +181,7 @@ async function api(req, res, url, user) {
   if (p === '/api/request-account' && req.method === 'POST') {
     if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
     const body = await readJson(req, 1e4);
-    try { return send(res, 200, { ok: true, ...account.requestAccount(body) }); } catch (err) { return fail(res, 400, err.message); }
+    try { const r = account.requestAccount(body); notifyRequest(body); return send(res, 200, { ok: true, ...r }); } catch (err) { return fail(res, 400, err.message); }
   }
   if ((r = m(/^\/api\/reset\/([A-Za-z0-9_-]+)$/)) && req.method === 'GET') { const info = account.resetInfo(r[1]); return info ? send(res, 200, { ok: true, email: info.email }) : fail(res, 404, 'this reset link is invalid or has expired'); }
   if (p === '/api/reset' && req.method === 'POST') {
@@ -190,6 +200,13 @@ async function api(req, res, url, user) {
   if (p === '/api/account/password' && req.method === 'POST') { const body = await readJson(req, 1e4); try { account.changePassword(user, body.current, body.next); return send(res, 200, { ok: true }); } catch (err) { return fail(res, 400, err.message); } }
   if (p === '/api/account/tokens' && req.method === 'GET') return send(res, 200, account.listTokens(user));
   if (p === '/api/account/tokens/revoke' && req.method === 'POST') { const body = await readJson(req, 1e4); return send(res, 200, { ok: true, revoked: account.revokeTokens(user, { id: body.id, all: !!body.all }) }); }
+  // team (Enterprise): the owner adds members, hands them a set-password link, sees their hours
+  if (p === '/api/org' && req.method === 'GET') return send(res, 200, account.teamView(user.id));
+  if (p === '/api/org/name' && req.method === 'POST') { const body = await readJson(req, 1e4); try { account.setTeamName(user.id, body.name); return send(res, 200, { ok: true }); } catch (err) { return fail(res, 400, err.message); } }
+  if (p === '/api/org/members' && req.method === 'POST') { const body = await readJson(req, 1e4); try { return send(res, 200, { ok: true, ...account.addMember(user.id, body.email) }); } catch (err) { return fail(res, 400, err.message); } }
+  if ((r = m(/^\/api\/org\/members\/(\d+)\/reset$/)) && req.method === 'POST') { try { return send(res, 200, { ok: true, ...account.memberReset(user.id, r[1]) }); } catch (err) { return fail(res, 400, err.message); } }
+  if ((r = m(/^\/api\/org\/members\/(\d+)$/)) && req.method === 'DELETE') { try { account.removeMember(user.id, r[1]); return send(res, 200, { ok: true }); } catch (err) { return fail(res, 400, err.message); } }
+  if (p === '/api/requests/pending' && req.method === 'GET') { if (!account.isAdmin(user)) return fail(res, 403, 'administrators only'); return send(res, 200, account.pendingRequests()); }
   if (p === '/api/glossary' && req.method === 'GET') return send(res, 200, account.getGlossary(user.id));
   if (p === '/api/glossary' && req.method === 'PUT') { const body = await readJson(req, 2e5); try { return send(res, 200, account.putGlossary(user.id, body.items)); } catch (err) { return fail(res, 400, err.message); } }
   // team (administrators)

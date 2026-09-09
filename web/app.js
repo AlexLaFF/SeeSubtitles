@@ -110,6 +110,13 @@
     if (!me) { location.href = '/login'; return; }
     $('who').textContent = me.user.email;
     UsageTiles.plan($('planStats'), me.plan);
+    if (me.user.role === 'admin') {
+      api('/api/requests/pending').then((r) => {
+        if (!r || !r.count) return;
+        const x = el('a', { class: 'stat', href: '/account#sec-admin' }); x.appendChild(el('div', { class: 'k' }, t('plan.requestsTile'))); x.appendChild(el('div', { class: 'v' }, String(r.count))); x.appendChild(el('div', { class: 'd' }, r.latest.map((q) => q.name || q.email).join(' · ')));
+        $('planStats').appendChild(x); $('planStats').hidden = false;
+      }).catch(() => {});
+    }
     if (!me.creds) alertBox(t('web.noCreds'));
     const langs = await api('/api/languages');
     for (const [k, v] of Object.entries(langs.sources)) $('sourceLang').appendChild(el('option', { value: k }, v));

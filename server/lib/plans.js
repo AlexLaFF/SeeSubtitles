@@ -12,13 +12,27 @@ const IDS = Object.keys(PLANS);
 const monthKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0, 7);
 /** 'admin' for administrators, otherwise the account's plan (hobbyist when unset or unknown). */
 const planOf = (row) => (row && row.role === 'admin' ? 'admin' : row && PLANS[row.plan] ? row.plan : 'hobbyist');
-const limitsOf = (plan) => (plan === 'admin' ? ADMIN : PLANS[plan] || PLANS.hobbyist);
+const limitsOf = (plan) => (plan === 'admin' || plan === 'team' ? ADMIN : PLANS[plan] || PLANS.hobbyist);
 
 class Quotas {
   constructor(db) { this.db = db; }
   used(userId, month = monthKey()) {
     const r = this.db.get('SELECT live_seconds, file_seconds FROM usage WHERE user_id = ? AND month = ?', userId, month);
     return { liveSeconds: r ? r.live_seconds : 0, fileSeconds: r ? r.file_seconds : 0 };
+  }
+  /** A team counts together: the owner's plan applies to every member and their hours add up. */
+  scope(row) {
+    const owned = this.db.get('SELECT id FROM orgs WHERE owner_id = ?', row.id);
+    const orgId = row.org_id || (owned && owned.id);
+    const org = orgId ? this.db.get('SELECT o.id, o.owner_id, o.name, u.role, u.plan FROM orgs o JOIN users u ON u.id = o.owner_id WHERE o.id = ?', orgId) : null;
+    if (!org) return { planRow: row, ids: [row.id], team: null };
+    const ids = this.db.all('SELECT id FROM users WHERE org_id = ? OR id = ?', org.id, org.owner_id).map((u) => u.id);
+    return { planRow: { id: org.owner_id, role: org.role, plan: org.plan }, ids, team: { id: org.id, name: org.name, ownerId: org.owner_id, member: row.id !== org.owner_id } };
+  }
+  usedBy(ids, month = monthKey()) {
+    const out = { liveSeconds: 0, fileSeconds: 0 };
+    for (const id of ids) { const u = this.used(id, month); out.liveSeconds += u.liveSeconds; out.fileSeconds += u.fileSeconds; }
+    return out;
   }
   /** Add seconds of live subtitles or file recognition to the month; returns the month's totals. */
   add(userId, kind, seconds, month = monthKey()) {
@@ -29,12 +43,14 @@ class Quotas {
   }
   /** What a client needs to show and enforce the plan: limits in seconds (null = unlimited) and what is used. */
   snapshot(row) {
-    const plan = planOf(row);
+    const sc = this.scope(row);
+    let plan = planOf(sc.planRow);
+    if (plan === 'admin' && sc.team && sc.team.member) plan = 'team'; // an administrator's team members share the freedom, not the role
     const l = limitsOf(plan);
     return {
-      plan, name: l.name, price: l.price, month: monthKey(),
+      plan, name: l.name, price: l.price, month: monthKey(), team: sc.team,
       limits: { liveSeconds: l.liveHours == null ? null : l.liveHours * 3600, fileSeconds: l.fileHours == null ? null : l.fileHours * 3600, sharing: l.sharing, summaries: l.summaries, team: l.team },
-      used: this.used(row.id),
+      used: this.usedBy(sc.ids),
     };
   }
   /** Seconds left this month for 'live' or 'file' (Infinity when the plan has no limit). */

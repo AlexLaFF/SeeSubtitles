@@ -1,7 +1,7 @@
 'use strict';
 // Subtitles desktop app (macOS). Owns the local pipeline server, the Control / Display / Overlay windows,
 // the Settings window (Tencent keys in the Keychain via safeStorage) and the optional cloud mirror.
-const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell, Tray, nativeImage, nativeTheme, clipboard } = require('electron');
+const { app, BrowserWindow, Menu, screen, ipcMain, dialog, safeStorage, systemPreferences, shell, Tray, nativeImage, nativeTheme, clipboard, Notification } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
@@ -51,6 +51,7 @@ const DEFAULT_CONFIG = {
   cloud: { url: DEFAULT_CLOUD_URL, email: '', token: '', publish: false },
   glossary: [],        // [{term, weight, note}] → the pipeline's hotwords; synced with the account (Live › Glossary)
   firstRunDone: null,  // null = never decided (older configs): settled at start-up from what the config already holds
+  lastRequestSeen: 0,  // id of the newest account request the administrator was notified about
 };
 function loadConfig() {
   try {
@@ -499,6 +500,24 @@ ipcMain.handle('updates:check', () => updater.check({ interactive: true }));
 ipcMain.handle('updates:status', () => updater.status());
 
 // ------------------------------------------------------------------ lifecycle
+// Administrators hear about new account requests from the website: a macOS notification (click opens the Account
+// page on the web) and a badge on the Dock icon while requests are waiting.
+function notifyRequests(r) {
+  const cfg = loadConfig();
+  if (app.dock) app.dock.setBadge(r && r.count ? String(r.count) : '');
+  const fresh = ((r && r.latest) || []).filter((x) => x.id > Number(cfg.lastRequestSeen || 0));
+  if (!fresh.length) return;
+  const top = fresh[0];
+  if (Notification.isSupported()) {
+    const n = new Notification({ title: t('notify.requestTitle', { n: fresh.length }), body: t('notify.requestBody', { who: top.name || top.email, org: top.org || '', note: (top.note || '').slice(0, 120) }) });
+    n.on('click', () => shell.openExternal(`${cfg.cloud.url || DEFAULT_CLOUD_URL}/account`));
+    n.show();
+  }
+  cfg.lastRequestSeen = Math.max(...fresh.map((x) => Number(x.id) || 0));
+  saveConfig(cfg);
+}
+cloud.onPending = notifyRequests;
+
 app.whenReady().then(async () => {
   const cfg = loadConfig();
   // an install that already has an account or keys never sees the first-run cards

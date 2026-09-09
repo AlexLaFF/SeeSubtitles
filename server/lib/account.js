@@ -42,7 +42,7 @@ function cleanGlossary(items) {
 const hotwordsText = (items) => items.map((i) => `${i.term}|${i.weight}`).join('\n');
 
 function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
-  const userRow = (id) => db.get('SELECT id, email, role, plan, created_at FROM users WHERE id = ?', id);
+  const userRow = (id) => db.get('SELECT id, email, role, plan, org_id, created_at FROM users WHERE id = ?', id);
   const isAdmin = (user) => { const u = userRow(user.id); return !!u && u.role === 'admin'; };
 
   function changePassword(user, current, next) {
@@ -141,19 +141,81 @@ function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
   }
 
   // ---- glossary
+  // ---- team (Enterprise): members share the owner's plan, hours and glossary. Members are accounts the owner
+  // creates; they log in with a set-password link the owner hands over. Removing a member detaches the account.
+  const ownedOrg = (userId) => db.get('SELECT * FROM orgs WHERE owner_id = ?', userId);
+  const memberOrg = (row) => (row && row.org_id ? db.get('SELECT * FROM orgs WHERE id = ?', row.org_id) : null);
+  const canOwnTeam = (row) => !!row && !row.org_id && (row.role === 'admin' || row.plan === 'enterprise');
+  function teamView(userId) {
+    const row = userRow(userId);
+    const own = ownedOrg(userId);
+    const org = own || memberOrg(row);
+    if (!org) return { owner: false, canOwn: canOwnTeam(row), org: null, members: [] };
+    const owner = userRow(org.owner_id);
+    const members = db.all(`SELECT u.id, u.email, u.created_at, (SELECT MAX(last_used) FROM tokens t WHERE t.user_id = u.id) AS last_active,
+      COALESCE((SELECT live_seconds FROM usage x WHERE x.user_id = u.id AND x.month = ?), 0) AS live_seconds,
+      COALESCE((SELECT file_seconds FROM usage x WHERE x.user_id = u.id AND x.month = ?), 0) AS file_seconds
+      FROM users u WHERE u.org_id = ? OR u.id = ? ORDER BY (u.id <> ?), u.id`, monthKey(), monthKey(), org.id, org.owner_id, org.owner_id)
+      .map((m) => ({ ...m, owner: m.id === org.owner_id }));
+    return { owner: !!own, canOwn: canOwnTeam(row), org: { id: org.id, name: org.name, ownerEmail: owner ? owner.email : '' }, members };
+  }
+  function addMember(userId, email) {
+    const row = userRow(userId);
+    if (row.org_id) throw new Error('only the team owner adds members');
+    if (!canOwnTeam(row)) throw new Error('team members come with the Enterprise plan');
+    const clean = String(email || '').trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) throw new Error('invalid email');
+    if (db.get('SELECT id FROM users WHERE email = ?', clean)) throw new Error('an account with this email already exists');
+    let org = ownedOrg(userId);
+    if (!org) { db.run('INSERT INTO orgs(owner_id, name, created_at) VALUES (?,?,?)', userId, '', Date.now()); org = ownedOrg(userId); }
+    if (db.get('SELECT COUNT(*) AS n FROM users WHERE org_id = ?', org.id).n >= 50) throw new Error('a team has at most 50 members');
+    const r = db.run('INSERT INTO users(email, pass_hash, created_at, plan, org_id) VALUES (?,?,?,?,?)', clean, hashPassword(crypto.randomBytes(24).toString('base64url')), Date.now(), 'hobbyist', org.id);
+    const id = Number(r.lastInsertRowid);
+    log('info', `team member ${clean} added by ${row.email}`);
+    return { member: { id, email: clean }, reset: createReset(id) };
+  }
+  function memberOf(userId, memberId) {
+    const org = ownedOrg(userId);
+    if (!org) throw new Error('you do not own a team');
+    const m = db.get('SELECT id, email, org_id FROM users WHERE id = ?', Number(memberId));
+    if (!m || m.org_id !== org.id) throw new Error('not a member of your team');
+    return m;
+  }
+  function memberReset(userId, memberId) { return createReset(memberOf(userId, memberId).id); }
+  function removeMember(userId, memberId) {
+    const m = memberOf(userId, memberId);
+    db.run('UPDATE users SET org_id = NULL, plan = ? WHERE id = ?', 'hobbyist', m.id);
+    db.run('DELETE FROM tokens WHERE user_id = ?', m.id);
+    log('info', `team member ${m.email} removed`);
+  }
+  function setTeamName(userId, name) {
+    const org = ownedOrg(userId);
+    if (!org) throw new Error('you do not own a team');
+    db.run('UPDATE orgs SET name = ? WHERE id = ?', String(name || '').trim().slice(0, 80), org.id);
+  }
+  /** The glossary a user reads and edits: the team's (kept on the owner) when they belong to one. */
+  const glossaryOwner = (userId) => { const row = userRow(userId); const org = memberOrg(row); return org ? org.owner_id : userId; };
+
   function getGlossary(userId) {
+    userId = glossaryOwner(userId);
     const row = db.get('SELECT items, updated_at FROM glossary WHERE user_id = ?', userId);
     if (!row) return { items: [], updatedAt: null };
     try { return { items: cleanGlossary(JSON.parse(row.items)), updatedAt: row.updated_at }; } catch { return { items: [], updatedAt: row.updated_at }; }
   }
   function putGlossary(userId, items) {
+    userId = glossaryOwner(userId);
     const clean = cleanGlossary(items);
     const now = Date.now();
     db.run('INSERT INTO glossary(user_id, items, updated_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET items = excluded.items, updated_at = excluded.updated_at', userId, JSON.stringify(clean), now);
     return { items: clean, updatedAt: now };
   }
 
-  return { isAdmin, userRow, changePassword, listTokens, revokeTokens, team, setPlan, createInvite, deleteInvite, setRole, createReset, resetInfo, resetPassword, requestAccount, handleRequest, getGlossary, putGlossary };
+  /** Unhandled account requests, newest first (administrators; the desktop app polls this for its notification). */
+  function pendingRequests() {
+    const rows = db.all('SELECT id, name, email, org, note, created_at FROM requests WHERE handled_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 5');
+    return { count: db.get('SELECT COUNT(*) AS n FROM requests WHERE handled_at IS NULL').n, latest: rows };
+  }
+  return { isAdmin, userRow, changePassword, listTokens, revokeTokens, team, setPlan, createInvite, deleteInvite, setRole, createReset, resetInfo, resetPassword, requestAccount, handleRequest, pendingRequests, getGlossary, putGlossary, teamView, addMember, memberReset, removeMember, setTeamName };
 }
 
 module.exports = { createAccount, cleanGlossary, hotwordsText, deviceName, RESET_TTL_MS, GLOSSARY_MAX };

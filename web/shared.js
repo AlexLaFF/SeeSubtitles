@@ -16,11 +16,22 @@
   // viewport (120 px on a 1920-wide screen becomes about 30 px on a phone), after which A− / A+ step from there.
   const REMOTE_KEYS = ['fontSize', 'showMode'];
   if (Sub.remote) { try { const saved = JSON.parse(localStorage.getItem('subs.remote') || '{}'); for (const k of REMOTE_KEYS) if (saved[k] != null) Sub._overrides[k] = saved[k]; } catch { /* no storage */ } }
+  let autoFit = false;
+  const fitSize = (venuePx) => Math.max(18, Math.round((Number(venuePx) || 100) * Math.min(1, window.innerWidth / 1600)));
   const fitRemote = (settings) => {
-    if (Sub._overrides.fontSize != null) return;
-    const scale = Math.min(1, window.innerWidth / 1600);
-    Sub._overrides.fontSize = Math.max(18, Math.round((Number(settings.fontSize) || 100) * scale));
+    Sub._venueFont = Number(settings.fontSize) || 100;
+    if (Sub._overrides.fontSize != null && !autoFit) return; // the viewer chose a size earlier
+    autoFit = true;
+    Sub._overrides.fontSize = fitSize(Sub._venueFont);
   };
+  if (Sub.remote) {
+    let timer = null;
+    window.addEventListener('resize', () => {
+      if (!autoFit || !Sub.settings) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => { const px = fitSize(Sub._venueFont); if (px === Sub.settings.fontSize) return; Sub._overrides.fontSize = px; Sub.settings.fontSize = px; Sub.emit('local', { fontSize: px }); }, 150);
+    });
+  }
 
   // Ask for one line of text. Browsers use the built-in dialog; Electron has none, so the desktop shell installs
   // its own sheet under the same name before any view runs. Resolves with the text, or null when cancelled.
@@ -61,6 +72,7 @@
     Object.assign(Sub.settings, patch);
     Sub.emit('local', patch);
     if (Sub.remote) {
+      if (patch.fontSize != null) autoFit = false;
       Object.assign(Sub._overrides, patch);
       try { localStorage.setItem('subs.remote', JSON.stringify(Object.fromEntries(REMOTE_KEYS.filter((k) => Sub._overrides[k] != null).map((k) => [k, Sub._overrides[k]])))); } catch { /* private mode */ }
       return;

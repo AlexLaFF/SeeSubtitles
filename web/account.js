@@ -169,7 +169,7 @@
   }
   function renderTeam() {
     if (me.user.role !== 'admin') return;
-    const s = sec('team', t('acct.team'), t('acct.teamSub'));
+    const s = sec('admin', t('acct.team'), t('acct.teamSub'));
     teamBox = el('div'); s.appendChild(teamBox);
     s.appendChild(hint(t('acct.teamHint')));
     renderTeamRows();
@@ -236,6 +236,64 @@
     api('/api/glossary').then((g) => { terms = g.items || []; draw(); }).catch((e) => { msg.textContent = e.message; draw(); });
   }
 
+  // ---- team (Enterprise): the owner's members, their hours, set-password links; a member sees whose team it is
+  let orgBox = null;
+  async function renderOrgRows() {
+    if (!orgBox) return;
+    const v = await api('/api/org').catch((e) => { alertBox(e.message); return null; });
+    if (!v) return;
+    orgBox.innerHTML = '';
+    if (!v.org && !v.canOwn) { orgBox.appendChild(el('p', { class: 'muted' }, t('org.needPlan'))); return; }
+    if (v.org && !v.owner) { orgBox.appendChild(el('p', {}, t('org.memberOf', { owner: v.org.ownerEmail, name: v.org.name ? ` (${v.org.name})` : '' }))); return; }
+    // the owner: name, members, add
+    const nameIn = field({ value: (v.org && v.org.name) || '', placeholder: t('org.namePh'), maxlength: 80 });
+    const saveName = el('button', { class: 'small' }, t('org.saveName'));
+    saveName.onclick = () => api('/api/org/name', { name: nameIn.value }).then(renderOrgRows).catch((e) => alertBox(e.message));
+    orgBox.appendChild(row(t('org.name'), nameIn, saveName));
+    const table = el('table'); table.appendChild(el('thead')).appendChild(el('tr')).append(el('th', {}, t('acct.memberCol')), el('th', {}, t('acct.thisMonth')), el('th', {}, t('acct.lastActive')), el('th'));
+    const tb = table.appendChild(el('tbody'));
+    for (const m of v.members) {
+      const tr = el('tr');
+      tr.appendChild(el('td', {}, m.owner ? `${m.email} · ${t('org.owner')}` : m.email));
+      tr.appendChild(el('td', { class: 'muted' }, t('acct.planUsage', { live: UsageTiles.hrs(m.live_seconds), files: UsageTiles.hrs(m.file_seconds) })));
+      tr.appendChild(el('td', { class: 'muted' }, fmtAgo(m.last_active)));
+      const ops = el('td', { class: 'r' });
+      if (!m.owner) {
+        const link = el('button', { class: 'small' }, t('org.resetLink'));
+        link.onclick = async () => { try { const r = await api(`/api/org/members/${m.id}/reset`, {}); showLink(tr, r); } catch (e) { alertBox(e.message); } };
+        const rm = el('button', { class: 'small' }, t('org.remove'));
+        rm.onclick = () => { if (confirm(t('org.removeConfirm', { email: m.email }))) api(`/api/org/members/${m.id}`, null, 'DELETE').then(renderOrgRows).catch((e) => alertBox(e.message)); };
+        ops.append(link, rm);
+      }
+      tr.appendChild(ops); tb.appendChild(tr);
+    }
+    orgBox.appendChild(table);
+    const addIn = field({ type: 'email', placeholder: t('org.emailPh'), autocomplete: 'off' });
+    const addBtn = el('button', { class: 'small primary' }, t('org.add'));
+    const addMsg = el('span', { class: 'hint' });
+    addBtn.onclick = async () => {
+      addBtn.disabled = true; addMsg.textContent = '';
+      try { const r = await api('/api/org/members', { email: addIn.value }); addIn.value = ''; await renderOrgRows(); const last = [...orgBox.querySelectorAll('tbody tr')].find((x) => x.textContent.startsWith(r.member.email)); if (last) showLink(last, r.reset); }
+      catch (e) { addMsg.textContent = e.message; }
+      addBtn.disabled = false;
+    };
+    const addRow = el('div', { class: 'btns' }); addRow.append(addIn, addBtn, addMsg);
+    orgBox.appendChild(addRow);
+    orgBox.appendChild(hint(t('org.hint')));
+  }
+  function showLink(tr, r) {
+    const box = el('div', { class: 'linkbox' });
+    box.append(el('div', {}, t('org.linkText', { email: r.email })));
+    const line = el('div', { class: 'v' }); line.append(field({ readonly: 'readonly', value: r.url }), copyBtn(r.url)); box.appendChild(line);
+    if (tr.nextSibling && tr.nextSibling.classList.contains('sub')) tr.nextSibling.remove();
+    tr.after(el('tr', { class: 'sub' })); tr.nextSibling.appendChild(el('td', { colspan: 4 })).appendChild(box);
+  }
+  function renderOrg() {
+    const s = sec('team', t('org.title'), t('org.sub'));
+    orgBox = el('div'); s.appendChild(orgBox);
+    renderOrgRows();
+  }
+
   // ---- usage
   function renderUsage() {
     const s = sec('usage', t('acct.usage'), t('acct.usageSub'));
@@ -252,6 +310,6 @@
     if (!me) { location.href = '/login?next=%2Faccount'; return; }
     $('who').textContent = me.user.email;
     $('chips').appendChild(dotChip('ok', `${me.user.email} · ${roleName(me.user.role)}`));
-    renderProfile(); renderSecurity(); renderDevices(); renderTeam(); renderGlossary(); renderUsage();
+    renderProfile(); renderSecurity(); renderDevices(); renderOrg(); renderTeam(); renderGlossary(); renderUsage();
   })();
 })();
