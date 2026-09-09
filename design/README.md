@@ -161,12 +161,15 @@ phone share page (18 px).
 
 ## Applying a direction
 
-Done so far (Marquee): `web/tokens.css` is `tokens/marquee.css` with the bundled Instrument Sans and Instrument Serif
-faces prepended (SIL OFL, `web/fonts/`); the three stylesheets run on the tokens and follow the system appearance;
+Applied (Marquee): `web/tokens.css` is `tokens/marquee.css` with the bundled Instrument Sans and Instrument Serif
+faces prepended (SIL OFL, `web/fonts/`); every stylesheet runs on the tokens and follows the system appearance;
 the sidebar, topbars and favicon carry the mark; `desktop/build/icon.png` (rasterised from `icons/app-marquee.svg`)
 is the app icon via electron-builder, and `desktop/assets/trayTemplate*.png` (from `icons/tray-stack.svg`) is the
 menu-bar icon. To regenerate the PNGs after changing the SVGs, render them with any SVG rasteriser at 1024, 22 and 44 px
-with a transparent background. Still to do: the shell anatomy (steps 3 and 4 below), the hosted pages, the new screens.
+with a transparent background. The shell anatomy (Live, Files, Settings), the hosted pages (overview, job, log in,
+account, reset, poster), the attendee page, the new screens (first run, glossary, not-logged-in card) and the website
+(`web/site.html`, EN / 繁 / 简) follow the artboards on the canvas; the gap board's deliberate omissions (speaker
+labels, attendee audio, meeting integrations) stay omitted.
 
 1. Load the chosen `tokens/<direction>.css` first and replace the hard-coded colours in `web/style.css`,
    `web/desktop.css` and `web/app.css` with the custom properties; both appearances then follow the system
