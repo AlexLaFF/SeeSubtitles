@@ -176,6 +176,7 @@ async function startCore() {
     displayStatus: () => ({ open: !!(wins.display && !wins.display.isDestroyed()), fullscreen: !!(wins.display && !wins.display.isDestroyed() && wins.display.isFullScreen()) }),
     onOpenExternal: (url) => shell.openExternal(url),
     onOpenFolder: () => shell.openPath(loadConfig().recordingsDir),
+    onTrash: async (paths) => { for (const f of paths) await shell.trashItem(f); },
     language: i18n.lang,
     consoleLog,
   });

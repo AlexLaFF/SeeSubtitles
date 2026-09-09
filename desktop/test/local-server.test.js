@@ -54,3 +54,38 @@ test('ported recording, summary, overlay and preset routes work with desktop aut
   assert.equal(settingsEvent.settings.fontSize,99); assert.equal(settingsEvent.from,null);
   await new Promise(r=>setTimeout(r,350));
 });
+
+test('bulk download zips the chosen kinds and delete removes a whole recording set', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'subtitle-bulk-'));
+  const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
+  for (const base of ['9月6号10点00分', '9月6号11点00分']) {
+    fs.writeFileSync(path.join(rec, names.fileName(base, 'mp3')), 'fixture');
+    fs.writeFileSync(path.join(rec, names.fileName(base, 'zh')), '1\n00:00:01,000 --> 00:00:03,000\n大家好。\n');
+    fs.writeFileSync(path.join(rec, names.fileName(base, 'summary')), '# 摘要\n');
+  }
+  fs.writeFileSync(path.join(rec, '9月6号10点00分中文字幕.zh.live.srt'), 'live');
+  const trashed = [];
+  const server = await createLocalServer({
+    webDir: path.resolve(__dirname, '../../web'), schemaFile: require.resolve('@subs/core/schema'),
+    dataDir: path.join(root, 'data'), recordingsDir: rec, transcriptsDir: path.join(root, 'transcripts'),
+    demo: true, token: 'tk', env: { MP4_AUTO: '0' }, consoleLog() {}, onTrash: async (paths) => { trashed.push(...paths.map((p) => path.basename(p))); for (const p of paths) fs.rmSync(p); },
+  });
+  t.after(async () => { await server.shutdown(); fs.rmSync(root, { recursive: true, force: true }); });
+  const H = { cookie: 'token=tk' };
+  const zip = await fetch(`${server.base}/api/recordings/archive?bases=${encodeURIComponent('9月6号10点00分,9月6号11点00分')}&kinds=subtitles,plain`, { headers: H });
+  assert.equal(zip.status, 200);
+  assert.equal(zip.headers.get('content-type'), 'application/zip');
+  const buf = Buffer.from(await zip.arrayBuffer());
+  assert.equal(buf.subarray(0, 2).toString(), 'PK', 'a zip archive');
+  fs.writeFileSync(path.join(root, 'out.zip'), buf);
+  const ex = path.join(root, 'extracted'); fs.mkdirSync(ex);
+  require('node:child_process').execFileSync('/usr/bin/ditto', ['-x', '-k', path.join(root, 'out.zip'), ex]);
+  assert.deepEqual(fs.readdirSync(ex).sort(), ['9月6号10点00分中文字幕.zh.plain.txt', '9月6号10点00分中文字幕.zh.srt', '9月6号11点00分中文字幕.zh.plain.txt', '9月6号11点00分中文字幕.zh.srt']);
+  assert.equal(fs.readFileSync(path.join(ex, '9月6号10点00分中文字幕.zh.plain.txt'), 'utf8'), '大家好。\n');
+  assert.equal((await fetch(`${server.base}/api/recordings/archive?bases=nope&kinds=mp4`, { headers: H })).status, 400);
+  const del = await fetch(`${server.base}/api/recordings/delete`, { method: 'POST', headers: { ...H, 'content-type': 'application/json' }, body: JSON.stringify({ bases: ['9月6号10点00分', 'unknown'] }) });
+  assert.deepEqual(await del.json(), { ok: true, deleted: 1 });
+  assert.deepEqual(trashed.sort(), ['9月6号10点00分AI总结.md', '9月6号10点00分中文字幕.zh.live.srt', '9月6号10点00分中文字幕.zh.srt', '9月6号10点00分录音.mp3']);
+  const left = await (await fetch(`${server.base}/api/recordings`, { headers: H })).json();
+  assert.deepEqual(left.map((r) => r.base), ['9月6号11点00分']);
+});

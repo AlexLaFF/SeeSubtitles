@@ -12,6 +12,7 @@
   let jobs = [];
   let pollTimer = null;
   let listKey = '';
+  const selected = new Set(); // recording bases ticked in the list
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const fmtDate = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
@@ -39,9 +40,9 @@
     root.innerHTML = `
       <div class="top"><h1>${t('files.title')}</h1><span class="muted">${t('files.subtitle')}</span><div class="grow"></div>
         <button id="btnFolder">${t('files.openFolder')}</button><button id="btnAdd" class="primary">${t('files.add')}</button></div>
-      <div class="toolbar"><div class="pills" id="filters"></div><div class="grow"></div><input type="text" id="search" placeholder="${t('files.search')}" style="width:220px"></div>
+      <div class="toolbar"><div class="pills" id="filters"></div><div id="bulk" class="btns" style="margin:0" hidden></div><div class="grow"></div><input type="text" id="search" placeholder="${t('files.search')}" style="width:220px"></div>
       <div class="body" style="flex-direction:column;overflow:auto">
-        <div class="ui" style="padding:0;overflow:hidden"><table><thead><tr><th style="width:34%">${t('files.col.name')}</th><th>${t('files.col.date')}</th><th>${t('files.col.length')}</th><th>${t('files.col.subtitles')}</th><th>${t('files.col.mp4')}</th><th>${t('files.col.summary')}</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+        <div class="ui" style="padding:0;overflow:hidden"><table><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" title="${t('files.selectAll')}"></th><th style="width:32%">${t('files.col.name')}</th><th>${t('files.col.date')}</th><th>${t('files.col.length')}</th><th>${t('files.col.subtitles')}</th><th>${t('files.col.mp4')}</th><th>${t('files.col.summary')}</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
         <div class="drop" id="drop">${t('files.drop')}</div>
       </div>`;
     for (const [k, label] of [['all', t('files.filter.all')], ['rec', t('files.filter.rec')], ['added', t('files.filter.added')]]) {
@@ -50,6 +51,7 @@
       $('filters').appendChild(b);
     }
     $('search').value = search;
+    $('selAll').addEventListener('change', () => { const visible = visibleRecordings(); if ($('selAll').checked) for (const b of visible) selected.add(b); else for (const b of visible) selected.delete(b); renderRows(); });
     $('search').addEventListener('input', () => { search = $('search').value.trim().toLowerCase(); renderRows(); });
     $('btnFolder').addEventListener('click', () => Sub.post('/api/recordings/open-folder'));
     $('btnAdd').addEventListener('click', addFile);
@@ -79,10 +81,15 @@
     if (up.current) items.push({ kind: 'added', name: up.current.name, sub: t('files.uploading'), date: up.current.startedAt, upload: up.current });
     for (const q of up.queue || []) items.push({ kind: 'added', name: q, sub: t('files.waiting'), date: Date.now(), queued: true });
     const shown = items.filter((it) => (filter === 'all' || it.kind === filter) && (!search || it.name.toLowerCase().includes(search))).sort((a, b) => (b.date || 0) - (a.date || 0));
+    renderRows.visible = shown.filter((it) => it.rec).map((it) => it.rec.base);
+    for (const b of [...selected]) if (!recordings.some((r) => r.base === b)) selected.delete(b);
+    renderBulk();
     tb.innerHTML = '';
-    if (!shown.length) { tb.appendChild(el('tr')).appendChild(el('td', { colspan: 7, class: 'empty' }, recordings.length || jobs.length ? t('files.noMatch') : t('files.empty'))); return; }
+    if (!shown.length) { tb.appendChild(el('tr')).appendChild(el('td', { colspan: 8, class: 'empty' }, recordings.length || jobs.length ? t('files.noMatch') : t('files.empty'))); return; }
     for (const it of shown) {
       const tr = el('tr', { class: 'row-click' });
+      const sel = tr.appendChild(el('td'));
+      if (it.rec) { const cb = el('input', { type: 'checkbox' }); cb.checked = selected.has(it.rec.base); cb.addEventListener('click', (e) => e.stopPropagation()); cb.addEventListener('change', () => { if (cb.checked) selected.add(it.rec.base); else selected.delete(it.rec.base); renderBulk(); }); sel.appendChild(cb); }
       const name = tr.appendChild(el('td'));
       name.appendChild(el('div', {}, it.name)); name.appendChild(el('div', { class: 'muted', style: 'font-size:11px' }, it.sub));
       tr.appendChild(el('td', {}, it.date ? fmtDate(it.date) : '–'));
@@ -132,6 +139,32 @@
       }
       tb.appendChild(tr);
     }
+  }
+  const visibleRecordings = () => renderRows.visible || [];
+  /** The bar of actions on the ticked recordings. */
+  function renderBulk() {
+    const bar = $('bulk'); if (!bar) return;
+    const all = $('selAll'); if (all) { const vis = visibleRecordings(); all.checked = vis.length > 0 && vis.every((b) => selected.has(b)); all.indeterminate = !all.checked && vis.some((b) => selected.has(b)); }
+    bar.hidden = selected.size === 0;
+    bar.innerHTML = '';
+    if (!selected.size) return;
+    const picked = () => recordings.filter((r) => selected.has(r.base));
+    bar.appendChild(el('span', { class: 'muted', style: 'margin-right:4px' }, t('files.selected', { n: selected.size })));
+    const b = (label, cls, fn) => { const x = el('button', { class: `small ${cls || ''}` }, label); x.addEventListener('click', fn); bar.appendChild(x); return x; };
+    b(t('files.bulkSummaries'), '', async () => { const rs = picked().filter((r) => r.zh || r.yue); const have = rs.filter((r) => r.summary).length; if (have && !confirm(t('files.bulkRegen', { n: have }))) return; for (const r of rs) await post('/api/recordings/summary', { base: r.base }); });
+    b(t('files.bulkMp4'), '', async () => { for (const r of picked().filter((r) => r.zh || r.yue)) await post('/api/recordings/mp4', { base: r.base }); });
+    b(t('files.bulkResub'), '', async () => { const c = Sub.status.cloud; if (!c || !c.loggedIn) return alert(t('files.loginFirst')); const rs = picked(); if (!confirm(t('files.bulkResubConfirm', { n: rs.length }))) return; for (const r of rs) await post('/api/recordings/resubtitle', { base: r.base }); });
+    const dl = b(t('files.download'), '', () => App.menu(dl, ['all', 'audio', 'subtitles', 'plain', 'mp4', 'summary'].map((k) => ({ label: t(`files.dlKind.${k}`), onClick: () => downloadArchive([...selected], k) }))));
+    b(t('files.bulkDelete'), 'danger', async () => {
+      const rs = picked(); if (!rs.length || !confirm(t('files.deleteConfirm', { n: rs.length }))) return;
+      const r = await post('/api/recordings/delete', { bases: rs.map((x) => x.base) });
+      if (r && !r.error) { selected.clear(); await loadRecordings(); renderRows(); }
+    });
+    b(t('files.clearSel'), 'ghost', () => { selected.clear(); renderRows(); });
+  }
+  function downloadArchive(bases, kind) {
+    const a = el('a', { href: `/api/recordings/archive?bases=${encodeURIComponent(bases.join(','))}&kinds=${kind}`, download: '' });
+    document.body.appendChild(a); a.click(); a.remove();
   }
   const stageName = (st) => (I18n.has(`status.${st}`) ? t(`status.${st}`) : st);
   const post = (path, body) => Sub.post(path, body).then((x) => { if (x && x.error) alert(I18n.err(x)); return x; });
