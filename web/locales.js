@@ -212,6 +212,7 @@
     'files.dl.mp4': ['Video with subtitles (MP4, {size})', '带字幕视频（MP4，{size}）'],
     'files.dl.md': ['AI summary (Markdown)', 'AI 总结（Markdown）'],
     'files.dl.pdf': ['AI summary (PDF)', 'AI 总结（PDF）'],
+    'files.makePdf': ['Make a PDF of the AI summary', '生成 AI 总结 PDF'],
 
     // ---- settings
     'settings.title': ['Settings', '设置'],

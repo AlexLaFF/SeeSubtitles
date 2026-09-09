@@ -238,6 +238,7 @@
       if (rr.mp4) link(rr.mp4, t('files.dl.mp4', { size: Sub.fmtBytes(rr.mp4Bytes) }));
       if (rr.summary) link(rr.summary, t('files.dl.md'));
       if (rr.summaryPdf) link(rr.summaryPdf, t('files.dl.pdf'));
+      else if (rr.summary) items.push({ label: t('files.makePdf'), onClick: () => Sub.post('/api/recordings/summary-pdf', { base }).then((x) => { if (x && x.error) alert(I18n.err(x)); }) });
       App.menu($('btnDownload'), items);
     });
 
