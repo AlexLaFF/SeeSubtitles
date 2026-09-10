@@ -6,7 +6,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
-const { TranslationStream, Transcript, Recorder, schema } = require('@subs/core');
+const { TranslationStream, RemoteTranslationStream, Transcript, Recorder, schema } = require('@subs/core');
 const names = require('@subs/core/names');
 const { readCues, writeCues } = require('./lib/cues');
 const { fromSrt } = require('@subs/core/plain-text');
@@ -221,9 +221,10 @@ async function createLocalServer(opts) {
 
   // ---------------------------------------------------------------- pipeline
   const creds = DEMO ? null : opts.creds || null;
-  // liveUrls asks the hosted server to sign each connection, so this Mac holds no Tencent key at all.
-  const liveUrls = DEMO ? null : opts.liveUrls || null;
-  const credsError = DEMO ? null : opts.credsError || (creds || liveUrls ? null : 'Tencent credentials are not set (Settings → Tencent Cloud)');
+  // cloudLive runs the pipeline on the hosted server, which holds the Tencent credentials and meters the
+  // audio as it passes — the only arrangement where the plan's hours are measured rather than reported.
+  const cloudLive = DEMO ? null : opts.cloudLive || null;
+  const credsError = DEMO ? null : opts.credsError || (creds || cloudLive ? null : 'Tencent credentials are not set (Settings → Tencent Cloud)');
   if (credsError) log('error', credsError);
 
   const transcript = new Transcript({ logDir: opts.transcriptsDir });
@@ -265,9 +266,7 @@ async function createLocalServer(opts) {
     : opts.audioFile ? new FileCapture({ file: opts.audioFile })
       : new AudioCapture({ device: settings.audioDevice, backend: env.AUDIO_BACKEND || 'auto' });
   if (opts.audioFile && !DEMO) log('info', `audio file mode: looping ${opts.audioFile} instead of the microphone`);
-  const stream = (creds || liveUrls)
-    ? new TranslationStream(creds, {
-      urlFor: liveUrls,
+  const streamOpts = {
       source: settings.source,
       target: settings.target,
       transModel: settings.transModel,
@@ -276,13 +275,12 @@ async function createLocalServer(opts) {
       maxSpeakTime: settings.maxSpeakTime,
       noiseThreshold: settings.noiseThreshold,
       filterModal: settings.filterModal,
-      // Rotation is seamless (the replacement is opened and authenticated before the old socket drains), and
-      // when the server signs the URLs each rotation is also the moment it re-checks the plan — so this is
-      // twice an hour rather than once before the API's five-hour cap.
-      rotateMs: (Number(env.TENCENT_ROTATE_MINUTES) || (liveUrls ? 30 : 290)) * 60_000,
+      rotateMs: (Number(env.TENCENT_ROTATE_MINUTES) || 290) * 60_000,
       edge: env.TENCENT_EDGE || 'auto',
-    })
-    : null;
+  };
+  const stream = cloudLive ? new RemoteTranslationStream(cloudLive, streamOpts)
+    : creds ? new TranslationStream(creds, streamOpts)
+      : null;
 
   let level = null;
   let devices = [];
@@ -345,7 +343,7 @@ async function createLocalServer(opts) {
   function status() {
     return {
       demo: DEMO,
-      creds: !!(creds || liveUrls),
+      creds: !!(creds || cloudLive),
       credsError,
       streaming: settings.streaming,
       stream: stream ? stream.status() : { state: DEMO ? 'demo' : 'no-credentials' },

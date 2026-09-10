@@ -150,7 +150,7 @@ async function startCore() {
   const cfg = loadConfig();
   applyLanguage(cfg);
   let creds = null;
-  let liveUrls = null;
+  let cloudLive = null;
   let credsError = null;
   if (!cfg.demo) {
     const keys = resolveKeys(cfg);
@@ -162,8 +162,10 @@ async function startCore() {
         credsError = err.message.replace(/ in \.env.*$/, ' — open Settings (⌘,) and check the Tencent Cloud keys');
       }
     } else if (cfg.cloud.token) {
-      // Logged in: the server signs every connection and this Mac never holds a key at all.
-      liveUrls = (req) => cloud.liveUrls(req);
+      // Logged in: the pipeline runs on the hosted server, so this Mac holds no Tencent key and the hours
+      // the account uses are measured there rather than reported from here.
+      const cc = cloudConfig(cfg);
+      cloudLive = { url: cc.url || DEFAULT_CLOUD_URL, token: cc.token };
     } else {
       credsError = 'not logged in — open Settings (⌘,) and log in to seesubtitles.com, or enter your own Tencent keys';
     }
@@ -175,7 +177,7 @@ async function startCore() {
     recordingsDir: cfg.recordingsDir,
     transcriptsDir: path.join(USER_DATA, 'transcripts'),
     creds,
-    liveUrls,
+    cloudLive,
     credsError,
     summary: summaryConfig(cfg),
     demo: cfg.demo,

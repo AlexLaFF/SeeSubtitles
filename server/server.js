@@ -16,6 +16,7 @@ const { latestRelease } = require('./lib/updates');
 const { UsageMonitor, parsePack } = require('./lib/usage');
 const { createAccount } = require('./lib/account');
 const { PLANS, Quotas } = require('./lib/plans');
+const { createLiveProxy } = require('./lib/live-proxy');
 const mail = require('./lib/mail');
 
 loadEnv(path.join(__dirname, '..', '.env'));
@@ -428,6 +429,20 @@ const server = http.createServer(async (req, res) => {
     log('error', `${req.method} ${p}: ${err.message}`);
     if (!res.headersSent) fail(res, 500, err.message);
   }
+});
+
+// The live pipeline runs through here, so the hours an account uses are measured rather than reported.
+// A signed URL cannot be metered: once handed over it opens a stream the server is not part of, cannot see
+// and cannot close. Deepgram, AssemblyAI and OpenAI all hand clients an ephemeral token instead of proxying,
+// and they can, because their token carries a maximum session duration the *provider* enforces and usage the
+// provider attributes back. Tencent's signature carries neither — `expired` gates the handshake and nothing
+// else — so a token here is a promise with no one behind it. Measured cost of the extra hop from the box in
+// Hong Kong to the Guangzhou edge: 34 ms round trip, against a pipeline that waits a second of silence to
+// end a sentence.
+const liveProxy = createLiveProxy({ creds, authenticate: (req) => auth.authenticate(req), quotas, planRow, log, env: process.env });
+server.on('upgrade', (req, socket, head) => {
+  if (liveProxy.upgrade(req, socket, head)) return;
+  socket.destroy();
 });
 
 server.listen(PORT, HOST, () => {
