@@ -5,3 +5,11 @@ dist/
 desktop/resources/bin/
 *.log
 .DS_Store
+
+# Signing material: certificates, requests and private keys never belong in a public repository.
+# The Developer ID certificate lives in the login keychain; the private key never leaves it.
+*.cer
+*.certSigningRequest
+*.p12
+*.mobileprovision
+*.provisionprofile
