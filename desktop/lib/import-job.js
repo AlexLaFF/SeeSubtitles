@@ -4,7 +4,7 @@
 // recordings folder under the ordinary naming, after which it is an ordinary recording like any other.
 const fs = require('node:fs');
 const path = require('node:path');
-const names = require('../../core/names');
+const names = require('@subs/core/names');
 
 /** "測試 講座錄音.mp3" → "測試 講座" — the mp3 suffix is added back by names.fileName. */
 function baseFromFilename(filename, createdAt) {

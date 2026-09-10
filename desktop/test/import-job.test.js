@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { JobImporter, baseFromFilename } = require('../lib/import-job');
-const names = require('../../core/names');
-const { Recorder } = require('../../core/recorder');
+const names = require('@subs/core/names');
+const { Recorder } = require('@subs/core/recorder');
 
 function setup() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'subs-import-'));
