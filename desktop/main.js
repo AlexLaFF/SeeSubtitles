@@ -151,6 +151,7 @@ async function startCore() {
   applyLanguage(cfg);
   let creds = null;
   let cloudLive = null;
+  let liveUrls = null;
   let credsError = null;
   if (!cfg.demo) {
     const keys = resolveKeys(cfg);
@@ -166,6 +167,7 @@ async function startCore() {
       // the account uses are measured there rather than reported from here.
       const cc = cloudConfig(cfg);
       cloudLive = { url: cc.url || DEFAULT_CLOUD_URL, token: cc.token };
+      liveUrls = (req) => cloud.liveUrls(req); // only ever reached for an account the server trusts
     } else {
       credsError = 'not logged in — open Settings (⌘,) and log in to seesubtitles.com, or enter your own Tencent keys';
     }
@@ -178,6 +180,9 @@ async function startCore() {
     transcriptsDir: path.join(USER_DATA, 'transcripts'),
     creds,
     cloudLive,
+    liveUrls,
+    // the plan says whether this account may skip the metering; it is false until /api/me has answered
+    directAllowed: () => !!(cloud.plan && cloud.plan.limits && cloud.plan.limits.directLive),
     credsError,
     summary: summaryConfig(cfg),
     demo: cfg.demo,

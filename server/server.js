@@ -268,6 +268,11 @@ async function api(req, res, url, user) {
   // quota an actual limit rather than something the app is asked to respect.
   if (p === '/api/desktop/live-url' && req.method === 'POST') {
     if (!creds) return fail(res, 503, 'the server has no Tencent keys configured');
+    // A direct connection cannot be metered, so it is offered only to accounts that pay the Tencent bill —
+    // administrators. For everyone else the audio goes through /api/desktop/live, where it is counted.
+    if (!entitlements(user).limits.directLive) {
+      return fail(res, 403, 'this account connects through the subtitle server, not directly', { code: 'not_trusted' });
+    }
     const body = await readJson(req, 2e5);
     const source = String(body.source || '');
     const target = String(body.target || '');

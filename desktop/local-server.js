@@ -6,7 +6,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
-const { TranslationStream, RemoteTranslationStream, Transcript, Recorder, schema } = require('@subs/core');
+const { TranslationStream, RemoteTranslationStream, FailoverStream, Transcript, Recorder, schema } = require('@subs/core');
 const names = require('@subs/core/names');
 const { readCues, writeCues } = require('./lib/cues');
 const { fromSrt } = require('@subs/core/plain-text');
@@ -278,7 +278,15 @@ async function createLocalServer(opts) {
       rotateMs: (Number(env.TENCENT_ROTATE_MINUTES) || 290) * 60_000,
       edge: env.TENCENT_EDGE || 'auto',
   };
-  const stream = cloudLive ? new RemoteTranslationStream(cloudLive, streamOpts)
+  // Through the server, which meters the audio — falling back to a direct connection only when the server
+  // cannot be reached and only for an account allowed one (see server/lib/plans.js, directLive).
+  const stream = cloudLive
+    ? new FailoverStream({
+      viaServer: () => new RemoteTranslationStream(cloudLive, streamOpts),
+      direct: opts.liveUrls ? () => new TranslationStream(null, { ...streamOpts, urlFor: opts.liveUrls }) : null,
+      directAllowed: opts.directAllowed || (() => false),
+      log: (t) => log('warn', t),
+    })
     : creds ? new TranslationStream(creds, streamOpts)
       : null;
 

@@ -11,6 +11,11 @@
 # electron-builder finds the Developer ID certificate in the login keychain by itself; set CSC_NAME only
 # if verify-release.js reports that it picked the wrong one.
 set -e
+# Best: keep the credentials in the login keychain, where no editor can overwrite them, and put only the
+# profile name in the file below. Set it up once with:
+#   xcrun notarytool store-credentials seesubtitles --key ~/.config/seesubtitles/AuthKey_XXXXXXXXXX.p8 \
+#     --key-id XXXXXXXXXX --issuer <issuer-uuid>
+# then set APPLE_KEYCHAIN_PROFILE=seesubtitles and delete the other three.
 ENV_FILE="${SEESUBTITLES_NOTARIZE_ENV:-$HOME/.config/seesubtitles/notarize.env}"
 if [ -f "$ENV_FILE" ]; then
   echo "· notarization credentials from $ENV_FILE"
