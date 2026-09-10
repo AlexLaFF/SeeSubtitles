@@ -5,6 +5,10 @@ const PLANS = {
   hobbyist: { name: 'Hobbyist', price: 28, liveHours: 10, fileHours: 5, sharing: false, summaries: false, team: false },
   business: { name: 'Business', price: 88, liveHours: 40, fileHours: 20, sharing: true, summaries: true, team: false },
   enterprise: { name: 'Enterprise', price: 388, liveHours: 200, fileHours: 100, sharing: true, summaries: true, team: true },
+  // Pay as you go (web/site.js RATES): billed per hour actually processed, so there is no monthly cap —
+  // null hours mean unmetered *here* while Quotas.add keeps recording the seconds to invoice from.
+  // Sharing to phones and screens stays a monthly-plan feature; summaries are a priced line item.
+  payg: { name: 'Pay as you go', price: 0, liveHours: null, fileHours: null, sharing: false, summaries: true, team: false },
 };
 const ADMIN = { name: 'Administrator', price: 0, liveHours: null, fileHours: null, sharing: true, summaries: true, team: true };
 const IDS = Object.keys(PLANS);

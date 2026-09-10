@@ -84,6 +84,7 @@
     'plan.hobbyist': ['Hobbyist', '爱好者版'],
     'plan.business': ['Business', '商务版'],
     'plan.enterprise': ['Enterprise', '企业版'],
+    'plan.payg': ['Pay as you go', '按用量付费'],
     'plan.admin': ['Administrator', '管理员'],
     'plan.team': ['Team of an administrator', '管理员的团队'],
     'plan.unlimited': ['no limits', '不限量'],

@@ -7,7 +7,7 @@ const path = require('node:path');
 const { openDb } = require('../lib/db');
 const { createAuth } = require('../lib/auth');
 const { createAccount } = require('../lib/account');
-const { Quotas, PLANS } = require('../lib/plans');
+const { Quotas, PLANS, IDS, limitsOf, planOf } = require('../lib/plans');
 
 test('plans: hobbyist limits, admin unlimited, usage adds up per month, the team lists plans and hours', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plans-'));
@@ -98,4 +98,16 @@ test('pending account requests are counted and listed newest first', () => {
   const p = account.pendingRequests();
   assert.equal(p.count, 2); assert.equal(p.latest[0].email, 'b@example.com'); assert.match(p.latest[1].note, /plan: business/);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('pay as you go is assignable, uncapped and keeps summaries but not sharing', () => {
+  assert.ok(IDS.includes('payg'), 'set-plan validates against IDS, so it must be listed');
+  const l = limitsOf('payg');
+  assert.equal(l.liveHours, null, 'billed per hour actually used, so no monthly cap');
+  assert.equal(l.fileHours, null);
+  assert.equal(l.summaries, true, 'summaries are a priced line item on the rate card');
+  assert.equal(l.sharing, false, 'sharing to phones and screens stays a monthly-plan feature');
+  assert.equal(l.team, false);
+  assert.equal(planOf({ plan: 'payg' }), 'payg', 'must not silently degrade to hobbyist');
+  assert.equal(planOf({ plan: 'nonsense' }), 'hobbyist', 'unknown plans still fall back');
 });
