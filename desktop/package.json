@@ -8,6 +8,8 @@
     "start": "electron .",
     "build:helpers": "node scripts/build-helpers.js",
     "dist": "npm run build:helpers && electron-builder --mac",
+    "release": "sh scripts/release.sh",
+    "verify:release": "node scripts/verify-release.js",
     "test": "node --test test/*.test.js",
     "rename-recordings": "node scripts/rename-recordings.js"
   },

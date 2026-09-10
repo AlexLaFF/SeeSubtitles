@@ -20,5 +20,8 @@ Decided by Alex on 2026-09-10.
 - Never print `.env` values or keys; refer to them by name.
 - Every string goes through the catalog in `web/locales.js` (`t()` / `data-i18n`); `desktop/test/i18n.test.js` checks it.
 - The account is the door in the desktop app: a logged-out app shows only the login card; do not add a login form to Settings.
-- Release: bump `desktop/package.json`, `npm run dist -w desktop`, copy the DMG to `~/Downloads`, publish the four files
+- Release: bump `desktop/package.json`, then `npm run release -w desktop` — it builds, notarizes with the credentials
+  in `~/.config/seesubtitles/notarize.env`, and refuses the build unless Gatekeeper accepts it. **Never publish a build
+  `verify-release.js` rejects**: every release up to 0.6.7 was signed with a development certificate and notarized
+  never, so it opened only on Macs registered to the team. Then copy the DMG to `~/Downloads`, publish the four files
   plus `latest-mac.yml` into the server's `/data/updates`, remove the previous version's files.
