@@ -170,8 +170,10 @@ async function api(req, res, url, user) {
     const kind = body.kind === 'bearer' ? 'bearer' : 'cookie';
     const email = String(body.email || '').trim().toLowerCase();
     if (!attempts.allow(`ip:${clientIp(req)}`) || !attempts.allow(`email:${email}`)) return fail(res, 429, 'too many attempts; try again in a few minutes', { code: 'rate_limited' });
-    const out = auth.login(email, body.password, kind, body.label || req.headers['user-agent']);
+    const out = auth.login(email, body.password, kind, body.label || req.headers['user-agent'], { code: body.code });
     if (!out) return fail(res, 401, 'wrong email or password', { code: 'bad_login' });
+    if (out.totpRequired) return fail(res, 401, 'enter the 6-digit code from your authenticator app', { code: 'totp_required' });
+    if (out.totpBad) return fail(res, 401, 'that code is not right — try again, or use one of your recovery codes', { code: 'totp_bad' });
     log('info', `login ${out.user.email} (${kind})`);
     const extra = kind === 'cookie' ? { 'set-cookie': auth.cookieHeader(out.token, SECURE) } : {};
     return send(res, 200, { ok: true, user: out.user, token: kind === 'bearer' ? out.token : (body.token ? out.token : undefined) }, undefined, extra);
@@ -212,6 +214,11 @@ async function api(req, res, url, user) {
   if (p === '/api/usage') return send(res, 200, await usage.snapshot());
   // account
   if (p === '/api/account/password' && req.method === 'POST') { const body = await readJson(req, 1e4); try { account.changePassword(user, body.current, body.next); return send(res, 200, { ok: true }); } catch (err) { return fail(res, 400, err.message); } }
+  if (p === '/api/account/totp' && req.method === 'GET') return send(res, 200, auth.totpStatus(user.id));
+  if (p === '/api/account/totp/begin' && req.method === 'POST') { try { return send(res, 200, { ok: true, ...auth.beginTotp(user.id) }); } catch (err) { return fail(res, 400, err.message); } }
+  if (p === '/api/account/totp/confirm' && req.method === 'POST') { const body = await readJson(req, 1e4); try { return send(res, 200, { ok: true, ...auth.confirmTotp(user.id, body.code) }); } catch (err) { return fail(res, 400, err.message); } }
+  if (p === '/api/account/totp/disable' && req.method === 'POST') { const body = await readJson(req, 1e4); try { auth.disableTotp(user.id, body.password); return send(res, 200, { ok: true }); } catch (err) { return fail(res, 400, err.message); } }
+  if (p === '/api/account/totp/recovery' && req.method === 'POST') { const body = await readJson(req, 1e4); try { return send(res, 200, { ok: true, codes: auth.regenerateRecovery(user.id, body.password) }); } catch (err) { return fail(res, 400, err.message); } }
   if (p === '/api/account/tokens' && req.method === 'GET') return send(res, 200, account.listTokens(user));
   if (p === '/api/account/tokens/revoke' && req.method === 'POST') { const body = await readJson(req, 1e4); return send(res, 200, { ok: true, revoked: account.revokeTokens(user, { id: body.id, all: !!body.all }) }); }
   // team (Enterprise): the owner adds members, hands them a set-password link, sees their hours

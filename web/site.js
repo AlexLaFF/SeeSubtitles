@@ -1,46 +1,56 @@
-// Website: language toggle (EN / 简), the download link from the latest published build, the QR in the hero,
-// and the request-an-account form.
+// Website: language toggle (EN / 简), the monthly / pay-as-you-go pricing switch, the download link from the
+// latest published build, the QR in the hero, and the request-an-account form.
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
   const T = {
     'zh-Hans': {
       'nav.how': '运作方式', 'nav.where': '适用场合', 'nav.pricing': '价格', 'nav.files': '文件', 'nav.login': '登录', 'nav.download': '下载 Mac 版',
-      'req.title': '账号需申请开通', 'req.body': '没有自助注册。告诉我们你是谁、会为什么加字幕；我们通过邮件回复并为你开通账号。已有账号：<a href="/login">登录</a>。',
-      'price.h2': '价格', 'price.sub': '三个方案。每个方案都包含 Mac 应用、网页版，以及只保存在你 Mac 上的录音。',
-      'price.fine': '价格为每月美元。小时数指每月处理的音频时长，不结转；超出部分实时字幕每小时 $1.50、文件字幕每小时 $0.60，或升级方案。申请账号时说明你想要的方案。',
+      'req.title': '账号需申请开通', 'req.body': '没有自助注册。告诉我们你要为什么加字幕；我们邮件回复并为你开通。已有账号？<a href="/login">登录</a>。',
+      'price.h2': '价格', 'price.sub': '两种付费方式。都包含 Mac 应用、网页版，以及只保存在你 Mac 上的录音。',
+      'price.mode.month': '按月订阅', 'price.mode.payg': '按用量付费',
+      'price.fine.month': '价格为每月美元。小时数指每月处理的音频时长，不结转；超出部分实时字幕每小时 $1.50、文件字幕每小时 $0.60，或升级方案。申请账号时说明你想要的方案。',
+      'price.fine.payg': '只为实际处理的用量付费，没有月费。额度预先购买，不过期；由我们人工开票并在你的账号上设置费率。分享到手机和其他屏幕仍属于按月订阅。',
       'plan.pick': '申请此方案', 'plan.month': '/月', 'plan.contact': '联系我们',
       'hero.h1': '让<em>现场每一个人</em>都看得见字幕。',
-      'hero.p': 'See Subtitles 把粤语讲话实时变成普通话字幕：显示在会场屏幕、幻灯片之上，以及每一部扫码的手机。讲座结束后，录音、完整字幕和摘要都已经准备好。',
-      'cta.download': '下载 macOS 版', 'cta.web': '打开网页版', 'hero.fine': 'macOS 13 或以上、Apple 芯片 · 网页版可在任何浏览器为视频和录音加字幕',
-      'how.h2': '运作方式', 'how.sub': '会场前方一台 Mac。讲者不用改变任何习惯。',
-      'how.1h': '讲', 'how.1p': '讲者身上一支麦克风。App 把声音流式发送到腾讯实时语音翻译，每一句讲完就拿回翻译。',
-      'how.2h': '显示', 'how.2p': '投影机上的显示窗口、幻灯片上的透明覆盖层，或给手机用的分享链接和二维码。竖向字幕条、横向字幕栏、幻灯片上的文字都有预设。',
-      'how.3h': '保存', 'how.3p': '录音从不依赖网络。之后：云端整理的完整字幕、烧录字幕的 MP4，以及一份 PDF 学习摘要。',
+      'hero.p': '粤语进，普通话字幕出——实时显示在会场屏幕、幻灯片之上，以及全场每一部手机。散场时，录音、字幕和摘要都已经在手。',
+      'cta.download': '下载 macOS 版', 'cta.web': '打开网页版', 'hero.fine': 'macOS 13 或以上、Apple 芯片 · 文件字幕可在任何浏览器使用',
+      'how.h2': '运作方式', 'how.sub': '会场前方一台 Mac。讲者什么都不用改。',
+      'how.1h': '讲', 'how.1p': '讲者身上一支麦克风。声音流式发送到腾讯实时语音翻译，每一句讲完就带着译文回来。',
+      'how.2h': '显示', 'how.2p': '投影机上的显示窗口、幻灯片上的透明覆盖层，或给手机扫的二维码。竖向字幕条、横向字幕栏、幻灯片上的文字，都有预设。',
+      'how.3h': '保存', 'how.3p': '录音从不经过网络。之后：云端整理的完整字幕、烧录字幕的 MP4，以及一份 PDF 摘要。',
       'where.h2': '适用场合', 'where.sub': '凡是“跟得上内容”决定了“在场”还是“参与”的场合。',
-      'where.1h': '会议与讲座<small>Conferences and talks</small>', 'where.1p': '会场屏幕、幻灯片和观众席每一部手机，只需一台笔记本电脑。',
+      'where.1h': '会议与讲座<small>Conferences and talks</small>', 'where.1p': '会场屏幕、幻灯片，以及观众席每一部手机——只需一台笔记本电脑。',
       'where.2h': '课堂与工作坊<small>Classes and workshops</small>', 'where.2p': '学生在自己的屏幕上跟读；录音和摘要就是笔记。',
       'where.3h': '会议室<small>Meetings</small>', 'where.3p': '粤语和普通话讲者同处一室，读的是同一行字幕。',
-      'where.4h': '视频与录音<small>Video and audio files</small>', 'where.4p': '把文件拖进网页版：几分钟内有字幕，可以修改字幕，导出 SRT、VTT、纯文本或 MP4。',
-      'room.h2': '为会场而造', 'room.sub': 'App 的每一部分都是在真实讲座中用出来的。',
-      'room.1h': '覆盖在任何屏幕上', 'room.1p': '幻灯片上的透明窗口，可放到每一个屏幕，包括虚拟屏幕，从菜单栏的“字幕”项目操作。',
-      'room.2h': '手机跟读', 'room.2p': '分享链接和二维码；观众自选翻译、原文或双语，以及自己的字体大小。声音从不离开这台 Mac。',
-      'room.3h': '录音不会断', 'room.3p': '讲座进行时 MP3 和字幕文件就在本机写入；断线只会暂停字幕，不会暂停录音。',
-      'room.4h': '云端重新加字幕', 'room.4p': '讲座之后把整段录音一次过识别和翻译，补回断线留下的空白。',
-      'room.5h': '词汇表', 'room.5p': '识别器应该偏向的人名、地名和术语，跟账户一起保存，App 和网页共用。',
+      'where.4h': '视频与录音<small>Video and audio files</small>', 'where.4p': '把文件拖进网页版：几分钟内出字幕。可修改字幕，导出 SRT、VTT、纯文本或 MP4。',
+      'room.h2': '为会场而造', 'room.sub': '这里的每一部分，都是在真实讲座中用出来的。',
+      'room.1h': '覆盖在任何屏幕上', 'room.1p': '幻灯片上的透明窗口，可放到任何屏幕，包括虚拟屏幕，从菜单栏的“字幕”项目操作。',
+      'room.2h': '手机跟读', 'room.2p': '一条链接和一个二维码。观众自选译文、原文或双语，以及自己的字号。声音从不离开这台 Mac。',
+      'room.3h': '录音不会断', 'room.3p': '讲座进行时，MP3 和字幕就在本机写入。断线只会暂停字幕，不会暂停录音。',
+      'room.4h': '云端重新加字幕', 'room.4p': '讲座之后把整段录音一次过重跑，补回断线留下的空白。',
+      'room.5h': '词汇表', 'room.5p': '识别器应该偏向的人名、地名和术语。随账号保存，App 和网页共用。',
       'room.6h': '学习摘要', 'room.6p': '一份可点时间戳的精简摘要，Markdown 或 A4 PDF。',
-      'files.h2': '文件也可以', 'files.sub': '上传最长五小时的视频或录音。选择讲话语言和字幕语言；字幕按标点切分，每行最多 22 字，跟随语音的时间。',
+      'files.h2': '文件也可以', 'files.sub': '上传视频或录音，最长五小时。选择讲话语言和字幕语言；字幕按标点切分，每行最多 22 字，跟随语音时间。',
       'files.open': '打开网页版',
       'start.h2': '已有账号？', 'start.sub': '下载应用，用我们为你开通的邮箱登录。网页版可在任何浏览器处理视频和录音文件。',
       'form.name': '姓名', 'form.email': '邮箱', 'form.org': '机构或活动', 'form.note': '你会为什么加字幕？讲座、课堂、文件……', 'form.submit': '申请账户',
       'form.sent': '已收到。我们会回复到 {email}。', 'form.err': '请填写可以回复的邮箱地址。',
       'foot.download': '下载', 'foot.web': '网页版',
       'dl.version': 'See Subtitles {version} · macOS 13 或以上、Apple 芯片', 'dl.none': '尚未发布可下载的版本；先登录或申请账户。',
+      'rate.free': '免费', 'rate.incl': '已包含', 'rate.each': '/ 份', 'rate.hour': '/ 小时',
+      'rate.note': '<b>按用量付费不含：</b>分享到手机和其他屏幕——二维码、分享链接和可打印海报。这些在按月订阅中。',
+      'rate.cta': '申请按用量付费',
     },
   };
   T.en = {
     'form.sent': 'Thanks. We will reply to {email}.', 'form.err': 'Please give an email address we can reply to.',
     'dl.version': 'See Subtitles {version} · macOS 13 or later, Apple silicon', 'dl.none': 'No build is published for download yet; log in or request an account.',
+    'price.fine.month': 'Prices in US dollars per month. Hours are audio processed each month and do not carry over; extra live hours are $1.50 and extra file hours $0.60, or move up a plan. Say which plan you want when you request an account.',
+    'price.fine.payg': 'Pay only for what you process — no monthly fee. Credit is bought up front and does not expire; we invoice by hand and set the rate on your account. Sharing to phones and other screens stays on the monthly plans.',
+    'rate.free': 'Free', 'rate.incl': 'Included', 'rate.each': '/ each', 'rate.hour': '/ hour',
+    'rate.note': '<b>Not in pay as you go:</b> sharing to phones and other screens — the QR code, the share link and the printable poster. Those are on the monthly plans.',
+    'rate.cta': 'Request pay as you go',
   };
   // English lives in the markup: remember it so the toggle can go back
   const nodes = [...document.querySelectorAll('[data-t]')];
@@ -59,8 +69,17 @@
     try { localStorage.setItem('site.lang', lang); } catch { /* private mode */ }
     renderDownload();
     renderPlans();
+    renderRates();
+    applyMode();
   }
   $('lang').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setLang(b.dataset.lang); });
+
+  // jump to the request form with the plan (or the pay-as-you-go rate) already chosen
+  function requestWith(plan) {
+    const form = $('req'); form.dataset.plan = plan;
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => form.querySelector('input[name=name]').focus({ preventScroll: true }), 500);
+  }
 
   // the plans: prices in USD per month; the feature lines carry both languages
   const PLANS = [
@@ -113,11 +132,67 @@
       const ul = document.createElement('ul');
       for (const l of p.lines) { const li = document.createElement('li'); if (l.no) li.className = 'no'; li.textContent = zh ? l.zh : l.en; ul.appendChild(li); }
       const b = document.createElement('a'); b.href = '#req'; b.className = `btn ${p.best ? 'primary' : ''}`; b.textContent = zh ? (p.from ? '联系我们' : '申请此方案') : (p.from ? 'Talk to us' : 'Request this plan');
-      b.addEventListener('click', (e) => { e.preventDefault(); const form = $('req'); form.dataset.plan = p.id; form.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => form.querySelector('input[name=name]').focus({ preventScroll: true }), 500); });
+      b.addEventListener('click', (e) => { e.preventDefault(); requestWith(p.id); });
       card.append(h, price, f, ul, b);
       box.appendChild(card);
     }
   }
+
+  // pay as you go: a price per hour of audio, charged only on what is actually processed.
+  // `cny` is the rounded yuan equivalent shown on the Chinese page.
+  const RATES = [
+    { en: 'Live subtitles', zh: '实时字幕', unitEn: 'per hour of speech, on the venue screen or over your slides', unitZh: '每小时讲话，显示在会场屏幕或幻灯片上', usd: 3.00, cny: 21, per: 'hour' },
+    { en: 'File subtitling', zh: '文件字幕', unitEn: 'per hour of uploaded video or audio', unitZh: '每小时上传的视频或录音', usd: 0.90, cny: 6.5, per: 'hour' },
+    { en: 'Cloud re-subtitling', zh: '云端重新加字幕', unitEn: 'per hour of recording, run again in one pass', unitZh: '每小时录音，整段重跑一次', usd: 0.90, cny: 6.5, per: 'hour' },
+    { en: 'AI summary', zh: 'AI 摘要', unitEn: 'each, as Markdown or an A4 PDF', unitZh: '每份，Markdown 或 A4 PDF', usd: 0.75, cny: 5.4, per: 'each' },
+    { en: 'MP4 with burned-in subtitles', zh: '烧录字幕的 MP4', unitEn: 'per hour of video, in the web app — free on the Mac', unitZh: '每小时视频，网页版——在 Mac 上免费', usd: 0.50, cny: 3.6, per: 'hour' },
+    { en: 'MP3, SRT, VTT and plain text', zh: 'MP3、SRT、VTT 和纯文本', unitEn: 'written on your Mac as the talk runs', unitZh: '讲座进行时就在你的 Mac 上写入', free: true },
+    { en: 'Display window, overlay, glossary, recordings', zh: '显示窗口、悬浮字幕、词汇表、录音', unitEn: 'the app itself, at no charge', unitZh: '应用本身，不收费', incl: true },
+  ];
+  function renderRates() {
+    const box = $('rates'); if (!box) return;
+    box.innerHTML = '';
+    const zh = lang === 'zh-Hans';
+    for (const r of RATES) {
+      const row = document.createElement('div'); row.className = 'r';
+      const left = document.createElement('div');
+      const b = document.createElement('b'); b.textContent = zh ? r.zh : r.en;
+      const s = document.createElement('small'); s.textContent = zh ? r.unitZh : r.unitEn;
+      left.append(b, s);
+      const amt = document.createElement('div'); amt.className = 'amt';
+      if (r.free || r.incl) { amt.classList.add('free'); amt.textContent = msg(r.free ? 'rate.free' : 'rate.incl'); }
+      else {
+        amt.textContent = `$${r.usd.toFixed(2)}`;
+        const per = document.createElement('small');
+        per.textContent = msg(r.per === 'each' ? 'rate.each' : 'rate.hour') + (zh ? ` · 约 ¥${r.cny}` : '');
+        amt.appendChild(per);
+      }
+      row.append(left, amt);
+      box.appendChild(row);
+    }
+    const note = document.createElement('div'); note.className = 'note'; note.innerHTML = msg('rate.note');
+    const go = document.createElement('div'); go.className = 'go';
+    const a = document.createElement('a'); a.href = '#req'; a.className = 'btn primary'; a.textContent = msg('rate.cta');
+    a.addEventListener('click', (e) => { e.preventDefault(); requestWith('payg'); });
+    go.appendChild(a);
+    box.append(note, go);
+  }
+
+  // monthly / pay as you go
+  let mode = 'month';
+  function applyMode() {
+    $('plans').hidden = mode !== 'month';
+    $('rates').hidden = mode !== 'payg';
+    $('priceFine').textContent = msg(mode === 'month' ? 'price.fine.month' : 'price.fine.payg');
+    for (const b of $('modes').querySelectorAll('button')) b.classList.toggle('on', b.dataset.mode === mode);
+  }
+  $('modes').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    mode = b.dataset.mode;
+    try { localStorage.setItem('site.mode', mode); } catch { /* private mode */ }
+    applyMode();
+  });
+  try { mode = localStorage.getItem('site.mode') === 'payg' ? 'payg' : 'month'; } catch { /* none */ }
 
   // the download link: the newest build published on this server
   let release = null;

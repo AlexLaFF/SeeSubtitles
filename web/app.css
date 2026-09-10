@@ -57,6 +57,10 @@ body.app .chip { display: inline-flex; align-items: center; gap: 7px; }
 body.app .chip.ok { color: var(--fg); } body.app .chip.bad { color: var(--bad); }
 body.app .dot, body.app .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-3); display: inline-block; flex: none; }
 body.app .chip.ok .dot, body.app .pill.done .dot { background: var(--ok); } body.app .chip.warn .dot { background: var(--warn); } body.app .chip.bad .dot, body.app .pill.failed .dot { background: var(--bad); } body.app .pill.live .dot { background: var(--rec); }
+body.app .codes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; max-width: 480px; }
+body.app .codes code { font: 13.5px/1.6 var(--mono); background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; text-align: center; letter-spacing: .02em; }
+body.app .qr { background: #fff; padding: 10px; border-radius: 10px; width: 168px; height: 168px; box-sizing: content-box; }
+body.app .qr svg { width: 168px; height: 168px; display: block; }
 body.app .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
 body.app .stat { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 12px 14px; background: var(--surface); }
 body.app .stat .k { color: var(--fg-3); font-size: 12px; }
@@ -73,7 +77,8 @@ body.app .sticky { display: flex; align-items: center; gap: 8px; }
 /* log in: the statement beside the card */
 body.app .auth { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; }
 body.app .auth .left { background: var(--side); border-right: 1px solid var(--line); padding: 48px 56px; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; }
-body.app .auth .brand { display: flex; align-items: center; gap: 10px; }
+body.app .auth .brand { display: flex; align-items: center; gap: 10px; align-self: flex-start; color: var(--fg); text-decoration: none; }
+body.app .auth a.brand:hover { color: var(--accent-text); }
 body.app .auth .brand svg { width: 28px; height: 28px; border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
 body.app .auth .brand span { font: italic 400 26px/1 var(--display); }
 body.app .auth h1 { margin: auto 0 0; font: 600 34px/1.15 var(--ui); letter-spacing: -.02em; max-width: 520px; }

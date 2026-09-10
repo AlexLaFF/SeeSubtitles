@@ -53,6 +53,7 @@
     const msg = el('span', { class: 'hint' });
     s.append(row(t('acct.current'), cur), row(t('acct.new'), next, el('span', { class: 'hint' }, t('acct.atLeast'))), row(t('acct.repeat'), again), row('', btn, msg));
     s.appendChild(hint(t('acct.securityHint')));
+    renderTotp(s);
     btn.onclick = async () => {
       msg.textContent = '';
       if (next.value !== again.value) { msg.textContent = t('acct.differ'); return; }
@@ -61,6 +62,73 @@
       catch (err) { msg.textContent = err.message; }
       btn.disabled = false;
     };
+  }
+
+  // ---- two-factor authentication (TOTP): a code from a password manager, plus one-time recovery codes
+  function renderTotp(host) {
+    const box = el('div');
+    host.appendChild(box);
+    const pwRow = (label, onOk) => {
+      // actions that weaken the account ask for the password again, so a borrowed session cannot do them
+      const pw = el('input', { type: 'password', autocomplete: 'current-password' });
+      const go = el('button', { class: 'small' }, label);
+      const msg = el('span', { class: 'hint' });
+      go.onclick = async () => { msg.textContent = ''; go.disabled = true; try { await onOk(pw.value); } catch (err) { msg.textContent = err.message; } go.disabled = false; };
+      return row(t('acct.totpPassword'), pw, go, msg);
+    };
+    const showCodes = (codes) => {
+      box.innerHTML = '';
+      box.appendChild(row(t('acct.recoveryTitle'), el('span', { class: 'hint' }, t('acct.recoveryShown'))));
+      const list = el('div', { class: 'codes' });
+      for (const c of codes) list.appendChild(el('code', {}, c));
+      box.appendChild(row('', list));
+      box.appendChild(row('', copyBtn(codes.join('\n'), t('acct.copyAll')), (() => { const b = el('button', { class: 'small' }, t('common.ok')); b.onclick = draw; return b; })()));
+    };
+
+    async function draw() {
+      box.innerHTML = '';
+      const st = await api('/api/account/totp').catch(() => null);
+      if (!st) return;
+      const status = dotChip(st.enabled ? 'ok' : '', st.enabled ? t('acct.twoFactorOn') : t('acct.twoFactorOff'));
+      if (st.enabled) {
+        const off = el('button', { class: 'small' }, t('acct.totpTurnOff'));
+        const fresh = el('button', { class: 'small' }, t('acct.recoveryNew'));
+        box.appendChild(row(t('acct.twoFactor'), status, fresh, off));
+        box.appendChild(row('', el('span', { class: 'hint' }, t('acct.recoveryLeft', { n: st.recoveryLeft, total: st.recoveryTotal }))));
+        box.appendChild(hint(t('acct.twoFactorHint')));
+        fresh.onclick = () => { box.innerHTML = ''; box.appendChild(row(t('acct.twoFactor'), status)); box.appendChild(pwRow(t('acct.recoveryNew'), async (password) => { const r = await api('/api/account/totp/recovery', { password }); showCodes(r.codes); })); };
+        off.onclick = () => { box.innerHTML = ''; box.appendChild(row(t('acct.twoFactor'), status)); box.appendChild(pwRow(t('acct.totpTurnOff'), async (password) => { await api('/api/account/totp/disable', { password }); draw(); })); };
+        return;
+      }
+      const on = el('button', { class: 'small' }, t('acct.totpTurnOn'));
+      box.appendChild(row(t('acct.twoFactor'), status, on));
+      box.appendChild(hint(t('acct.twoFactorHint')));
+      on.onclick = async () => {
+        on.disabled = true;
+        let started;
+        try { started = await api('/api/account/totp/begin', {}); } catch (err) { alertBox(err.message); on.disabled = false; return; }
+        box.innerHTML = '';
+        const qr = el('div', { class: 'qr' });
+        try { const q = qrcode(0, 'M'); q.addData(started.url); q.make(); qr.innerHTML = q.createSvgTag({ cellSize: 4, margin: 1, scalable: true }); }
+        catch { qr.appendChild(el('span', { class: 'hint' }, started.secret)); }
+        const code = el('input', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6', spellcheck: 'false' });
+        const ok = el('button', { class: 'small' }, t('acct.totpConfirm'));
+        const cancel = el('button', { class: 'small' }, t('common.cancel'));
+        const msg = el('span', { class: 'hint' });
+        box.appendChild(row(t('acct.twoFactor'), el('span', { class: 'hint' }, t('acct.totpScan'))));
+        box.appendChild(row('', qr));
+        box.appendChild(row(t('acct.totpSecret'), el('code', {}, started.secret), copyBtn(started.secret)));
+        box.appendChild(row(t('settings.totpCode'), code, ok, cancel, msg));
+        code.focus();
+        cancel.onclick = draw;
+        ok.onclick = async () => {
+          msg.textContent = ''; ok.disabled = true;
+          try { const r = await api('/api/account/totp/confirm', { code: code.value }); showCodes(r.codes); }
+          catch (err) { msg.textContent = err.message; ok.disabled = false; code.select(); }
+        };
+      };
+    }
+    draw();
   }
 
   // ---- devices

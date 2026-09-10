@@ -33,8 +33,15 @@ These are understood and deliberate; they do not need reporting.
   the app receives short-lived credentials instead.
 - **Plan quotas are enforced by the app**, so an account holder can bypass them. Treat them as guidance
   for cooperating users, not as a security control.
-- **Accounts are a single factor.** There is no TOTP or hardware-key support yet. Use a long unique
-  password, especially on a server that hands out keys.
+- **Two-factor authentication is optional, not enforced.** Accounts can turn on TOTP under
+  Account › Security, with ten one-time recovery codes. A server that hands out Tencent keys should
+  have it on for every account. There is no hardware-key (WebAuthn) support yet.
+- **A second factor guards login, not a session.** Bearer tokens last 90 days, so a token already
+  issued to a machine keeps working, and `/api/desktop/credentials` still answers it. Two-factor
+  raises the cost of taking over an account; it does not protect the keys already on a logged-in Mac.
+- **Losing the phone and the recovery codes means the account is stuck.** A password-reset link does
+  not clear TOTP by design, so whoever runs the server has to clear `users.totp_secret` for that
+  account by hand.
 
 ## Running your own server
 

@@ -53,17 +53,27 @@
     const pass = el('input', { type: 'password', autocomplete: 'current-password' });
     const invite = el('input', { type: 'text', autocomplete: 'off', placeholder: t('settings.invitePh') });
     const inviteRow = fld(t('settings.invite'), invite); inviteRow.hidden = true;
+    const code = el('input', { type: 'text', autocomplete: 'one-time-code', inputmode: 'numeric', maxlength: '20', spellcheck: 'false' });
+    const codeRow = fld(t('settings.totpCode'), code); codeRow.hidden = true;
+    const codeHint = el('div', { class: 'hint', hidden: '' }, t('web.login.totpHint'));
+    let needCode = false;
     const err = el('div', { class: 'alert', hidden: '' });
     const btn = el('button', { class: 'primary' }, t('settings.login'));
     const toggle = el('a', { href: '#' }, t('wel.haveInvite'));
     let creating = false;
     const labelBtn = () => { btn.textContent = creating ? t('settings.createAccount') : t('settings.login'); };
-    toggle.addEventListener('click', (e) => { e.preventDefault(); creating = !creating; inviteRow.hidden = !creating; labelBtn(); toggle.textContent = creating ? t('wel.haveAccount') : t('wel.haveInvite'); pass.autocomplete = creating ? 'new-password' : 'current-password'; });
+    toggle.addEventListener('click', (e) => { e.preventDefault(); creating = !creating; inviteRow.hidden = !creating; codeRow.hidden = creating || !needCode; codeHint.hidden = creating || !needCode; labelBtn(); toggle.textContent = creating ? t('wel.haveAccount') : t('wel.haveInvite'); pass.autocomplete = creating ? 'new-password' : 'current-password'; });
     const submit = async () => {
       if (!d) { err.textContent = t('wel.appOnly'); err.hidden = false; return; }
       err.hidden = true; btn.disabled = true; btn.textContent = creating ? t('settings.creating') : t('settings.loggingIn');
       try {
-        const r = await d.cloud({ action: creating ? 'signup' : 'login', email: email.value.trim(), password: pass.value, invite: invite.value.trim() });
+        const r = await d.cloud({ action: creating ? 'signup' : 'login', email: email.value.trim(), password: pass.value, invite: invite.value.trim(), code: code.value.trim() });
+        if (r && r.totp) { // the account has a second factor: ask for the code and submit again
+          needCode = true; codeRow.hidden = false; codeHint.hidden = false;
+          if (r.totp === 'totp_bad') { err.textContent = t('err.totp_bad'); err.hidden = false; code.select(); } else code.focus();
+          btn.disabled = false; labelBtn();
+          return;
+        }
         cfg = await d.getConfig();
         App.setLocked(false);
         if (r.keys && String(r.keys).startsWith('unavailable')) { err.textContent = t('wel.keysUnavailable', { status: r.keys }); err.hidden = false; }
@@ -72,8 +82,8 @@
       } catch (e) { err.textContent = String(e.message || e).replace(/^.*Error: /, ''); err.hidden = false; btn.disabled = false; labelBtn(); }
     };
     btn.addEventListener('click', submit);
-    for (const i of [email, pass, invite]) i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    card.append(fld(t('settings.email'), email), fld(t('settings.password'), pass), inviteRow, err, btn, toggle);
+    for (const i of [email, pass, invite, code]) i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    card.append(fld(t('settings.email'), email), fld(t('settings.password'), pass), inviteRow, codeRow, codeHint, err, btn, toggle);
     setTimeout(() => (email.value ? pass : email).focus(), 0);
   }
 

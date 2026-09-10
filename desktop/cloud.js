@@ -91,7 +91,7 @@ class CloudLink {
       const text = await res.text();
       let json = null;
       try { json = text ? JSON.parse(text) : null; } catch { /* non-JSON */ }
-      if (!res.ok) throw new Error((json && json.error) || `${res.status} ${res.statusText}`);
+      if (!res.ok) { const err = new Error((json && json.error) || `${res.status} ${res.statusText}`); if (json && json.code) err.code = json.code; throw err; }
       return json;
     } finally { clearTimeout(t); }
   }
@@ -142,9 +142,9 @@ class CloudLink {
     this.cfg.url = clean;
     return clean;
   }
-  async login(url, email, password) {
+  async login(url, email, password, code = '') {
     const clean = this._useUrl(url);
-    const r = await this._fetch('/api/login', { email, password, kind: 'bearer', label: 'See Subtitles desktop app' }, { auth: false });
+    const r = await this._fetch('/api/login', { email, password, code, kind: 'bearer', label: 'See Subtitles desktop app' }, { auth: false });
     if (!r || !r.token) throw new Error('login did not return a token');
     this.cfg.token = r.token;
     this.cfg.email = email;

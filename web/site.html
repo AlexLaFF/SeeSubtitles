@@ -4,26 +4,28 @@
 <meta charset="utf-8">
 <title>See Subtitles — live Cantonese to Mandarin subtitles for everyone in the room</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="See Subtitles turns Cantonese speech into Mandarin subtitles as it is spoken: on the venue screen, over the slides, and on every phone that scans a code. Recordings, complete subtitles and a summary afterwards; video and audio files subtitled in minutes.">
+<meta name="description" content="Cantonese in, Mandarin subtitles out — live on the venue screen, over your slides and on every phone. Walk out with the recording, the subtitles and a summary. Video and audio files subtitled in minutes.">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/tokens.css">
 <link rel="stylesheet" href="/site.css">
 </head>
 <body class="site">
 <header class="nav">
-  <a class="brand" href="/"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span class="w">See Subtitles</span></a>
-  <nav class="links"><a href="#how" data-t="nav.how">How it works</a><a href="#where" data-t="nav.where">Where it helps</a><a href="#pricing" data-t="nav.pricing">Pricing</a><a href="#files" data-t="nav.files">Files</a></nav>
-  <a class="login" href="/login" data-t="nav.login">Log in</a>
-  <a class="btn primary dl" href="/login" data-t="nav.download" hidden>Download for Mac</a>
+  <div class="wrap">
+    <a class="brand" href="/"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span class="w">See Subtitles</span></a>
+    <nav class="links"><a href="#how" data-t="nav.how">How it works</a><a href="#where" data-t="nav.where">Where it helps</a><a href="#pricing" data-t="nav.pricing">Pricing</a><a href="#files" data-t="nav.files">Files</a></nav>
+    <a class="login" href="/login" data-t="nav.login">Log in</a>
+    <a class="btn primary dl" href="/login" data-t="nav.download" hidden>Download for Mac</a>
+  </div>
 </header>
 
 <section class="hero">
   <div class="copy">
     <h1 data-t="hero.h1" data-html>Subtitles for <em>everyone</em> in the room.</h1>
-    <p data-t="hero.p">See Subtitles turns Cantonese speech into Mandarin subtitles as it is spoken: on the venue screen, over the slides, and on every phone that scans a code. When the talk ends you have the recording, the complete subtitles and a summary.</p>
+    <p data-t="hero.p">Cantonese in, Mandarin subtitles out — live on the venue screen, over your slides, and on every phone in the room. Walk out with the recording, the subtitles and a summary.</p>
     <div class="reqcard">
       <b data-t="req.title">Accounts are by request</b>
-      <p data-t="req.body">There is no self-service sign-up. Tell us who you are and what you will subtitle; we reply by email and set the account up. Existing users: <a href="/login">log in</a>.</p>
+      <p data-t="req.body">No self-service sign-up. Tell us what you will subtitle; we reply by email and set you up. Already have one? <a href="/login">Log in</a>.</p>
       <form class="form" id="req">
         <input type="text" name="name" data-t="form.name" data-attr="placeholder" placeholder="Name" maxlength="80" autocomplete="name">
         <input type="email" name="email" data-t="form.email" data-attr="placeholder" placeholder="Email" required maxlength="120" autocomplete="email">
@@ -33,7 +35,7 @@
         <button class="btn primary wide" type="submit" id="reqBtn" data-t="form.submit">Request an account</button>
       </form>
     </div>
-    <div class="fine" id="fine" data-t="hero.fine">macOS 13 or later, Apple silicon · the web app subtitles video and audio files in any browser</div>
+    <div class="fine" id="fine" data-t="hero.fine">macOS 13 or later, Apple silicon · files work in any browser</div>
   </div>
   <div class="vis" aria-hidden="true">
     <div class="stage"><div class="l old">首先是现场的观众，他们可以用手机扫二维码。</div><div class="l">今天我们会讲一下如何用字幕帮助更多人参与会议。<span class="s">今日我哋会讲吓点样用字幕帮助更多人参与会议。</span></div></div>
@@ -43,81 +45,100 @@
 </section>
 
 <section class="sec paper" id="how">
-  <h2 data-t="how.h2">How it works</h2>
-  <p class="sub" data-t="how.sub">One Mac at the front of the room. The person speaking does nothing differently.</p>
-  <div class="steps">
-    <div><div class="n">1</div><h3 data-t="how.1h">Speak</h3><p data-t="how.1p">A microphone on the speaker. The app streams the audio to Tencent 实时语音翻译 and gets each sentence back, translated, as it finishes.</p></div>
-    <div><div class="n">2</div><h3 data-t="how.2h">Show</h3><p data-t="how.2p">A Display window on the projector, a transparent Overlay on the slides, or the share link and QR code for phones. Presets for a portrait strip, a landscape bar, or text over slides.</p></div>
-    <div><div class="n">3</div><h3 data-t="how.3h">Keep</h3><p data-t="how.3p">Recording never depends on the network. Afterwards: a complete set of subtitles from the cloud, an MP4 with the text burned in, and a learning summary as a PDF.</p></div>
+  <div class="wrap">
+    <h2 data-t="how.h2">How it works</h2>
+    <p class="sub" data-t="how.sub">One Mac at the front of the room. The speaker changes nothing.</p>
+    <div class="steps">
+      <div><div class="n">1</div><h3 data-t="how.1h">Speak</h3><p data-t="how.1p">A mic on the speaker. Audio streams to Tencent 实时语音翻译 and each sentence comes back translated the moment it lands.</p></div>
+      <div><div class="n">2</div><h3 data-t="how.2h">Show</h3><p data-t="how.2p">A Display window on the projector, a transparent Overlay on your slides, or a QR code for phones. Portrait strip, landscape bar, or text over slides.</p></div>
+      <div><div class="n">3</div><h3 data-t="how.3h">Keep</h3><p data-t="how.3p">Recording never touches the network. Afterwards: clean subtitles from the cloud, an MP4 with the text burned in, a PDF summary.</p></div>
+    </div>
   </div>
 </section>
 
 <section class="sec" id="where">
-  <h2 data-t="where.h2">Where it helps</h2>
-  <p class="sub" data-t="where.sub">Any situation where following the words is the difference between attending and taking part.</p>
-  <div class="cards4">
-    <div><h3 data-t="where.1h">Conferences and talks<small>会议・讲座</small></h3><p data-t="where.1p">The venue screen, the slides, and every phone in the audience, from one laptop.</p></div>
-    <div><h3 data-t="where.2h">Classes and workshops<small>课堂・工作坊</small></h3><p data-t="where.2p">Students follow on their own screens; the recording and summary become the notes.</p></div>
-    <div><h3 data-t="where.3h">Meetings<small>会议室</small></h3><p data-t="where.3p">A meeting room with a mix of Cantonese and Mandarin speakers reads the same subtitle line.</p></div>
-    <div><h3 data-t="where.4h">Video and audio files<small>视频・录音</small></h3><p data-t="where.4p">Drop a file in the web app: subtitles in minutes, edit the cues, export SRT, VTT, text or MP4.</p></div>
+  <div class="wrap">
+    <h2 data-t="where.h2">Where it helps</h2>
+    <p class="sub" data-t="where.sub">Anywhere following the words is the difference between attending and taking part.</p>
+    <div class="cards4">
+      <div><h3 data-t="where.1h">Conferences and talks<small>会议・讲座</small></h3><p data-t="where.1p">The venue screen, the slides and every phone in the audience — from one laptop.</p></div>
+      <div><h3 data-t="where.2h">Classes and workshops<small>课堂・工作坊</small></h3><p data-t="where.2p">Students follow on their own screens. The recording and summary become the notes.</p></div>
+      <div><h3 data-t="where.3h">Meetings<small>会议室</small></h3><p data-t="where.3p">Cantonese and Mandarin speakers in one room, reading the same line.</p></div>
+      <div><h3 data-t="where.4h">Video and audio files<small>视频・录音</small></h3><p data-t="where.4p">Drop a file in the web app: subtitles in minutes. Edit the cues, export SRT, VTT, text or MP4.</p></div>
+    </div>
   </div>
 </section>
 
 <section class="sec paper" id="room">
-  <h2 data-t="room.h2">Made for the room</h2>
-  <p class="sub" data-t="room.sub">Every part of the app was shaped by running it at real talks.</p>
-  <div class="feat">
-    <div><i>1</i><span><b data-t="room.1h">Overlay on any display</b><span data-t="room.1p">Transparent window over the slides, placeable on every screen, including virtual ones, from the 字幕 menu bar item.</span></span></div>
-    <div><i>2</i><span><b data-t="room.2h">Phones follow along</b><span data-t="room.2p">A share link and QR code; attendees choose translation, original or both and their own text size. Audio never leaves the Mac.</span></span></div>
-    <div><i>3</i><span><b data-t="room.3h">Recording that cannot drop</b><span data-t="room.3p">MP3 and subtitle files are written locally while the talk runs; a lost connection pauses subtitles, not the recording.</span></span></div>
-    <div><i>4</i><span><b data-t="room.4h">Re-subtitle via cloud</b><span data-t="room.4p">After the talk, the whole recording is recognised and translated in one pass, filling any holes a connection drop left.</span></span></div>
-    <div><i>5</i><span><b data-t="room.5h">Glossary</b><span data-t="room.5p">Names, places and terms the recogniser should favour, kept with your account and shared between the app and the web.</span></span></div>
-    <div><i>6</i><span><b data-t="room.6h">Learning summary</b><span data-t="room.6p">A concise summary with clickable timestamps, as Markdown or an A4 PDF.</span></span></div>
+  <div class="wrap">
+    <h2 data-t="room.h2">Made for the room</h2>
+    <p class="sub" data-t="room.sub">Every part of this was shaped by running it at real talks.</p>
+    <div class="feat">
+      <div><i>1</i><span><b data-t="room.1h">Overlay on any display</b><span data-t="room.1p">A transparent window over your slides, on any screen including virtual ones, from the 字幕 menu bar item.</span></span></div>
+      <div><i>2</i><span><b data-t="room.2h">Phones follow along</b><span data-t="room.2p">A link and a QR code. Attendees pick translation, original or both, and their own text size. Audio never leaves the Mac.</span></span></div>
+      <div><i>3</i><span><b data-t="room.3h">Recording that cannot drop</b><span data-t="room.3p">MP3 and subtitles are written locally as the talk runs. A lost connection pauses subtitles, never the recording.</span></span></div>
+      <div><i>4</i><span><b data-t="room.4h">Re-subtitle via cloud</b><span data-t="room.4p">Afterwards, run the whole recording through in one pass and fill any gap the connection left.</span></span></div>
+      <div><i>5</i><span><b data-t="room.5h">Glossary</b><span data-t="room.5p">Names, places and terms the recogniser should favour. Kept with your account, shared by the app and the web.</span></span></div>
+      <div><i>6</i><span><b data-t="room.6h">Learning summary</b><span data-t="room.6p">A concise summary with clickable timestamps, as Markdown or an A4 PDF.</span></span></div>
+    </div>
   </div>
 </section>
 
 <section class="sec" id="files">
-  <div class="two">
-    <div>
-      <h2 data-t="files.h2">Files, too</h2>
-      <p class="sub" data-t="files.sub">Upload a video or audio file up to five hours. Choose the spoken language and the subtitle language; the cues arrive split at punctuation, at most 22 characters a line, with the timing of the speech.</p>
-      <div class="cta"><a class="btn primary" href="/login" data-t="files.open">Open the web app</a></div>
-    </div>
-    <div class="cues" aria-hidden="true">
-      <div><span>00:15:48</span><div>大家好，欢迎来到今天的分享。<small>大家好，欢迎嚟到今日嘅分享。</small></div></div>
-      <div><span>00:15:52</span><div>今天我们会讲一下如何用字幕帮助更多人参与会议。<small>今日我哋会讲吓点样用字幕帮助更多人参与会议。</small></div></div>
-      <div><span>00:15:59</span><div>首先是现场的观众，他们可以用手机扫二维码。<small>首先係现场嘅观众，佢哋可以用手机扫个二维码。</small></div></div>
+  <div class="wrap">
+    <div class="two">
+      <div>
+        <h2 data-t="files.h2">Files, too</h2>
+        <p class="sub" data-t="files.sub">Upload video or audio, up to five hours. Pick the spoken and subtitle languages; cues come back split at punctuation, 22 characters a line, timed to the speech.</p>
+        <div class="cta"><a class="btn primary" href="/login" data-t="files.open">Open the web app</a></div>
+      </div>
+      <div class="cues" aria-hidden="true">
+        <div><span>00:15:48</span><div>大家好，欢迎来到今天的分享。<small>大家好，欢迎嚟到今日嘅分享。</small></div></div>
+        <div><span>00:15:52</span><div>今天我们会讲一下如何用字幕帮助更多人参与会议。<small>今日我哋会讲吓点样用字幕帮助更多人参与会议。</small></div></div>
+        <div><span>00:15:59</span><div>首先是现场的观众，他们可以用手机扫二维码。<small>首先係现场嘅观众，佢哋可以用手机扫个二维码。</small></div></div>
+      </div>
     </div>
   </div>
 </section>
 
 <section class="sec" id="pricing">
-  <h2 data-t="price.h2">Pricing</h2>
-  <p class="sub" data-t="price.sub">Three plans. Every plan includes the Mac app, the web app and recordings that never leave your Mac.</p>
-  <div class="plans" id="plans"></div>
-  <p class="fine c" data-t="price.fine">Prices in US dollars per month. Hours are of audio processed each month and do not carry over; extra live hours are $1.50 each and extra file hours $0.60 each, or move up a plan. Request an account and say which plan you want.</p>
+  <div class="wrap">
+    <h2 data-t="price.h2">Pricing</h2>
+    <p class="sub" data-t="price.sub">Two ways to pay. Both include the Mac app, the web app, and recordings that never leave your Mac.</p>
+    <div class="modes" id="modes">
+      <button type="button" data-mode="month" data-t="price.mode.month">Monthly</button>
+      <button type="button" data-mode="payg" data-t="price.mode.payg">Pay as you go</button>
+    </div>
+    <div class="plans" id="plans"></div>
+    <div class="rates" id="rates" hidden></div>
+    <p class="fine c" id="priceFine"></p>
+  </div>
 </section>
 
 <section class="sec paper" id="start">
-  <div class="two">
-    <div>
-      <h2 data-t="start.h2">Already have an account?</h2>
-      <p class="sub" data-t="start.sub">Download the app and log in with the address we set up for you. The web app takes video and audio files from any browser.</p>
-      <div class="cta"><a class="btn primary big dl" href="/login" data-t="cta.download">Download for macOS</a><a class="btn ghost big" href="/login" data-t="cta.web">Open the web app</a></div>
-      <div class="fine" id="fine2"></div>
-    </div>
-    <div class="cues" aria-hidden="true">
-      <div><span>00:15:48</span><div>大家好，欢迎来到今天的分享。<small>大家好，欢迎嚟到今日嘅分享。</small></div></div>
-      <div><span>00:15:52</span><div>今天我们会讲一下如何用字幕帮助更多人参与会议。<small>今日我哋会讲吓点样用字幕帮助更多人参与会议。</small></div></div>
+  <div class="wrap">
+    <div class="two">
+      <div>
+        <h2 data-t="start.h2">Already have an account?</h2>
+        <p class="sub" data-t="start.sub">Download the app and log in with the address we set up. The web app takes video and audio files from any browser.</p>
+        <div class="cta"><a class="btn primary big dl" href="/login" data-t="cta.download">Download for macOS</a><a class="btn ghost big" href="/login" data-t="cta.web">Open the web app</a></div>
+        <div class="fine" id="fine2"></div>
+      </div>
+      <div class="cues" aria-hidden="true">
+        <div><span>00:15:48</span><div>大家好，欢迎来到今天的分享。<small>大家好，欢迎嚟到今日嘅分享。</small></div></div>
+        <div><span>00:15:52</span><div>今天我们会讲一下如何用字幕帮助更多人参与会议。<small>今日我哋会讲吓点样用字幕帮助更多人参与会议。</small></div></div>
+      </div>
     </div>
   </div>
 </section>
 
 <footer class="foot">
-  <div class="brand"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span>See Subtitles · 看字幕</span></div>
-  <a class="dl" href="#start" data-t="foot.download">Download</a>
-  <a href="/login" data-t="foot.web">Web app</a>
-  <span class="lang" id="lang"><button data-lang="en">EN</button>·<button data-lang="zh-Hans">简</button></span>
+  <div class="wrap">
+    <div class="brand"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span>See Subtitles · 看字幕</span></div>
+    <a class="dl" href="#start" data-t="foot.download">Download</a>
+    <a href="/login" data-t="foot.web">Web app</a>
+    <span class="lang" id="lang"><button data-lang="en">EN</button>·<button data-lang="zh-Hans">简</button></span>
+  </div>
 </footer>
 <script src="/vendor/qrcode.js"></script>
 <script src="/site.js"></script>

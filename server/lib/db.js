@@ -19,6 +19,14 @@ CREATE TABLE IF NOT EXISTS tokens (
   created_at INTEGER NOT NULL,
   last_used INTEGER
 );
+CREATE TABLE IF NOT EXISTS recovery_codes (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash TEXT NOT NULL,       -- scrypt, same format as pass_hash
+  created_at INTEGER NOT NULL,
+  used_at INTEGER                -- null until the code is spent; each code works once
+);
+CREATE INDEX IF NOT EXISTS recovery_codes_user ON recovery_codes(user_id);
 CREATE TABLE IF NOT EXISTS live_sessions (
   id TEXT PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
@@ -96,6 +104,8 @@ const MIGRATIONS = [
   ['live_sessions', 'total_viewers', 'ALTER TABLE live_sessions ADD COLUMN total_viewers INTEGER NOT NULL DEFAULT 0'],
   ['users', 'plan', "ALTER TABLE users ADD COLUMN plan TEXT NOT NULL DEFAULT 'hobbyist'"], // hobbyist | business | enterprise (server/lib/plans.js)
   ['users', 'org_id', 'ALTER TABLE users ADD COLUMN org_id INTEGER REFERENCES orgs(id) ON DELETE SET NULL'], // member of a team
+  ['users', 'totp_secret', 'ALTER TABLE users ADD COLUMN totp_secret TEXT'],   // base32, set once the first code is confirmed = 2FA on
+  ['users', 'totp_pending', 'ALTER TABLE users ADD COLUMN totp_pending TEXT'], // secret shown as a QR, not yet confirmed
 ];
 
 function openDb(dataDir) {

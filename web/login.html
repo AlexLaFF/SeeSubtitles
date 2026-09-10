@@ -12,7 +12,7 @@
 <body class="control app">
 <div class="auth">
   <div class="left">
-    <div class="brand"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span data-i18n="brand">See Subtitles</span></div>
+    <a class="brand" href="/"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span data-i18n="brand">See Subtitles</span></a>
     <h1 data-i18n="web.login.statement">Subtitles for everyone in the room.</h1>
     <p data-i18n="web.login.body">Live Cantonese → Mandarin subtitles on the venue screen and on every phone. Recordings with editable subtitles, MP4 and a summary. Video and audio files subtitled in minutes.</p>
     <div class="stage"><div class="l old">首先是现场的观众，他们可以用手机扫二维码。</div><div class="l">今天我们会讲一下如何用字幕帮助更多人参与会议。<span class="s">今日我哋会讲吓点样用字幕帮助更多人参与会议。</span></div></div>
@@ -25,6 +25,8 @@
         <label><span data-i18n="settings.email">Email</span><input id="email" type="email" autocomplete="username" required></label>
         <label><span data-i18n="settings.password">Password</span><input id="password" type="password" autocomplete="current-password" required minlength="8"></label>
         <label id="inviteRow" hidden><span data-i18n="settings.invite">Invite code</span><input id="invite" autocomplete="off"></label>
+        <label id="codeRow" hidden><span data-i18n="settings.totpCode">Authentication code</span><input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="20" spellcheck="false"></label>
+        <p class="hint" id="codeHint" hidden data-i18n="web.login.totpHint">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</p>
         <div class="alert" id="err" hidden></div>
         <button class="primary" type="submit" id="submit">Log in</button>
         <p class="muted" id="switchRow" hidden><a href="#" id="switch">Create an account</a></p>
@@ -52,13 +54,22 @@
   };
   render();
   if (signup !== 'closed') { $('switchRow').hidden = false; $('switch').addEventListener('click', (e) => { e.preventDefault(); creating = !creating; render(); }); }
+  // Second factor: the server answers the first attempt with totp_required, we show the code field and post again.
+  let needCode = false;
   $('form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const err = $('err');
     err.hidden = true;
     const body = { email: $('email').value, password: $('password').value };
     if (creating) body.invite = $('invite').value;
+    if (needCode) body.code = $('code').value;
     const r = await fetch(creating ? '/api/signup' : '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then((x) => x.json()).catch(() => ({ error: t('web.networkError') }));
+    if (r.code === 'totp_required' || r.code === 'totp_bad') {
+      needCode = true;
+      $('codeRow').hidden = false; $('codeHint').hidden = false;
+      if (r.code === 'totp_bad') { err.textContent = I18n.err(r); err.hidden = false; $('code').select(); } else $('code').focus();
+      return;
+    }
     if (r.error) { err.textContent = I18n.err(r); err.hidden = false; return; }
     const next = new URLSearchParams(location.search).get('next');
     location.href = next && next.startsWith('/') ? next : '/';

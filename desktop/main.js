@@ -213,7 +213,14 @@ async function cloudAction(body) {
   switch (body.action) {
     case 'login':
     case 'signup': {
-      const r = body.action === 'signup' ? await cloud.signup(body.url, body.email, body.password, body.invite) : await cloud.login(body.url, body.email, body.password);
+      let r;
+      try {
+        r = body.action === 'signup' ? await cloud.signup(body.url, body.email, body.password, body.invite) : await cloud.login(body.url, body.email, body.password, body.code);
+      } catch (err) {
+        // the login card asks for the code and calls again; Error.code does not survive IPC, so answer with a value
+        if (err && (err.code === 'totp_required' || err.code === 'totp_bad')) return { ok: false, totp: err.code };
+        throw err;
+      }
       cfg.cloud = { ...cfg.cloud, url: r.url, email: body.email, token: encryptSecret(r.token) };
       saveConfig(cfg);
       cloud.attach(core, cloudConfig(cfg));
