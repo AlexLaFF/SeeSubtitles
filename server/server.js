@@ -27,6 +27,11 @@ const SECURE = /^https:/.test(BASE_URL);
 // Accounts: closed (admin CLI creates users; default) · invite (sign-up with a code from `cli.js add-invite`) · open
 const SIGNUP_MODE = SIGNUP_MODES.includes(process.env.SIGNUP_MODE) ? process.env.SIGNUP_MODE : 'closed';
 const attempts = createLimiter({ max: 20, windowMs: 15 * 60_000 }); // login + sign-up attempts per IP and per email
+// Signing requests per account. A talk needs one every half hour (rotation) plus a few on a bad network, so
+// this is far above honest use — it exists to bound what a stolen or modified client can start, since the
+// two-minute expiry limits how long a *leaked URL* is worth anything and says nothing about how often a
+// caller who can still authenticate may ask for another.
+const signings = createLimiter({ max: 40, windowMs: 10 * 60_000 });
 const clientIp = (req) => (String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?');
 // Desktop apps get the Tencent keys from the server after login, so nobody types keys. Fine for an invite-only
 // team (every account is trusted with the shared key); with open sign-up it needs SHARE_TENCENT_KEYS=1 explicitly.
@@ -268,6 +273,10 @@ async function api(req, res, url, user) {
     if (!schema.LIVE_PAIRS[source]) return fail(res, 400, `"${source}" is not a spoken language 实时语音翻译 accepts`, { code: 'bad_language' });
     if (!schema.targetsFor(source).includes(target)) return fail(res, 400, `${source} → ${target} is not a pair 实时语音翻译 accepts`, { code: 'bad_language' });
     if (quotas.remaining(planRow(user), 'live') <= 0) return fail(res, 403, 'the live subtitle hours of this month are used up', { code: 'plan_quota' });
+    if (!signings.allow(`live:${user.id}`)) {
+      log('warn', `signing rate limit hit by ${user.email} — far more connections than a talk needs`);
+      return fail(res, 429, 'too many connection requests; try again in a few minutes', { code: 'rate_limited' });
+    }
     const transModel = ['hunyuan-translation-lite', 'hunyuan-translation'].includes(body.transModel) ? body.transModel : 'hunyuan-translation-lite';
     const tuning = recognitionParams(body.tuning && typeof body.tuning === 'object' ? body.tuning : {});
     const count = Math.min(LIVE_URL_MAX, Math.max(1, Math.round(Number(body.count) || 1)));

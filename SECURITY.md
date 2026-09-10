@@ -36,9 +36,17 @@ These are understood and deliberate; they do not need reporting.
   one stream and carries no key. `expired` gates the handshake only and never cuts an established stream
   (measured: `server/probe-signature.js`), so the window can be short without shortening a talk. The app
   keeps two or three in memory, never on disk.
-- **File quotas are enforced by the app**, so an account holder can bypass them. Live quotas are checked by
-  the server every time it signs a connection — twice an hour, since rotation is every 30 minutes — so they
-  hold for builds that no longer carry a key.
+- **Quotas are still counted by the app, so an account holder can bypass them.** The server refuses to sign
+  a connection once the recorded hours exceed the plan, but the recording only grows when the app reports its
+  own usage (`POST /api/usage/live`). A modified client that simply never reports has a counter that never
+  moves. Signing is rate-limited per account (40 requests per 10 minutes, far above what a talk needs) so the
+  damage is bounded, but that is a cap on the blast radius, not accounting.
+  Closing it properly needs the server to charge for each connection it issues and let the app reconcile the
+  figure downwards — a client that stays silent is then charged the pessimistic rate rather than nothing.
+  **This is what has to exist before sign-up can open**, alongside deleting `/api/desktop/credentials`.
+- **A signed URL's two-minute expiry protects a leaked URL, not a leaked account.** Anyone who can still
+  authenticate can ask for another one at any time; that is what an account is for. What bounds them is the
+  quota above, and the rate limit.
 - **Two-factor authentication is optional, not enforced.** Accounts can turn on TOTP under
   Account › Security, with ten one-time recovery codes. A server that hands out Tencent keys should
   have it on for every account. There is no hardware-key (WebAuthn) support yet.
