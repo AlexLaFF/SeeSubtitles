@@ -19,4 +19,17 @@ else
   echo "⚠ no $ENV_FILE — the build will not be notarized and verify-release.js will refuse it"
 fi
 npm run dist
-node "$(dirname "$0")/verify-release.js"
+
+# electron-builder notarizes and staples the .app, then builds the dmg *from* it — so the dmg itself
+# carries no ticket, and someone who opens it with no network is refused even though the app inside is
+# fine. The dmg has to be submitted on its own account.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+VERSION=$(node -p "require('$HERE/../package.json').version")
+DMG="$HERE/../dist/See Subtitles-$VERSION-arm64.dmg"
+if [ -n "$APPLE_API_KEY" ] && [ -f "$DMG" ]; then
+  echo "· notarizing the dmg itself"
+  xcrun notarytool submit "$DMG" --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+  xcrun stapler staple "$DMG"
+fi
+
+node "$HERE/verify-release.js"
