@@ -139,16 +139,22 @@ async function startCore() {
   const cfg = loadConfig();
   applyLanguage(cfg);
   let creds = null;
+  let liveUrls = null;
   let credsError = null;
   if (!cfg.demo) {
     const keys = resolveKeys(cfg);
-    if (!keys) credsError = cfg.cloud.token ? 'no Tencent keys yet — the server should provide them after login; open Settings (⌘,) and log in again' : 'not logged in — open Settings (⌘,) and log in to seesubtitles.com (the keys come from the server), or enter Tencent keys';
-    else {
+    if (keys && keys.source === 'manual') {
+      // The user's own Tencent key, entered in Settings: theirs to spend, so it signs here as it always did.
       try {
         creds = getCredentials({ TENCENT_APPID: keys.appid, TENCENT_SECRET_ID: keys.secretId, TENCENT_SECRET_KEY: keys.secretKey });
       } catch (err) {
-        credsError = err.message.replace(/ in \.env.*$/, keys.source === 'cloud' ? ' — the keys from the server look invalid' : ' — open Settings (⌘,) and check the Tencent Cloud keys');
+        credsError = err.message.replace(/ in \.env.*$/, ' — open Settings (⌘,) and check the Tencent Cloud keys');
       }
+    } else if (cfg.cloud.token) {
+      // Logged in: the server signs every connection and this Mac never holds a key at all.
+      liveUrls = (req) => cloud.liveUrls(req);
+    } else {
+      credsError = 'not logged in — open Settings (⌘,) and log in to seesubtitles.com, or enter your own Tencent keys';
     }
   }
   core = await createLocalServer({
@@ -158,6 +164,7 @@ async function startCore() {
     recordingsDir: cfg.recordingsDir,
     transcriptsDir: path.join(USER_DATA, 'transcripts'),
     creds,
+    liveUrls,
     credsError,
     summary: summaryConfig(cfg),
     demo: cfg.demo,

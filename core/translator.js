@@ -17,6 +17,14 @@ const ACCOUNT_BACKOFF_MS = 30_000; // auth / billing errors: retry slowly
 const ACCOUNT_ERRORS = new Set([6002, 6003, 6004, 6005]);
 const ROTATE_GRACE_MS = 5 * 60_000; // wait this long for a sentence boundary before forcing rotation
 const DRAIN_MS = 5000; // how long a retiring socket may wait for its `final`
+// Signed-URL pool. When the stream is given `urlFor`, it never holds a Tencent key: the server signs each
+// connection and this keeps a couple of finished URLs in hand, so a reconnect after a dropped network does
+// not also have to wait for the server to answer. They live in memory only and are never written down.
+const URL_POOL_MIN = 2;
+const URL_POOL_MAX = 4;
+const URL_FLOOR_MS = 25_000; // a URL with less than this left cannot be relied on to open a connection
+const URL_FILL_MS = 1500; // never ask the signer more often than this, however empty the pool is
+const TUNING_KEYS = ['hotwords', 'vadSilenceTime', 'maxSpeakTime', 'noiseThreshold', 'filterModal'];
 
 /** Tencent request parameters derived from the tuning options (omitted when at their defaults). */
 function recognitionParams(opts) {
@@ -32,12 +40,19 @@ function recognitionParams(opts) {
 
 class TranslationStream extends EventEmitter {
   /**
-   * @param {{appid:string, secretId:string, secretKey:string}} creds
-   * @param {{source?:string, target?:string, transModel?:string, rotateMs?:number}} [opts]
+   * @param {{appid:string, secretId:string, secretKey:string}|null} creds  own keys, or null when `urlFor` signs
+   * @param {{source?:string, target?:string, transModel?:string, rotateMs?:number,
+   *          urlFor?:(req:object)=>Promise<Array<{url:string, voiceId:string, expiresAt:number}>>}} [opts]
    */
   constructor(creds, opts = {}) {
     super();
     this.creds = creds;
+    // urlFor asks someone else (the hosted server) to sign a connection, so no key is on this machine.
+    this.urlFor = opts.urlFor || null;
+    this.pool = [];
+    this.fetching = false;
+    this.nextFillAt = 0;
+    this.poolError = null;
     this.opts = { source: 'yue', target: 'zh', transModel: 'hunyuan-translation-lite', rotateMs: 290 * 60_000, edge: 'auto', ...opts };
     // edge: 'system' = normal DNS; 'cn' = always connect to the mainland edge (VPN users);
     // 'auto' = system first, switch to mainland after an HTTP 404 from an overseas edge
@@ -66,6 +81,7 @@ class TranslationStream extends EventEmitter {
   start() {
     if (this.running) return;
     this.running = true;
+    this._fillPool();
     this._connect('active');
     this.pacer = setInterval(() => this._tick(), CHUNK_MS);
   }
@@ -80,6 +96,7 @@ class TranslationStream extends EventEmitter {
     for (const s of [this.pending, this.active]) this._end(s);
     this.active = this.pending = null;
     this.queue.length = 0;
+    this.pool.length = 0;
     this.inSentence = false;
     this._setState('stopped');
   }
@@ -87,7 +104,9 @@ class TranslationStream extends EventEmitter {
   /** Change language/model; takes effect via a graceful rotation (or reconnect). */
   setOptions(patch) {
     Object.assign(this.opts, patch);
-    if (this.running) this.reconnect('settings changed');
+    this.pool.length = 0; // every one of these is signed into the URL, so what is in hand is now worthless
+    this.nextFillAt = 0; // and the rate limit exists to spare a failing signer, not to delay a real change
+    if (this.running) { this._fillPool(); this.reconnect('settings changed'); }
   }
 
   /** Queue one 200 ms chunk of 16 kHz mono 16-bit PCM. `meta.t0` = wall-clock ms when the chunk began. */
@@ -137,6 +156,8 @@ class TranslationStream extends EventEmitter {
       target: this.opts.target,
       transModel: this.opts.transModel,
       tuning: recognitionParams(this.opts),
+      signedUrls: this.urlFor ? this.pool.length : null, // null = signing locally with our own key
+      keyless: !!this.urlFor,
       edge: this.mainland.use ? `mainland${this.mainland.ip ? ` ${this.mainland.ip}` : ''}` : 'system',
     };
   }
@@ -174,13 +195,26 @@ class TranslationStream extends EventEmitter {
 
   _connectNow(role) {
     let conn;
-    try {
-      conn = buildConnection(this.creds, { ...this.opts, extra: recognitionParams(this.opts) });
-    } catch (err) {
-      this.lastError = { message: err.message };
-      this._log(`✖ cannot build connection: ${err.message}`);
-      if (role === 'active') this._scheduleReconnect(err.message);
-      return null;
+    if (this.urlFor) {
+      conn = this._takeUrl();
+      if (!conn) {
+        this._fillPool();
+        const why = this.poolError ? `no signed URL (${this.poolError})` : 'waiting for a signed URL';
+        this.lastError = { message: why };
+        this._log(`· ${why}`);
+        if (role === 'active') this._scheduleReconnect(why);
+        else this.rotateRetryAt = Date.now() + 15_000;
+        return null;
+      }
+    } else {
+      try {
+        conn = buildConnection(this.creds, { ...this.opts, extra: recognitionParams(this.opts) });
+      } catch (err) {
+        this.lastError = { message: err.message };
+        this._log(`✖ cannot build connection: ${err.message}`);
+        if (role === 'active') this._scheduleReconnect(err.message);
+        return null;
+      }
     }
     const sock = { id: ++this.seq, role, ws: null, voiceId: conn.voiceId, open: false, authenticated: false, openedAt: null, ended: false, sent: 0, streamMs: 0, timeOffset: null };
     this.connects++;
@@ -239,6 +273,60 @@ class TranslationStream extends EventEmitter {
     });
     ws.on('close', (code, reason) => this._onClose(sock, code, reason.toString()));
     return sock;
+  }
+
+  /** The freshest signed URL with enough life left to open a connection, or null. */
+  _takeUrl() {
+    const now = Date.now();
+    while (this.pool.length) {
+      const next = this.pool.shift();
+      if (next.expiresAt - now > URL_FLOOR_MS) {
+        this._fillPool(); // replace the one just taken while the connection is opening
+        return next;
+      }
+    }
+    return null;
+  }
+
+  /** Top the pool back up, dropping any URL too near its expiry to be worth keeping. Never throws. */
+  _fillPool() {
+    if (!this.urlFor || this.fetching || !this.running) return;
+    const now = Date.now();
+    this.pool = this.pool.filter((u) => u.expiresAt - now > URL_FLOOR_MS);
+    if (this.pool.length >= URL_POOL_MIN || now < this.nextFillAt) return;
+    this.nextFillAt = now + URL_FILL_MS; // a signer that is refusing must not be hammered every tick
+    const want = URL_POOL_MAX - this.pool.length;
+    const tuning = {};
+    for (const k of TUNING_KEYS) tuning[k] = this.opts[k];
+    this.fetching = true;
+    Promise.resolve()
+      .then(() => this.urlFor({ source: this.opts.source, target: this.opts.target, transModel: this.opts.transModel, tuning, count: want }))
+      .then((urls) => {
+        // Judge freshness on arrival, not on the next pass: a URL that is already too old to dial must never
+        // sit in the pool making it look full.
+        const fresh = (urls || []).filter((u) => u && u.url && u.expiresAt && u.expiresAt - Date.now() > URL_FLOOR_MS);
+        this.pool.push(...fresh);
+        if (fresh.length) {
+          if (this.poolError) this._log('signing recovered');
+          this.poolError = null;
+          // The first connection would otherwise sit out a whole backoff step waiting for a URL that has
+          // just arrived — which the operator feels as a pause after pressing Start.
+          if (this.running && !this.active && this.retryTimer) {
+            clearTimeout(this.retryTimer);
+            this.retryTimer = null;
+            this.retryAt = null;
+            this._connect('active');
+          }
+        } else if (urls && urls.length) {
+          this.poolError = 'the signer returned URLs that expire too soon to use';
+          this._log(`✖ ${this.poolError}`);
+        }
+      })
+      .catch((err) => {
+        this.poolError = err.message;
+        this._log(`✖ signing: ${err.message}`);
+      })
+      .finally(() => { this.fetching = false; });
   }
 
   _onMessage(sock, text) {
@@ -364,6 +452,7 @@ class TranslationStream extends EventEmitter {
 
   _tick() {
     if (!this.running) return;
+    if (this.urlFor) this._fillPool(); // cheap: returns at once unless the pool is short
     const now = Date.now();
     const sock = this.active;
     if (!sock || !sock.open || sock.ws.readyState !== WebSocket.OPEN) return;

@@ -6,7 +6,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadEnv, getCredentials, schema } = require('@subs/core');
+const { loadEnv, getCredentials, schema, buildConnection, recognitionParams } = require('@subs/core');
 const { openDb } = require('./lib/db');
 const { createAuth } = require('./lib/auth');
 const { LiveSessions } = require('./lib/live');
@@ -31,6 +31,12 @@ const clientIp = (req) => (String(req.headers['x-forwarded-for'] || '').split(',
 // Desktop apps get the Tencent keys from the server after login, so nobody types keys. Fine for an invite-only
 // team (every account is trusted with the shared key); with open sign-up it needs SHARE_TENCENT_KEYS=1 explicitly.
 const SHARE_KEYS = SIGNUP_MODE !== 'open' || /^(1|true|yes)$/i.test(process.env.SHARE_TENCENT_KEYS || '');
+// How long a signed live URL may be used to *open* a connection. Probed against the live API on 2026-09-11
+// (server/probe-signature.js): `expired` gates the handshake and never cuts an established stream — a stream
+// signed to expire in 45 s ran for its full 150 s hold — so this bounds only the window in which a stolen URL
+// is worth anything, not the length of a talk.
+const LIVE_URL_TTL_S = Number(process.env.LIVE_URL_TTL_SECONDS) || 120;
+const LIVE_URL_MAX = 4; // per request: enough for the app to hold a couple in reserve, not enough to stockpile
 const UPDATES_DIR = path.join(DATA_DIR, 'updates');
 fs.mkdirSync(UPDATES_DIR, { recursive: true });
 const WEB_DIR = path.join(__dirname, '..', 'web');
@@ -249,6 +255,30 @@ async function api(req, res, url, user) {
     log('info', `desktop keys handed to ${user.email}`);
     const tokenhubKey = entitlements(user).limits.summaries ? (process.env.TOKENHUB_API_KEY || '').trim() : ''; // AI summaries are a plan feature
     return send(res, 200, { tencent: { appid: creds.appid, secretId: creds.secretId, secretKey: creds.secretKey, expiresAt: null }, tokenhub: tokenhubKey ? { apiKey: tokenhubKey } : null, fetchedAt: Date.now() });
+  }
+  // The live pipeline, without ever handing out a key. The server signs one WebSocket URL per connection and
+  // returns only the finished wss:// address; the app opens it straight to Tencent, so the audio path is
+  // untouched and nothing is proxied. Every issue is a chance to check the plan, which is what makes the live
+  // quota an actual limit rather than something the app is asked to respect.
+  if (p === '/api/desktop/live-url' && req.method === 'POST') {
+    if (!creds) return fail(res, 503, 'the server has no Tencent keys configured');
+    const body = await readJson(req, 2e5);
+    const source = String(body.source || '');
+    const target = String(body.target || '');
+    if (!schema.LIVE_PAIRS[source]) return fail(res, 400, `"${source}" is not a spoken language 实时语音翻译 accepts`, { code: 'bad_language' });
+    if (!schema.targetsFor(source).includes(target)) return fail(res, 400, `${source} → ${target} is not a pair 实时语音翻译 accepts`, { code: 'bad_language' });
+    if (quotas.remaining(planRow(user), 'live') <= 0) return fail(res, 403, 'the live subtitle hours of this month are used up', { code: 'plan_quota' });
+    const transModel = ['hunyuan-translation-lite', 'hunyuan-translation'].includes(body.transModel) ? body.transModel : 'hunyuan-translation-lite';
+    const tuning = recognitionParams(body.tuning && typeof body.tuning === 'object' ? body.tuning : {});
+    const count = Math.min(LIVE_URL_MAX, Math.max(1, Math.round(Number(body.count) || 1)));
+    const now = Math.floor(Date.now() / 1000);
+    const urls = [];
+    for (let i = 0; i < count; i++) {
+      const conn = buildConnection(creds, { source, target, transModel, extra: { ...tuning, expired: now + LIVE_URL_TTL_S } });
+      urls.push({ url: conn.url, voiceId: conn.voiceId, expiresAt: (now + LIVE_URL_TTL_S) * 1000 });
+    }
+    log('info', `signed ${count} live URL${count === 1 ? '' : 's'} for ${user.email} (${source}→${target}, good for ${LIVE_URL_TTL_S} s)`);
+    return send(res, 200, { urls, expiresIn: LIVE_URL_TTL_S });
   }
   if (p === '/api/logout' && req.method === 'POST') { auth.revoke(user.token); return send(res, 200, { ok: true }, undefined, { 'set-cookie': auth.clearCookie() }); }
 
