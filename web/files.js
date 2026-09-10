@@ -78,7 +78,8 @@
     const s = Sub.status || {};
     const rs = s.resubtitle || {}; const mp = s.mp4 || {}; const sm = s.summary || {}; const up = s.uploads || {};
     const items = [];
-    for (const r of recordings) items.push({ kind: 'rec', name: r.base, sub: t('files.recordingSub', { langs: r.style === 'legacy' ? t('files.legacy') : '粤语 → 中文' }), date: r.mtime, length: r.durationMs, rec: r });
+    const langName = (code) => (SCHEMA.LANG_NAMES && SCHEMA.LANG_NAMES[code]) || code;
+    for (const r of recordings) items.push({ kind: 'rec', name: r.base, sub: t('files.recordingSub', { langs: `${langName(r.source)} → ${langName(r.target)}` }), date: r.mtime, length: r.durationMs, rec: r });
     for (const j of jobs) { if (j.importedBase) continue; items.push({ kind: 'added', name: j.filename, sub: t('files.addedSub', { langs: `${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}` }), date: j.created_at, length: j.duration ? j.duration * 1000 : null, job: j }); }
     if (up.current) items.push({ kind: 'added', name: up.current.name, sub: t('files.uploading'), date: up.current.startedAt, upload: up.current });
     for (const q of up.queue || []) items.push({ kind: 'added', name: q, sub: t('files.waiting'), date: Date.now(), queued: true });

@@ -306,10 +306,10 @@ async function createLocalServer(opts) {
   recorder.on('log', (t) => log('warn', `recorder: ${t}`));
   recorder.on('start', (st) => { log('info', `recording started → ${st.current.file}`); broadcast('status', status()); });
   recorder.on('stop', (info) => {
-    log('info', `recording saved: ${info.file} (${(info.durationMs / 60000).toFixed(1)} min, ${(info.bytes / 1e6).toFixed(1)} MB, ${info.cues.zh} cues)`);
+    log('info', `recording saved: ${info.file} (${(info.durationMs / 60000).toFixed(1)} min, ${(info.bytes / 1e6).toFixed(1)} MB, ${info.cues.target} cues)`);
     broadcast('status', status());
     emitter.emit('recording', info);
-    if (MP4_AUTO && info.durationMs > 1000 && (info.cues.zh || info.cues.yue)) { log('info', `queueing MP4 export for ${info.base}`); mp4.add(info.base); }
+    if (MP4_AUTO && info.durationMs > 1000 && (info.cues.target || info.cues.source)) { log('info', `queueing MP4 export for ${info.base}`); mp4.add(info.base); }
   });
   transcript.on('log', (t) => log('warn', t));
   if (stream) {
@@ -369,7 +369,8 @@ async function createLocalServer(opts) {
     if (!capture) throw new Error('no audio source in demo mode');
     if (stream && !settings.streaming) { log('info', 'recording started: resuming subtitles'); applySettings({ streaming: true }, null); }
     const clean = cleanName(name);
-    return recorder.start({ rate: capture.rate, channels: 1, name: clean ? names.uniqueBase(opts.recordingsDir, clean) : undefined });
+    // the languages go in with the recording so its files can say what is in them later
+    return recorder.start({ rate: capture.rate, channels: 1, source: settings.source, target: settings.target, name: clean ? names.uniqueBase(opts.recordingsDir, clean) : undefined });
   }
   /** Rename a recording set (every file keeps its suffix). Returns the new base. */
   function renameRecording(base, name) {

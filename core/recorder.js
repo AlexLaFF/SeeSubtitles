@@ -43,7 +43,7 @@ class Recorder extends EventEmitter {
   get recording() { return !!this.rec; }
 
   /** Begin a new recording. `rate`/`channels` describe the PCM fed to writeAudio(). */
-  start({ rate = 48000, channels = 1, name } = {}) {
+  start({ rate = 48000, channels = 1, name, source = 'yue', target = 'zh' } = {}) {
     if (this.rec) return this.rec.base;
     fs.mkdirSync(this.dir, { recursive: true });
     const base = name || names.uniqueBase(this.dir, names.baseFromDate());
@@ -51,8 +51,11 @@ class Recorder extends EventEmitter {
       base, rate, channels,
       startedAt: Date.now(),
       mp3: path.join(this.dir, names.fileName(base, 'mp3')),
-      srt: { zh: path.join(this.dir, names.fileName(base, 'zh')), yue: path.join(this.dir, names.fileName(base, 'yue')) },
-      cues: { zh: 0, yue: 0 },
+      // `zh` and `yue` are the two slots a recording has — the translation and the original — not a claim
+      // about the languages in them. What was actually spoken and subtitled is in the manifest.
+      source, target,
+      srt: { target: path.join(this.dir, names.fileName(base, 'zh')), source: path.join(this.dir, names.fileName(base, 'yue')) },
+      cues: { target: 0, source: 0 },
       seen: new Set(),
       writtenSamples: 0,
       paddedMs: 0,
@@ -64,6 +67,12 @@ class Recorder extends EventEmitter {
       stopping: null,
       out: null,
     };
+    try {
+      fs.writeFileSync(path.join(this.dir, names.fileName(base, 'manifest')),
+        JSON.stringify({ base, source, target, startedAt: rec.startedAt, rate, channels }, null, 2));
+    } catch (err) {
+      this.emit('log', `manifest: ${err.message}`); // the recording matters more than knowing its languages
+    }
     rec.out = fs.createWriteStream(rec.mp3, { flags: 'a' });
     rec.out.on('error', (err) => { rec.error = err.message; this.emit('log', `file: ${err.message}`); });
     this.rec = rec;
@@ -134,10 +143,10 @@ class Recorder extends EventEmitter {
     if (end <= 0) return;
     rec.seen.add(line.id);
     const cue = (n, text) => `${n}\n${srtTime(Math.max(0, start))} --> ${srtTime(Math.max(end, start + 300))}\n${text}\n\n`;
-    if (line.targetText) fs.appendFile(rec.srt.zh, cue(++rec.cues.zh, line.targetText), (err) => { if (err) this.emit('log', `srt: ${err.message}`); });
-    if (line.sourceText) fs.appendFile(rec.srt.yue, cue(++rec.cues.yue, line.sourceText), (err) => { if (err) this.emit('log', `srt: ${err.message}`); });
-    for (const [language, text] of [['zh', line.targetText], ['yue', line.sourceText]]) {
-      if (text) fs.appendFile(rec.srt[language].replace(/\.srt$/i, '.plain.txt'), fromTexts([text]), (err) => { if (err) this.emit('log', `plain transcript: ${err.message}`); });
+    if (line.targetText) fs.appendFile(rec.srt.target, cue(++rec.cues.target, line.targetText), (err) => { if (err) this.emit('log', `srt: ${err.message}`); });
+    if (line.sourceText) fs.appendFile(rec.srt.source, cue(++rec.cues.source, line.sourceText), (err) => { if (err) this.emit('log', `srt: ${err.message}`); });
+    for (const [slot, text] of [['target', line.targetText], ['source', line.sourceText]]) {
+      if (text) fs.appendFile(rec.srt[slot].replace(/\.srt$/i, '.plain.txt'), fromTexts([text]), (err) => { if (err) this.emit('log', `plain transcript: ${err.message}`); });
     }
   }
 
@@ -198,7 +207,8 @@ class Recorder extends EventEmitter {
     for (const name of files) {
       const p = names.parse(name);
       if (!p) continue;
-      const entry = byBase.get(p.base) || { base: p.base, style: p.style, mp3: null, mp4: null, mp4Bytes: 0, summary: null, summaryPdf: null, zh: null, yue: null, mtime: 0, bytes: 0 };
+      // yue → zh is the default because it is what every recording made before the manifest existed is.
+      const entry = byBase.get(p.base) || { base: p.base, style: p.style, mp3: null, mp4: null, mp4Bytes: 0, summary: null, summaryPdf: null, zh: null, yue: null, source: 'yue', target: 'zh', mtime: 0, bytes: 0 };
       const st = fs.statSync(path.join(this.dir, name));
       if (p.kind === 'mp3') { entry.mp3 = name; entry.bytes = st.size; entry.mtime = Math.max(entry.mtime, st.mtimeMs); }
       else if (p.kind === 'mp4') { entry.mp4 = name; entry.mp4Bytes = st.size; }
@@ -206,6 +216,13 @@ class Recorder extends EventEmitter {
       else if (p.kind === 'pdf') entry.summaryPdf = name;
       else if (p.kind === 'zh') entry.zh = name;
       else if (p.kind === 'yue') entry.yue = name;
+      else if (p.kind === 'manifest') {
+        try {
+          const m = JSON.parse(fs.readFileSync(path.join(this.dir, name), 'utf8'));
+          if (m && typeof m.source === 'string') entry.source = m.source;
+          if (m && typeof m.target === 'string') entry.target = m.target;
+        } catch { /* unreadable: the default is what the app used to do anyway */ }
+      }
       byBase.set(p.base, entry);
     }
     return [...byBase.values()].filter((e) => e.mp3).sort((a, b) => b.mtime - a.mtime).slice(0, limit);

@@ -29,7 +29,7 @@ test('srtTime formats hours/minutes/seconds/millis', () => {
 test('records a playable MP3 and appends SRT cues', { skip: !hasFfmpeg && 'ffmpeg not installed' }, async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rec-'));
   const r = new Recorder({ dir });
-  const base = r.start({ rate: 16000, name: 'unit' });
+  const base = r.start({ rate: 16000, name: 'unit', source: 'ja', target: 'en' });
   assert.equal(base, 'unit');
   assert.ok(r.recording);
   const t0 = r.rec.startedAt;
@@ -40,7 +40,8 @@ test('records a playable MP3 and appends SRT cues', { skip: !hasFfmpeg && 'ffmpe
   const info = await r.stop();
   assert.ok(!r.recording);
   assert.equal(info.durationMs, 1000);
-  assert.deepEqual(info.cues, { zh: 1, yue: 1 });
+  // the two slots a recording has, named for their role rather than for Cantonese and Mandarin
+  assert.deepEqual(info.cues, { source: 1, target: 1 });
   const mp3 = fs.statSync(path.join(dir, names.fileName('unit', 'mp3')));
   assert.equal(names.fileName('unit', 'mp3'), 'unit录音.mp3');
   assert.ok(mp3.size > 2000, `mp3 size ${mp3.size}`);
@@ -50,8 +51,27 @@ test('records a playable MP3 and appends SRT cues', { skip: !hasFfmpeg && 'ffmpe
   assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'yue')), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好呀\n\n');
   assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'zh').replace('.srt', '.plain.txt')), 'utf8'), '你好\n');
   assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'yue').replace('.srt', '.plain.txt')), 'utf8'), '你好呀\n');
-  assert.equal(r.list()[0].base, 'unit');
+  const listed = r.list()[0];
+  assert.equal(listed.base, 'unit');
+  assert.deepEqual([listed.source, listed.target], ['ja', 'en'], 'the languages come back off the manifest');
+  const manifest = JSON.parse(fs.readFileSync(path.join(dir, names.fileName('unit', 'manifest')), 'utf8'));
+  assert.equal(manifest.source, 'ja');
+  assert.equal(manifest.target, 'en');
+  assert.equal(manifest.base, 'unit');
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('a recording made before manifests existed still reads as Cantonese → Mandarin', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rec-old-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  // exactly what an older build left behind: audio and two subtitle sidecars, no manifest
+  fs.writeFileSync(path.join(dir, names.fileName('old', 'mp3')), 'x');
+  fs.writeFileSync(path.join(dir, names.fileName('old', 'zh')), '');
+  fs.writeFileSync(path.join(dir, names.fileName('old', 'yue')), '');
+  const listed = new Recorder({ dir }).list()[0];
+  assert.equal(listed.base, 'old');
+  assert.deepEqual([listed.source, listed.target], ['yue', 'zh'], 'which is the only thing that build could do');
+  assert.ok(listed.zh && listed.yue, 'and its files are still found');
 });
 
 test('pads silence when captured audio falls behind the wall clock', { skip: !hasFfmpeg && 'ffmpeg not installed' }, async () => {

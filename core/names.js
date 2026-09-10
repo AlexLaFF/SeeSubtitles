@@ -11,6 +11,10 @@ const SUFFIX = {
   mp4: ['录音＋字幕.mp4', '.mp4'],
   summary: ['AI总结.md', '.summary.md'],
   pdf: ['AI总结.pdf', '.summary.pdf'],
+  // What the recording is: which language was spoken and which was subtitled, written when it starts.
+  // Recordings made before this existed have none, and for those the answer is always Cantonese → Mandarin,
+  // because that is the only thing the app could do.
+  manifest: ['录音.json', '.recording.json'],
 };
 const KINDS = Object.keys(SUFFIX);
 
