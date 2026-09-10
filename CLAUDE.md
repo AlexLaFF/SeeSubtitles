@@ -14,7 +14,9 @@ Decided by Alex on 2026-09-10.
 ## Other standing rules
 
 - Simplified Chinese only in every user-facing string; never Traditional.
-- The repository stays private; never force-push, rewrite history or change visibility without an explicit instruction.
+- The repository is **public** (AlexLaFF/SeeSubtitles, since 2026-09-10). Never force-push or rewrite history —
+  clones and forks exist now, so a rewrite cannot recall anything and only breaks other people's checkouts.
+  Never change visibility without an explicit instruction.
 - Never print `.env` values or keys; refer to them by name.
 - Every string goes through the catalog in `web/locales.js` (`t()` / `data-i18n`); `desktop/test/i18n.test.js` checks it.
 - The account is the door in the desktop app: a logged-out app shows only the login card; do not add a login form to Settings.
