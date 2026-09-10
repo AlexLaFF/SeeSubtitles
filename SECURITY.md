@@ -1,0 +1,43 @@
+# Security policy
+
+## Reporting a vulnerability
+
+Please report security problems privately, not in a public issue.
+
+- Preferred: [open a private advisory](https://github.com/AlexLaFF/transcriptionApp/security/advisories/new)
+  on this repository ("Report a vulnerability" under the Security tab).
+- Or email **alex@seesubtitles.com**.
+
+Include what you did, what happened, and the affected component (`core/`, `web/`, `desktop/`, `server/`).
+Proof-of-concept code is welcome. Please do not test against seesubtitles.com — run the server locally
+(see the README) and report against that.
+
+Expect a reply within a week. Once a fix ships you are credited in the release notes unless you would
+rather not be.
+
+## Scope
+
+The desktop app, the hosted server and the pages under `web/` are in scope. Tencent Cloud and the other
+upstream services are not: report those to their own vendors.
+
+Only the current release (`desktop/package.json`) receives fixes. There are no maintained older branches.
+
+## Known design limits
+
+These are understood and deliberate; they do not need reporting.
+
+- **The desktop app holds usable Tencent credentials.** After login the app fetches keys from
+  `/api/desktop/credentials` and stores them with Electron `safeStorage`. Anyone with an account on a
+  server can extract them from their own machine and use that server owner's Tencent quota. This is why
+  `SIGNUP_MODE` defaults to `closed`. Do not open sign-up on a server whose keys you care about until
+  the app receives short-lived credentials instead.
+- **Plan quotas are enforced by the app**, so an account holder can bypass them. Treat them as guidance
+  for cooperating users, not as a security control.
+- **Accounts are a single factor.** There is no TOTP or hardware-key support yet. Use a long unique
+  password, especially on a server that hands out keys.
+
+## Running your own server
+
+Keep `deploy/.env` out of version control (`.gitignore` covers it), give the Tencent sub-user only the
+speech permissions it needs, and put the server behind HTTPS — `deploy/Caddyfile` does this
+automatically.
