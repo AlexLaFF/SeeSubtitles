@@ -7,7 +7,8 @@
   "scripts": {
     "test": "npm test --workspaces --if-present",
     "probe:batch": "node server/probe-batch.js",
-    "probe:languages": "node server/probe-languages.js"
+    "probe:languages": "node server/probe-languages.js",
+    "probe:ab": "node server/probe-ab.js"
   },
   "license": "MIT"
 }
