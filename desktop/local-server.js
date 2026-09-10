@@ -107,6 +107,9 @@ async function createLocalServer(opts) {
     if (err.code !== 'ENOENT') log('warn', `settings.json ignored: ${err.message}`);
     Object.assign(settings, schema.sanitize({ audioDevice: env.AUDIO_DEVICE, transModel: env.TENCENT_TRANS_MODEL }));
   }
+  // A settings.json written by an older build can hold a pair the speech API refuses; fix it before connecting
+  // rather than reconnecting into 6001 forever.
+  settings.target = schema.coerceTarget(settings.source, settings.target);
   // START_PAUSED=1: open with subtitles paused so nothing is sent to Tencent until the operator presses Start
   settings.streaming = !/^(1|true|yes)$/i.test(String(env.START_PAUSED || ''));
   let saveTimer = null;
@@ -130,8 +133,10 @@ async function createLocalServer(opts) {
     if (!opts.uploads) { const e = new Error('cloud link not available'); e.code = 'cloud_unavailable'; throw e; }
     const cloud = opts.cloudStatus ? opts.cloudStatus() : null;
     if (!cloud || !cloud.loggedIn) { const e = new Error('Log in under Settings first'); e.code = 'login_first'; throw e; }
-    const SOURCE = { yue: 'yue', zh: 'zh', zh_en: 'mixed', en: 'en', ja: 'ja', ko: 'ko' };
-    const TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko' };
+    // live language → the cloud's job languages. Russian is live-only: 录音文件识别 has no Russian engine,
+    // so a Russian talk falls through to the "not transcribed yet" error below.
+    const SOURCE = { yue: 'yue', zh: 'zh', zh_en: 'mixed', en: 'en', ja: 'ja', ko: 'ko', id: 'id', th: 'th' };
+    const TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko', yue: 'yue', id: 'id', th: 'th', ru: 'ru', zh_en: 'en' };
     const sourceLang = SOURCE[settings.source];
     if (!sourceLang) throw new Error(`the cloud does not transcribe "${settings.source}" uploads yet`);
     const queued = opts.uploads.add({ file, sourceLang, targetLang: TARGET[settings.target] || 'none' });
@@ -379,6 +384,16 @@ async function createLocalServer(opts) {
     const changed = Object.keys(clean).filter((k) => JSON.stringify(clean[k]) !== JSON.stringify(settings[k]));
     if (!changed.length) return [];
     for (const k of changed) settings[k] = clean[k];
+    // The two language fields are only valid together: picking a spoken language the current subtitle
+    // language cannot be reached from moves the subtitle language to one the API does accept.
+    if (changed.includes('source') || changed.includes('target')) {
+      const fixed = schema.coerceTarget(settings.source, settings.target);
+      if (fixed !== settings.target) {
+        log('warn', `${settings.source} → ${settings.target} is not a pair 实时语音翻译 accepts; using ${settings.source} → ${fixed}`);
+        settings.target = fixed;
+        if (!changed.includes('target')) changed.push('target');
+      }
+    }
     saveSettings();
     if (changed.includes('audioDevice') && capture) {
       log('info', `switching microphone to "${settings.audioDevice}"`);

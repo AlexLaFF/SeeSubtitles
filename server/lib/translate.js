@@ -6,7 +6,10 @@
 // one by one loses the rest of the sentence, so the sentence is translated whole and the result is shared
 // over its cues in proportion to their length, cutting at punctuation (or spaces for Latin text).
 
-const PUNCT = new Set([...'，。！？；：、,.!?;:']);
+const PUNCT = new Set([...'，。！？；：、,.!?;:'
+  + '\u060C\u061B\u061F\u06D4' // Arabic / Persian / Urdu: ، ؛ ؟ ۔
+  + '\u0964\u0965'               // Devanagari and Bengali: । ॥
+  + '\u05C3']);                   // Hebrew sof pasuq: ׃
 const CJK = /[぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯]/;
 const defaultSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

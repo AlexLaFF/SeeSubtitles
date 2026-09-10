@@ -108,11 +108,22 @@
       }
       case 'select': {
         const s = el('select');
-        for (const [v, label] of f.options) s.appendChild(el('option', { value: v }, fopt(f, v, label)));
+        // f.optionsFor narrows the list from another setting — the subtitle language only lists the targets
+        // the speech API accepts for the spoken language that is chosen right now.
+        const fill = (settings) => {
+          const allow = f.optionsFor ? f.optionsFor(settings || {}) : null;
+          const opts = allow ? f.options.filter(([v]) => allow.includes(v)) : f.options;
+          if (opts.length === s.options.length && opts.every(([v], i) => s.options[i].value === v)) return;
+          const keep = s.value;
+          s.innerHTML = '';
+          for (const [v, label] of opts) s.appendChild(el('option', { value: v }, fopt(f, v, label)));
+          if (opts.some(([v]) => v === keep)) s.value = keep;
+        };
+        fill(window.Sub && Sub.settings);
         s.addEventListener('change', () => set(s.value));
         r.classList.add('wide');
         r.appendChild(s);
-        register(f.key, { els: [s], setValue: (v) => { s.value = v; } });
+        register(f.key, { els: [s], refresh: fill, setValue: (v) => { s.value = v; } });
         break;
       }
       case 'color': {
@@ -239,6 +250,7 @@
     for (const [key, list] of Object.entries(Controls.inputs)) {
       if (!(key in settings)) continue;
       for (const c of list) {
+        if (c.refresh) c.refresh(settings);
         if (!force && c.els.some((e) => e === document.activeElement && e.type !== 'checkbox' && e.tagName !== 'SELECT')) continue;
         c.setValue(settings[key]);
       }

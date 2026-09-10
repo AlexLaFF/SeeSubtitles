@@ -16,19 +16,49 @@ const MAX_DURATION_S = 5 * 3600;
 const INLINE_LIMIT = 4.5 * 1024 * 1024; // CreateRecTask base64 payload cap is 5 MB
 const POLL_MS = 5000;
 
-// source language → Tencent batch engine, and the 混元翻译 (Hunyuan) source code. Hunyuan knows Cantonese
+// Spoken language → Tencent batch engine, and the 混元翻译 (Hunyuan) source code. Hunyuan knows Cantonese
 // (yue) as its own language, so Cantonese transcripts are no longer translated "as Mandarin".
+// Every engine below was submitted to 录音文件识别 on the live account and came back `success`
+// (server/probe-languages.js --engines, last run 2026-09-10) — the list is what the account can really run,
+// not what the documentation advertises. `hunyuan: ''` means "let the translator detect the language".
 const ENGINES = {
   yue: { engine: '16k_yue', hunyuan: 'yue', label: '粤语 Cantonese' },
   zh: { engine: '16k_zh', hunyuan: 'zh', label: '普通话 Mandarin' },
   mixed: { engine: '16k_zh-PY', hunyuan: 'zh', label: '中英粤混合 Mandarin + English + Cantonese' },
+  zh_large: { engine: '16k_zh_en_2.0', hunyuan: 'zh', label: '中文大模型 Chinese large model (Mandarin, Cantonese, English, dialects)' },
+  'zh-TW': { engine: '16k_zh-TW', hunyuan: 'zh', label: '繁體中文 Chinese (Traditional)' },
   en: { engine: '16k_en', hunyuan: 'en', label: 'English' },
+  en_large: { engine: '16k_en_large', hunyuan: 'en', label: 'English large model' },
   ja: { engine: '16k_ja', hunyuan: 'ja', label: '日本語 Japanese' },
   ko: { engine: '16k_ko', hunyuan: 'ko', label: '한국어 Korean' },
+  vi: { engine: '16k_vi', hunyuan: 'vi', label: 'Tiếng Việt Vietnamese' },
+  th: { engine: '16k_th', hunyuan: 'th', label: 'ไทย Thai' },
+  id: { engine: '16k_id', hunyuan: 'id', label: 'Bahasa Indonesia' },
+  ms: { engine: '16k_ms', hunyuan: 'ms', label: 'Bahasa Melayu Malay' },
+  fil: { engine: '16k_fil', hunyuan: 'fil', label: 'Filipino' },
+  es: { engine: '16k_es', hunyuan: 'es', label: 'Español Spanish' },
+  pt: { engine: '16k_pt', hunyuan: 'pt', label: 'Português Portuguese' },
+  fr: { engine: '16k_fr', hunyuan: 'fr', label: 'Français French' },
+  de: { engine: '16k_de', hunyuan: 'de', label: 'Deutsch German' },
+  tr: { engine: '16k_tr', hunyuan: 'tr', label: 'Türkçe Turkish' },
+  ar: { engine: '16k_ar', hunyuan: 'ar', label: 'العربية Arabic' },
+  hi: { engine: '16k_hi', hunyuan: 'hi', label: 'हिन्दी Hindi' },
+  multi: { engine: '16k_multi_lang', hunyuan: '', label: '多语种自动识别 Multi-language (auto)' },
 };
-const TARGETS = { none: 'no translation', zh: '简体中文', 'zh-TW': '繁體中文', en: 'English', ja: '日本語', ko: '한국어' };
-// job target code → Hunyuan / TokenHub target code (both spell Traditional Chinese zh-TR)
-const HUNYUAN_TARGET = { zh: 'zh', 'zh-TW': 'zh-TR', en: 'en', ja: 'ja', ko: 'ko' };
+// Subtitle languages: the 31 targets 混元翻译 accepted from the live TokenHub key (same probe, --translate).
+// The legacy standalone Hunyuan API covers fewer of these; it stops on 2026-09-30 and TokenHub is the path.
+const TARGETS = {
+  none: 'no translation',
+  zh: '简体中文', 'zh-TW': '繁體中文', yue: '粤语 Cantonese',
+  en: 'English', ja: '日本語', ko: '한국어',
+  vi: 'Tiếng Việt', th: 'ไทย', id: 'Bahasa Indonesia', ms: 'Bahasa Melayu', fil: 'Filipino',
+  es: 'Español', pt: 'Português', fr: 'Français', de: 'Deutsch', it: 'Italiano', nl: 'Nederlands',
+  pl: 'Polski', cs: 'Čeština', ru: 'Русский', uk: 'Українська', tr: 'Türkçe',
+  ar: 'العربية', he: 'עברית', fa: 'فارسی', ur: 'اردو', hi: 'हिन्दी', bn: 'বাংলা',
+  bo: 'བོད་སྐད་ Tibetan', ug: 'ئۇيغۇرچە Uyghur', mn: 'ᠮᠣᠩᠭᠣᠯ Mongolian',
+};
+// job target code → Hunyuan / TokenHub target code (identical apart from Traditional Chinese, spelled zh-TR)
+const HUNYUAN_TARGET = Object.fromEntries(Object.keys(TARGETS).filter((k) => k !== 'none').map((k) => [k, k === 'zh-TW' ? 'zh-TR' : k]));
 const LEGACY_MODEL = 'hunyuan-translation'; // standalone Hunyuan API, stops on 2026-09-30
 
 const safeName = (s) => String(s || 'video').replace(/\.[^.]+$/, '').replace(/[^\w一-鿿぀-ヿ가-힯 .-]+/g, '_').slice(0, 80) || 'video';

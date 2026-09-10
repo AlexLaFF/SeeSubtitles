@@ -8,20 +8,45 @@
 
   const DEFAULT_FONT = '"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif';
 
-  // Languages per the 实时语音翻译 docs. Target list is what the API accepts for yue + the common ones.
-  const SOURCES = [
-    ['yue', '粤语 Cantonese'], ['zh', '普通话 Mandarin'], ['zh_en', '中英混合 Mandarin + English'],
-    ['en', 'English'], ['ja', '日本語'], ['ko', '한국어'], ['id', 'Bahasa Indonesia'], ['th', 'ไทย'], ['ru', 'Русский'],
-  ];
-  const TARGETS = [
-    ['zh', '中文 Mandarin'], ['en', 'English'], ['ja', '日本語'], ['ko', '한국어'], ['yue', '粤语 Cantonese'], ['zh_en', '中英 (auto)'],
-  ];
+  // Languages of 实时语音翻译. LIVE_PAIRS is not the documentation's list: it is what the API answered when
+  // every combination was actually opened against this account (server/probe-languages.js --live --pairs,
+  // last run 2026-09-10). Anything missing here is refused at the handshake with
+  // `6001 参数不合法(not support this lang pair: X to Y)`, so offering it would only produce a dead stream.
+  const LANG_NAMES = {
+    yue: '粤语 Cantonese',
+    zh: '普通话 Mandarin',
+    zh_en: '中英混合 Mandarin + English',
+    en: 'English',
+    ja: '日本語 Japanese',
+    ko: '한국어 Korean',
+    id: 'Bahasa Indonesia',
+    th: 'ไทย Thai',
+    ru: 'Русский Russian',
+  };
+  const LIVE_PAIRS = {
+    yue: ['zh', 'en', 'ja', 'ko', 'yue'],
+    zh: ['zh', 'en', 'ja', 'ko', 'yue', 'id', 'th'],
+    zh_en: ['zh_en', 'zh', 'en', 'ja', 'ko', 'yue', 'id', 'th'],
+    en: ['zh', 'en', 'ja', 'ko', 'yue', 'id', 'th'],
+    ja: ['zh', 'en', 'ja', 'ko', 'yue'],
+    ko: ['zh', 'en', 'ja', 'ko', 'yue'],
+    id: ['zh', 'en', 'id'],
+    th: ['zh', 'en', 'th'],
+    ru: ['zh', 'en', 'ru'],
+  };
+  const SOURCES = Object.keys(LIVE_PAIRS).map((k) => [k, LANG_NAMES[k]]);
+  const TARGETS = [...new Set(Object.values(LIVE_PAIRS).flat())].map((k) => [k, LANG_NAMES[k]]);
+  /** Subtitle languages this spoken language can be translated into. Never empty; source === target transcribes. */
+  const targetsFor = (source) => LIVE_PAIRS[source] || LIVE_PAIRS.yue;
+  /** `target` when the API accepts the pair, else the first target it does accept for `source`. */
+  const coerceTarget = (source, target) => (targetsFor(source).includes(target) ? target : targetsFor(source)[0]);
 
   const FIELDS = [
     // input
     { key: 'audioDevice', group: 'input', label: 'Microphone', type: 'device', default: 'default' },
     { key: 'source', group: 'input', label: 'Spoken language', type: 'select', options: SOURCES, default: 'yue' },
-    { key: 'target', group: 'input', label: 'Subtitle language', type: 'select', options: TARGETS, default: 'zh' },
+    { key: 'target', group: 'input', label: 'Subtitle language', type: 'select', options: TARGETS, default: 'zh',
+      optionsFor: (s) => targetsFor(s.source) },
     { key: 'transModel', group: 'input', label: 'Model', type: 'select', default: 'hunyuan-translation-lite',
       options: [['hunyuan-translation-lite', 'hunyuan-translation-lite (fast)'], ['hunyuan-translation', 'hunyuan-translation (quality)']] },
     { key: 'streaming', group: 'input', label: 'Streaming on', type: 'bool', default: true, persist: false },
@@ -140,5 +165,5 @@
     return out;
   }
 
-  return { FIELDS, GROUPS, PRESETS, byKey, defaults, sanitize, DEFAULT_FONT };
+  return { FIELDS, GROUPS, PRESETS, byKey, defaults, sanitize, DEFAULT_FONT, LANG_NAMES, LIVE_PAIRS, targetsFor, coerceTarget };
 });

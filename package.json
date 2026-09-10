@@ -6,7 +6,8 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "test": "npm test --workspaces --if-present",
-    "probe:batch": "node server/probe-batch.js"
+    "probe:batch": "node server/probe-batch.js",
+    "probe:languages": "node server/probe-languages.js"
   },
   "license": "MIT"
 }
