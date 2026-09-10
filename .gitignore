@@ -13,3 +13,7 @@ desktop/resources/bin/
 *.p12
 *.mobileprovision
 *.provisionprofile
+# App Store Connect API keys are private keys and Apple issues them once. They live in
+# ~/.config/seesubtitles/, never here.
+*.p8
+AuthKey_*
