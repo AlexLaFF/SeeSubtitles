@@ -1,150 +1,109 @@
-# transcriptionApp — See Subtitles
+<div align="center">
+  <img src="desktop/build/icon.png" alt="See Subtitles" width="88">
+  <h1>See Subtitles</h1>
+  <p><strong>Live Cantonese → Mandarin subtitles for everyone in the room.</strong></p>
+  <p>
+    <img alt="platform: macOS" src="https://img.shields.io/badge/app-macOS%2013%2B%20·%20Apple%20silicon-1c1a16">
+    <img alt="server: Docker" src="https://img.shields.io/badge/server-Docker%20%2B%20Caddy-1c1a16">
+    <img alt="licence: MIT" src="https://img.shields.io/badge/licence-MIT-f5c518">
+  </p>
+</div>
 
-Live Cantonese → Mandarin subtitles for venue screens, remote displays in any browser, and
-upload-a-video subtitling — built on Tencent Cloud speech services. Successor of the localhost tool in
-`cantoneseTranscription`; the pipeline modules are the same, packaged for the team.
+---
+
+A Mac at the front of the room turns a Cantonese talk into Mandarin subtitles as it is spoken — on the
+venue screen, over the slides, and on every phone that scans a code. When the talk ends the recording,
+the full subtitles and a summary are already waiting.
+
+It was built for real conferences, classrooms and meetings in Hong Kong and Guangdong, where following
+the words is the difference between attending and taking part.
+
+## What it does
+
+**In the room.** A microphone on the speaker. Audio streams to Tencent 实时语音翻译 and each sentence
+comes back translated as it finishes. Show it in a Display window on the projector, a transparent
+Overlay over your slides on any screen, or a share link and QR code that puts the subtitles on every
+phone — where each attendee picks translation, original or both, at their own text size.
+
+**Afterwards.** Recording never touches the network, so a dropped connection pauses subtitles but
+never the recording. When it stops you have an MP3, SRT subtitles in both languages, an MP4 with the
+text burned in, and an AI summary with clickable timestamps as Markdown or a printable PDF. Cloud
+re-subtitling can run the whole recording through again in one pass to fill anything the live
+connection missed.
+
+**Files, too.** Drop a video or audio file into the web app and get subtitles in minutes: edit the
+cues, fix the timing, export SRT, VTT, plain text or a burned-in MP4.
+
+## How it works
 
 ```
-core/      shared pipeline: Tencent signing, streaming translator, 48→16 kHz decimator, transcript, MP3+SRT recorder
-web/       pages: display, control, playback (desktop) · login, dashboard, job editor, /d/<code> remote display (hosted)
-desktop/   macOS app (Electron): mic → Tencent 实时语音翻译 → Display / transparent Overlay windows, recording, cloud mirror
-server/    hosted server: login, live-session mirror, upload → 录音文件识别 → sentences → 混元翻译 → cues → SRT/VTT/MP4, cue editor
-deploy/    docker-compose + Caddy for Tencent Cloud (HK) or any Linux box
+microphone ─► 48→16 kHz ─► Tencent 实时语音翻译 ─► sentence + translation
+                                                        │
+                        ┌───────────────────────────────┼───────────────────────────┐
+                        ▼                               ▼                           ▼
+                 Display window                  local recording              hosted mirror
+                 Overlay on slides               MP3 · SRT · MP4              share link · QR
+                                                 AI summary · PDF             every phone
 ```
 
-Requirements: Node 24 (`.nvmrc`), and for the desktop app Xcode command line tools (`swiftc`) to build the
-native audio helpers once. `npm install` at the root installs every workspace.
+The Mac does the capture, the display and the recording. The hosted server exists for the things a
+laptop cannot do alone: the share link phones connect to, subtitling uploaded files, and re-running a
+recording through whole-file recognition.
 
-## Desktop app (conference use)
+## Getting started
+
+**Use it.** The app is distributed as a signed macOS build, and accounts are created by hand — there is
+no self-service sign-up ([why](SECURITY.md)). What the app can do, screen by screen, is in
+[docs/USING-THE-APP.md](docs/USING-THE-APP.md).
+
+**Run your own.** The server is a Docker Compose stack with automatic HTTPS; you supply Tencent Cloud
+credentials. → **[docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)**
+
+**Build from source.** Node 24, one `npm install`, and the app runs from the repository. →
+**[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**
 
 ```bash
-npm install                             # behind a VPN: ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
-npm run build:helpers -w desktop        # compiles helpers/*.swift and bundles static ffmpeg/ffprobe into resources/bin
-npm start -w desktop                    # run from source
-npm run dist -w desktop                 # DMG in desktop/dist (unsigned unless a Developer ID certificate is installed)
+npm install
+npm run build:helpers -w desktop
+npm start -w desktop
 ```
 
-The app is one window with a sidebar: **Live** (a talk happening now), **Files** (recordings from Live and
-files you add, each with playback, editable subtitles, exports, MP4 and AI summary) and **Settings**. The first
-launch shows three cards: log in to seesubtitles.com (the app then fetches its Tencent keys from the server, so
-no keys are typed), pick the microphone with a live level meter, choose the languages, then Live or Files.
-Live is arranged in the order you set up a talk: source (with the **Glossary**: names and terms the recogniser
-should favour, kept with the account and applied at the next connection), subtitle look, where it shows
-(Display window ⌘3, transparent Overlay window ⌘4 placeable on any display including BetterDisplay virtual
-screens, and the share link for phones with a QR code and a printable A4 poster), recording (⇧⌘R). The menu bar
-mirrors everything: File › Add File… (⌘O), View › Live / Files (⌘1 / ⌘2), Display / Overlay windows, Demo Mode.
-The MP4 with burned-in subtitles is produced when a recording stops.
+## Layout
 
-**Re-subtitle via cloud** (Files › a recording): uploads the recording's MP3 to the
-hosted server as a job (whole-file 录音文件识别 + 混元翻译) and replaces the live subtitles with the complete
-set, which fills the holes a connection drop leaves and reads better. The live files are kept as
-`…中文字幕.zh.live.srt` / `…粤语字幕.yue.live.srt`, a stale MP4 as `…录音＋字幕.live.mp4`, and the MP4 is
-re-rendered automatically when MP4 auto-export is on.
+| Path | |
+|---|---|
+| `core/` | The shared pipeline — Tencent signing, the streaming translator, the decimator, the recorder |
+| `desktop/` | The macOS app: capture, Display and Overlay windows, recording, MP4, summaries |
+| `server/` | The hosted side: accounts, the live mirror, upload jobs, the cue editor |
+| `web/` | Every page, shared by both — app shell, display, attendee view, account, website |
+| `deploy/` | docker-compose and Caddy |
+| `design/` | Design tokens, icons and the canvas sources behind the interface |
 
-Distribution: to ship a DMG that opens without right-click → Open, create a *Developer ID Application*
-certificate in the Apple developer portal and set `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`
-for notarization (electron-builder picks them up).
+## Status and limits
 
-## Local-tool update sync (0.2.0)
+Honest about what this is: a working product run by one person, not a managed service.
 
-Ported the local-tool commits after `3cff4b8`, through `2be9fbc` (September 7, 2026):
+- **macOS 13+ on Apple silicon** for the app. The web side runs in any browser.
+- **Cantonese → Mandarin** is what it is tuned for. The upload pipeline also handles Mandarin,
+  English, Japanese and Korean.
+- **A server hands its Tencent credentials to every logged-in app**, so anyone with an account can
+  spend your speech quota. `SIGNUP_MODE` is `closed` by default and should stay that way until the app
+  receives short-lived credentials instead. This is the main open item — see
+  [SECURITY.md](SECURITY.md).
+- **Plan quotas are enforced by the app**, so they guide cooperating users rather than restrict
+  anyone.
+- The interface is English and Simplified Chinese; every string lives in one catalogue and a test
+  fails the build if a screen is only half translated.
 
-- AI learning summaries with the latest concise synthesis prompt, progress, Markdown viewing,
-  clickable recording timestamps, and formatted A4 PDF export. By default they run through Tencent
-  TokenHub (DeepSeek V4 Flash; V4 Pro, Kimi K3 and MiniMax M3 selectable) using the key the server
-  hands to logged-in desktops, so no VPN is needed in mainland China and no key is typed. Effort maps to
-  the model's thinking budget; timestamps beyond the recording's length are dropped. PDFs use the app's
-  bundled Chromium.
-- Chinese recording-set filenames with legacy recordings still discoverable and playable.
-  New audio, subtitles, MP4, summaries and PDFs follow the same naming scheme. Existing files
-  are not renamed automatically. Optional migration previews changes before applying them:
-  `npm run rename-recordings -w desktop -- /absolute/recordings/folder` (add `--apply` to rename).
-- A **字幕** menu-bar item to open controls, fill any display, reload/close the overlay, or quit.
-  The overlay does not take keyboard focus from the presentation; the main app keeps its Dock entry
-  for Control and Settings. Closing it keeps capture and recording running.
-- Overlay registration survives pipeline restart; the selected display is highlighted; Close controls
-  and the hidden audience-screen hint match the local tool. Because the app owns the overlay and
-  server in one process, it does not need the standalone overlay's server-loss quit timer.
-- Applying a preset refreshes the initiating browser's controls. Microphone capture ignores unrelated
-  audio-device changes, and Tencent connection retries avoid previously failing edges.
-- MP4 exports carry no embedded subtitle tracks (players would draw a second copy of the burned-in
-  text); the stacked subtitles fill the frame and dissolve at the top edge like the live display.
-  Plain-text downloads (original / translation, text only) for the live transcript and every recording.
-- Recognition tuning in the Input group, applied at the next connection through a graceful rotation:
-  hotwords (`词|权重`, one per line, up to 128), pause that ends a sentence (500–2000 ms), forced split
-  (5–90 s), filler-word filter, noise threshold. Measured on Cantonese: shorter sentences translate more
-  literally and finalize sooner, longer ones read more fluently but get paraphrased. Values that are not
-  URL-safe are signed raw and sent URL-encoded, as the API requires.
-- Behind a VPN the mainland edge is found through Chinese DoH resolvers queried with a mainland
-  client-subnet hint, with a known-good Guangzhou edge as the last resort.
+## Documentation
 
-The original localhost checkout, credentials, recordings and running processes are not modified.
-Cloud mirroring and the hosted upload workflow remain available. Summary generation is for desktop
-recordings, matching the local tool; it is not yet part of hosted upload jobs.
+- [docs/USING-THE-APP.md](docs/USING-THE-APP.md) — the app in use: Live, Files, re-subtitling, summaries, 2FA
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — build, run, test, release
+- [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md) — deploy the server, accounts, Tencent keys, backups
+- [docs/HISTORY.md](docs/HISTORY.md) — where the pipeline came from and why parts are shaped as they are
+- [SECURITY.md](SECURITY.md) — reporting a vulnerability, and the known design limits
 
-### Lightweight web-only test
+## Licence
 
-Use Node 24. In a terminal at the app repository, create a test account and start the web server:
-
-```bash
-export DATA_DIR=/private/tmp/subtitle-web-preview
-node server/cli.js add-user preview@local.test
-HOST=127.0.0.1 PORT=18081 FFMPEG="$PWD/desktop/resources/bin/ffmpeg" FFPROBE="$PWD/desktop/resources/bin/ffprobe" node server/server.js
-```
-
-Open `http://127.0.0.1:18081` and use the password printed by the account command. No Electron window
-or cloud deployment is required. Start with a 30–60 second clip and **no translation**, then edit cues
-and export SRT/VTT/MP4. Actual transcription uses Tencent credentials from the app repo's `.env`;
-translation additionally requires TMT. Long uploads need a publicly reachable backend. Stop this
-preview with Ctrl-C; its files are isolated under `DATA_DIR`.
-
-## Hosted server (remote displays + upload subtitling)
-
-```bash
-cp deploy/.env.example deploy/.env      # DOMAIN + TENCENT_* keys
-docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
-docker compose -f deploy/docker-compose.yml exec app node server/cli.js add-user you@example.com
-```
-
-Accounts: `SIGNUP_MODE=closed` (default) means only `cli.js add-user` creates accounts; `invite` shows a
-sign-up form that needs a code from `cli.js add-invite` or from the Account page; `open` lets anyone sign up.
-Every user only sees their own jobs and live sessions. `cli.js set-role <email> admin` marks administrators:
-their **Account** page (`/account`) adds a Team section with the members, invite codes, password reset links
-(`/reset/<token>`, valid 24 h, used once; the server never sends mail, you hand the link over) and the
-account requests that arrive from the website's form. Everyone's Account page has the password change, the
-signed-in devices, the glossary shared with the desktop app and the usage tiles. Login and sign-up are
-rate-limited per IP and per email. Logged-out visitors to `/` see the website (`web/site.html`); `/poster?url=…`
-prints an A4 QR poster for a share link.
-
-The dashboard shows Tencent usage for the month (`asr:GetUsageByDate`, allowed by the ASR policy the keys already
-have) and, with `TENCENT_PACK=<hours>h@<purchase date>`, what is left of the 实时语音翻译 resource pack; Tencent has no
-API for a pack's remaining quota, so the pack size comes from you. `TENCENT_BILLING_SECRET_ID/KEY`, a separate key
-with `billing:DescribeAccountBalance` (preset `QcloudFinanceBillReadOnlyAccess`), adds the account balance; keep it
-off the main key, which is handed to desktop apps.
-
-Caddy obtains the TLS certificate for `DOMAIN` automatically. Data (SQLite, uploads, session logs) lives in
-the `subs-data` volume; back it up with `docker run --rm -v subs-data:/data -v $PWD:/out alpine tar czf /out/subs-data.tgz /data`.
-
-Locally: `DATA_DIR=./data node server/server.js` (port 8080). For MP4 burn-in on macOS point `FFMPEG` at an
-ffmpeg with libass, e.g. `FFMPEG=desktop/resources/bin/ffmpeg`.
-
-Tencent services used: 实时语音翻译 (live), 录音文件识别 (uploads; CAM policy `QcloudASRFullAccess`), and
-混元翻译 for translating uploads. Translation runs on **TokenHub** (大模型服务平台, `TOKENHUB_API_KEY` from
-console.cloud.tencent.com/tokenhub/apikey, models `hy-mt2-pro` / `hy-mt2-plus` / `hy-mt2-lite`, 0.5 / 2 元 per
-million tokens). Without a TokenHub key the server falls back to the standalone Hunyuan API with the TC3 keys
-(`QcloudHunYuanFullAccess`, `hunyuan-translation`), which Tencent shuts down on 2026-09-30. The older 机器翻译
-(TMT) product is not used. `npm run probe:batch -- --translate-only` checks the translation key;
-`npm run probe:batch -- clip.mp3` runs recognition + translation end to end.
-
-Upload pipeline: ffmpeg extracts 16 kHz mono audio → `CreateRecTask` (engine by spoken language, word
-timestamps) → each recognised sentence is translated whole (Cantonese is sent as `yue`, its own language in
-混元翻译; several sentences per request, redone one by one if the line count comes back different) → cues of
-≤ 22 CJK / 44 Latin characters split at punctuation, with the sentence's translation shared over its cues in
-proportion to their length → SRT, VTT, TXT (original, translated, bilingual). The job page plays the video with the cues, lets you edit text and
-timing (nudge, merge, delete, shift all), regenerates the files on save, and renders an MP4 with burned-in
-subtitles on demand. Audio files longer than a few minutes are fetched by Tencent from
-`BASE_URL/media/<token>.mp3`, so the server must be reachable from the internet.
-
-## Tests
-
-`npm test` runs the core unit tests (signing, translator against a mock WebSocket, decimator, recorder).
+MIT — see [LICENSE](LICENSE). Bundled Instrument Sans and Instrument Serif are used under the SIL Open
+Font License; their licences sit beside the fonts in `web/fonts/`.
