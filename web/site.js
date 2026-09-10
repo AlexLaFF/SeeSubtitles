@@ -14,7 +14,8 @@
       'plan.pick': '申请此方案', 'plan.month': '/月', 'plan.contact': '联系我们',
       'plan.vsPayg': '按用量付费价', 'plan.save': '省 {pct}%',
       'hero.h1': '让<em>现场每一个人</em>都看得见字幕。',
-      'hero.p': '粤语进，普通话字幕出——实时显示在会场屏幕、幻灯片之上，以及全场每一部手机。散场时，录音、字幕和摘要都已经在手。',
+      'hero.p': '<span class="lang src"><b>粤语</b></span>进，<span class="lang tgt"><b>普通话</b></span>字幕出——实时显示在会场屏幕、幻灯片之上，以及全场每一部手机。散场时，录音、字幕和摘要都已经在手。',
+      'hero.langs': '实时字幕支持 9 种讲话语言、46 个语言对；上传的文件支持 17 种讲话语言，可译成 31 种字幕语言。',
       'cta.download': '下载 macOS 版', 'cta.web': '打开网页版', 'hero.fine': 'macOS 13 或以上、Apple 芯片 · 文件字幕可在任何浏览器使用',
       'how.h2': '运作方式', 'how.sub': '会场前方一台 Mac。讲者什么都不用改。',
       'how.1h': '讲', 'how.1p': '讲者身上一支麦克风。声音流式发送到腾讯实时语音翻译，每一句讲完就带着译文回来。',
@@ -73,6 +74,7 @@
     renderPlans();
     renderRates();
     applyMode();
+    rotateLanguages();
   }
   $('lang').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setLang(b.dataset.lang); });
 
@@ -232,6 +234,79 @@
 
   // the QR in the hero points at this site
   try { const q = qrcode(0, 'M'); q.addData(location.origin); q.make(); $('qr').insertAdjacentHTML('afterbegin', q.createSvgTag({ cellSize: 3, margin: 0, scalable: true })); $('qrText').textContent = location.host; } catch { $('qr').hidden = true; }
+
+  // ---- the two languages in the pitch walk through every pair the speech API accepts.
+  // The matrix comes from /schema.js, the same table the app connects with, so the website cannot advertise
+  // a pair Tencent would refuse. Without it (schema.js failed to load) the sentence simply stays still.
+  const LANG = {
+    yue: ['Cantonese', '粤语'], zh: ['Mandarin', '普通话'], zh_en: ['Mandarin + English', '中英混合'],
+    en: ['English', '英语'], ja: ['Japanese', '日语'], ko: ['Korean', '韩语'],
+    id: ['Indonesian', '印尼语'], th: ['Thai', '泰语'], ru: ['Russian', '俄语'],
+  };
+  const HOLD_MS = 2800;
+  const OPENERS = ['yue>zh', 'yue>en', 'zh>en', 'en>zh']; // the sentence always starts on the flagship pair
+  let rotTimer = null;
+
+  /** Every pair worth showing (same-language pairs are transcription, not the promise the sentence makes),
+   *  opening on OPENERS and then ordered so each step changes one word where it can — a ticker, not a slot
+   *  machine. Returns [] when /schema.js is missing, which leaves the sentence still. */
+  function languagePairs() {
+    const matrix = window.SCHEMA && SCHEMA.LIVE_PAIRS;
+    if (!matrix) return [];
+    const left = new Map();
+    for (const [source, targets] of Object.entries(matrix)) {
+      for (const target of targets) if (source !== target && LANG[source] && LANG[target]) left.set(`${source}>${target}`, [source, target]);
+    }
+    const out = [];
+    for (const key of OPENERS) if (left.has(key)) { out.push(left.get(key)); left.delete(key); }
+    if (!out.length && left.size) { const [key, pair] = left.entries().next().value; out.push(pair); left.delete(key); }
+    while (left.size) {
+      const [source, target] = out[out.length - 1];
+      const rest = [...left];
+      const [key, pair] = rest.find(([, [s, t]]) => (s === source) !== (t === target)) || rest[0];
+      out.push(pair);
+      left.delete(key);
+    }
+    return out;
+  }
+
+  /** Swap one word: lift the old one out, re-flow the sentence to the new width while nothing is visible,
+   *  then drop the new one in — so the box is never caught clipping a word it has not finished opening for. */
+  function setWord(box, text) {
+    const word = box && box.firstElementChild;
+    if (!word || word.textContent === text) return;
+    box.style.width = `${word.offsetWidth}px`;
+    box.classList.add('turning');
+    setTimeout(() => {
+      word.textContent = text;
+      box.style.width = `${word.offsetWidth}px`; // nowrap keeps the word at its natural width inside the narrow box
+      setTimeout(() => box.classList.remove('turning'), 260); // matches the width transition in site.css
+    }, 170);
+  }
+
+  function rotateLanguages() {
+    clearTimeout(rotTimer);
+    const src = document.querySelector('.hero .lang.src');
+    const tgt = document.querySelector('.hero .lang.tgt');
+    if (!src || !tgt) return;
+    for (const box of [src, tgt]) box.style.width = `${box.firstElementChild.offsetWidth}px`;
+    const still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const pairs = languagePairs();
+    if (still || pairs.length < 2) return;
+    const name = (code) => LANG[code][lang === 'en' ? 0 : 1];
+    let i = 0;
+    const step = () => {
+      if (!document.hidden) { // a background tab should not race through the list unseen
+        i = (i + 1) % pairs.length;
+        setWord(src, name(pairs[i][0]));
+        setWord(tgt, name(pairs[i][1]));
+      }
+      rotTimer = setTimeout(step, HOLD_MS);
+    };
+    rotTimer = setTimeout(step, HOLD_MS);
+  }
+  // the boxes are sized from the rendered text, so re-measure once the brand fonts have replaced the fallback
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(rotateLanguages);
 
   // request an account
   $('req').addEventListener('submit', async (e) => {

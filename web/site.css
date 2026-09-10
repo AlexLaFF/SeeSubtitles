@@ -36,6 +36,19 @@ body.site { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 
 .site .hero h1 { margin: 0 0 20px; font: 600 58px/1.05 var(--ui); letter-spacing: -.025em; }
 .site .hero h1 em { font: italic 400 1em var(--display); color: var(--accent); }
 .site .hero p { margin: 0 0 28px; font-size: 18px; color: var(--fg-2); max-width: 560px; }
+.site .hero p.pitch { margin-bottom: 10px; }
+.site .hero .langs { margin: 0 0 26px; }
+/* The two languages in the pitch walk through every pair the speech API accepts. The spoken one wears the
+   on-air red of the mark, the subtitle one sits on a yellow chip the way a subtitle sits on the picture.
+   The outer span animates its width so the sentence re-flows as a ticker rather than jumping. */
+.site .hero .lang { display: inline-block; overflow: hidden; white-space: nowrap; vertical-align: bottom; transition: width .26s cubic-bezier(.4, 0, .2, 1); }
+.site .hero .lang b { display: inline-block; font-weight: 600; transition: opacity .16s ease, transform .16s ease; }
+.site .hero .lang.turning b { opacity: 0; transform: translateY(-.4em); }
+.site .hero .lang.src b { color: var(--rec); }
+.site .hero .lang.tgt b { background: var(--accent); color: var(--accent-fg); border-radius: 5px; padding: 0 7px; }
+@media (prefers-reduced-motion: reduce) {
+  .site .hero .lang, .site .hero .lang b { transition: none; }
+}
 .site .cta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .site .fine { margin-top: 14px; color: var(--fg-3); font-size: 13px; }
 .site .vis { position: relative; height: 420px; }
