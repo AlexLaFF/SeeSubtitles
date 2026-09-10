@@ -101,15 +101,12 @@ Honest about what this is: a working product run by one person, not a managed se
 - **macOS 13+ on Apple silicon** for the app. The web side runs in any browser.
 - **Cantonese → Mandarin is what it is tuned for**, and what it has been run at real events. The other
   pairs work but have had far less use in a room. See [Languages](#languages).
-- **Subtitle files are still named for Cantonese and Mandarin.** A Japanese → English recording saves
-  correct subtitles into `…中文字幕.zh.srt` and `…粤语字幕.yue.srt`, because those two names are slots in
-  the recording format rather than language codes. Renaming them is the next change to this pipeline.
-- **A server hands its Tencent credentials to every logged-in app**, so anyone with an account can
-  spend your speech quota. `SIGNUP_MODE` is `closed` by default and should stay that way until the app
-  receives short-lived credentials instead. This is the main open item — see
-  [SECURITY.md](SECURITY.md).
-- **Plan quotas are enforced by the app**, so they guide cooperating users rather than restrict
-  anyone.
+- **`/api/desktop/credentials` still hands a Tencent key to apps built before 0.6.9.** From 0.6.9 the
+  server signs each connection instead and the app holds no key at all, but the old endpoint has to stay
+  until nothing needs it — so `SIGNUP_MODE` is `closed` by default and should stay that way until it is
+  deleted. This is the main open item — see [SECURITY.md](SECURITY.md).
+- **File quotas are enforced by the app**, so they guide cooperating users rather than restrict anyone.
+  Live quotas are checked by the server every time it signs a connection.
 - The interface is English and Simplified Chinese; every string lives in one catalogue and a test
   fails the build if a screen is only half translated.
 
