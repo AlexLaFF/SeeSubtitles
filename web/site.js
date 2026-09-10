@@ -244,12 +244,15 @@
     id: ['Indonesian', '印尼语'], th: ['Thai', '泰语'], ru: ['Russian', '俄语'],
   };
   const HOLD_MS = 2800;
-  const OPENERS = ['yue>zh', 'yue>en', 'zh>en', 'en>zh']; // the sentence always starts on the flagship pair
+  const OPENER = 'yue>zh'; // the sentence always starts on the pair the product was built for
   let rotTimer = null;
 
   /** Every pair worth showing (same-language pairs are transcription, not the promise the sentence makes),
-   *  opening on OPENERS and then ordered so each step changes one word where it can — a ticker, not a slot
-   *  machine. Returns [] when /schema.js is missing, which leaves the sentence still. */
+   *  opening on OPENER and then ordered for variety: the reader should see a different language every time
+   *  the sentence turns, not five ways of saying Mandarin and English. Each step takes the pair that shares
+   *  least with the one before and whose languages have been off screen longest, which keeps both words
+   *  moving and stops any language sitting there. Returns [] when /schema.js is missing — then the sentence
+   *  simply stays still. */
   function languagePairs() {
     const matrix = window.SCHEMA && SCHEMA.LIVE_PAIRS;
     if (!matrix) return [];
@@ -257,15 +260,30 @@
     for (const [source, targets] of Object.entries(matrix)) {
       for (const target of targets) if (source !== target && LANG[source] && LANG[target]) left.set(`${source}>${target}`, [source, target]);
     }
-    const out = [];
-    for (const key of OPENERS) if (left.has(key)) { out.push(left.get(key)); left.delete(key); }
-    if (!out.length && left.size) { const [key, pair] = left.entries().next().value; out.push(pair); left.delete(key); }
+    if (!left.size) return [];
+    const first = left.has(OPENER) ? OPENER : left.keys().next().value;
+    const out = [left.get(first)];
+    left.delete(first);
+    const seen = new Map(out[0].map((code) => [code, 0])); // language → the step it was last on screen
     while (left.size) {
-      const [source, target] = out[out.length - 1];
-      const rest = [...left];
-      const [key, pair] = rest.find(([, [s, t]]) => (s === source) !== (t === target)) || rest[0];
-      out.push(pair);
-      left.delete(key);
+      const step = out.length;
+      const [wasSource, wasTarget] = out[step - 1];
+      let bestKey = null;
+      let bestPair = null;
+      let best = -Infinity;
+      for (const [key, [source, target]] of left) {
+        let score = 0;
+        if (source !== wasSource) score += 100; // the spoken language changed
+        if (target !== wasTarget) score += 100; // and so did the subtitle language
+        if (source !== wasTarget && target !== wasSource) score += 40; // not the same two languages swapped round
+        score += Math.min(step - (seen.has(source) ? seen.get(source) : -10), 14); // fresher the longer it has been away
+        score += Math.min(step - (seen.has(target) ? seen.get(target) : -10), 14);
+        if (score > best) { best = score; bestKey = key; bestPair = [source, target]; }
+      }
+      out.push(bestPair);
+      left.delete(bestKey);
+      seen.set(bestPair[0], step);
+      seen.set(bestPair[1], step);
     }
     return out;
   }
