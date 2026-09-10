@@ -9,9 +9,10 @@
       'req.title': '账号需申请开通', 'req.body': '没有自助注册。告诉我们你要为什么加字幕；我们邮件回复并为你开通。已有账号？<a href="/login">登录</a>。',
       'price.h2': '价格', 'price.sub': '两种付费方式。都包含 Mac 应用、网页版，以及只保存在你 Mac 上的录音。',
       'price.mode.month': '按月订阅', 'price.mode.payg': '按用量付费',
-      'price.fine.month': '价格为每月美元。小时数指每月处理的音频时长，不结转；超出部分实时字幕每小时 $1.50、文件字幕每小时 $0.60，或升级方案。申请账号时说明你想要的方案。',
+      'price.fine.month': '价格为每月美元。划掉的金额是同样的包含小时数按“按用量付费”单价计算的费用——分享、AI 总结等功能还在此之外。小时数指每月处理的音频时长，不结转；超出部分实时字幕每小时 $1.50、文件字幕每小时 $0.60，或升级方案。申请账号时说明你想要的方案。',
       'price.fine.payg': '只为实际处理的用量付费，没有月费。额度预先购买，不过期；由我们人工开票并在你的账号上设置费率。分享到手机和其他屏幕仍属于按月订阅。',
       'plan.pick': '申请此方案', 'plan.month': '/月', 'plan.contact': '联系我们',
+      'plan.vsPayg': '按用量付费价', 'plan.save': '省 {pct}%',
       'hero.h1': '让<em>现场每一个人</em>都看得见字幕。',
       'hero.p': '粤语进，普通话字幕出——实时显示在会场屏幕、幻灯片之上，以及全场每一部手机。散场时，录音、字幕和摘要都已经在手。',
       'cta.download': '下载 macOS 版', 'cta.web': '打开网页版', 'hero.fine': 'macOS 13 或以上、Apple 芯片 · 文件字幕可在任何浏览器使用',
@@ -46,8 +47,9 @@
   T.en = {
     'form.sent': 'Thanks. We will reply to {email}.', 'form.err': 'Please give an email address we can reply to.',
     'dl.version': 'See Subtitles {version} · macOS 13 or later, Apple silicon', 'dl.none': 'No build is published for download yet; log in or request an account.',
-    'price.fine.month': 'Prices in US dollars per month. Hours are audio processed each month and do not carry over; extra live hours are $1.50 and extra file hours $0.60, or move up a plan. Say which plan you want when you request an account.',
+    'price.fine.month': 'Prices in US dollars per month. The struck-through figure is what the same included hours would cost at the pay-as-you-go rates — sharing, summaries and the rest of the plan are on top of that. Hours are audio processed each month and do not carry over; extra live hours are $1.50 and extra file hours $0.60, or move up a plan. Say which plan you want when you request an account.',
     'price.fine.payg': 'Pay only for what you process — no monthly fee. Credit is bought up front and does not expire; we invoice by hand and set the rate on your account. Sharing to phones and other screens stays on the monthly plans.',
+    'plan.vsPayg': 'at pay-as-you-go rates', 'plan.save': 'save {pct}%',
     'rate.free': 'Free', 'rate.incl': 'Included', 'rate.each': '/ each', 'rate.hour': '/ hour',
     'rate.note': '<b>Not in pay as you go:</b> sharing to phones and other screens — the QR code, the share link and the printable poster. Those are on the monthly plans.',
     'rate.cta': 'Request pay as you go',
@@ -83,7 +85,7 @@
 
   // the plans: prices in USD per month; the feature lines carry both languages
   const PLANS = [
-    { id: 'hobbyist', price: 28, cny: 200, en: 'Hobbyist', zh: '爱好者版',
+    { id: 'hobbyist', price: 28, cny: 200, liveHours: 10, fileHours: 5, en: 'Hobbyist', zh: '爱好者版',
       forEn: 'One Mac, one room: subtitles on the venue screen or over the slides, and recordings to keep.',
       forZh: '一台 Mac、一个会场：字幕显示在会场屏幕或幻灯片上，录音留档。',
       lines: [
@@ -94,7 +96,7 @@
         { en: 'Sharing to phones and other screens (QR code, link)', zh: '分享到手机和其他屏幕（二维码、链接）', no: true },
         { en: 'AI summaries', zh: 'AI 总结', no: true },
       ] },
-    { id: 'business', price: 88, cny: 630, en: 'Business', zh: '商务版', best: true,
+    { id: 'business', price: 88, cny: 630, liveHours: 40, fileHours: 20, en: 'Business', zh: '商务版', best: true,
       forEn: 'Every seat in the room follows along, and every talk ends with a summary.',
       forZh: '全场每一部手机都能跟读，每场讲话结束都有一份总结。',
       lines: [
@@ -105,7 +107,7 @@
         { en: 'AI summary for every recording, as Markdown or PDF', zh: '每段录音的 AI 总结，Markdown 或 PDF' },
         { en: 'Cloud re-subtitling of recordings and a glossary synced to your account', zh: '录音的云端重新加字幕，词汇表随账号同步' },
       ] },
-    { id: 'enterprise', price: 388, cny: 2780, en: 'Enterprise', zh: '企业版',
+    { id: 'enterprise', price: 388, cny: 2780, liveHours: 200, fileHours: 100, en: 'Enterprise', zh: '企业版',
       forEn: 'Several people, many rooms, a team that manages itself.',
       forZh: '多人、多会场，团队自行管理。',
       lines: [
@@ -117,6 +119,16 @@
         { en: 'Higher limits on request', zh: '可按需提高限额' },
       ] },
   ];
+  /** What a plan's included hours would cost at the pay-as-you-go rates, so the saving is visible. */
+  const rateOf = (id) => { const r = RATES.find((x) => x.id === id); return r ? r.usd : 0; };
+  function paygValue(p) {
+    if (!p.liveHours && !p.fileHours) return null;
+    const total = (p.liveHours || 0) * rateOf('live') + (p.fileHours || 0) * rateOf('file');
+    if (!(total > p.price)) return null; // never advertise a saving that is not there
+    return { total, pct: Math.round((1 - p.price / total) * 100) };
+  }
+  const money = (v) => `$${v % 1 === 0 ? v : v.toFixed(2)}`;
+
   function renderPlans() {
     const box = $('plans'); if (!box) return;
     box.innerHTML = '';
@@ -128,12 +140,21 @@
       const price = document.createElement('div'); price.className = 'price';
       price.textContent = `${p.from ? (zh ? '起 ' : 'from ') : ''}$${p.price}`;
       const per = document.createElement('small'); per.textContent = (zh ? '/月' : '/month') + (zh ? ` · 约 ¥${p.cny}` : ''); price.appendChild(per);
+      const cmp = paygValue(p);
+      let compare = null;
+      if (cmp) {
+        compare = document.createElement('div'); compare.className = 'compare';
+        const was = document.createElement('s'); was.textContent = money(cmp.total);
+        const at = document.createElement('span'); at.textContent = msg('plan.vsPayg');
+        const save = document.createElement('span'); save.className = 'save'; save.textContent = msg('plan.save', { pct: cmp.pct });
+        compare.append(was, at, save);
+      }
       const f = document.createElement('p'); f.className = 'for'; f.textContent = zh ? p.forZh : p.forEn;
       const ul = document.createElement('ul');
       for (const l of p.lines) { const li = document.createElement('li'); if (l.no) li.className = 'no'; li.textContent = zh ? l.zh : l.en; ul.appendChild(li); }
       const b = document.createElement('a'); b.href = '#req'; b.className = `btn ${p.best ? 'primary' : ''}`; b.textContent = zh ? (p.from ? '联系我们' : '申请此方案') : (p.from ? 'Talk to us' : 'Request this plan');
       b.addEventListener('click', (e) => { e.preventDefault(); requestWith(p.id); });
-      card.append(h, price, f, ul, b);
+      card.append(h, price, ...(compare ? [compare] : []), f, ul, b);
       box.appendChild(card);
     }
   }
@@ -141,8 +162,8 @@
   // pay as you go: a price per hour of audio, charged only on what is actually processed.
   // `cny` is the rounded yuan equivalent shown on the Chinese page.
   const RATES = [
-    { en: 'Live subtitles', zh: '实时字幕', unitEn: 'per hour of speech, on the venue screen or over your slides', unitZh: '每小时讲话，显示在会场屏幕或幻灯片上', usd: 3.00, cny: 21, per: 'hour' },
-    { en: 'File subtitling', zh: '文件字幕', unitEn: 'per hour of uploaded video or audio', unitZh: '每小时上传的视频或录音', usd: 0.90, cny: 6.5, per: 'hour' },
+    { id: 'live', en: 'Live subtitles', zh: '实时字幕', unitEn: 'per hour of speech, on the venue screen or over your slides', unitZh: '每小时讲话，显示在会场屏幕或幻灯片上', usd: 3.00, cny: 21, per: 'hour' },
+    { id: 'file', en: 'File subtitling', zh: '文件字幕', unitEn: 'per hour of uploaded video or audio', unitZh: '每小时上传的视频或录音', usd: 0.90, cny: 6.5, per: 'hour' },
     { en: 'Cloud re-subtitling', zh: '云端重新加字幕', unitEn: 'per hour of recording, run again in one pass', unitZh: '每小时录音，整段重跑一次', usd: 0.90, cny: 6.5, per: 'hour' },
     { en: 'AI summary', zh: 'AI 摘要', unitEn: 'each, as Markdown or an A4 PDF', unitZh: '每份，Markdown 或 A4 PDF', usd: 0.75, cny: 5.4, per: 'each' },
     { en: 'MP4 with burned-in subtitles', zh: '烧录字幕的 MP4', unitEn: 'per hour of video, in the web app — free on the Mac', unitZh: '每小时视频，网页版——在 Mac 上免费', usd: 0.50, cny: 3.6, per: 'hour' },

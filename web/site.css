@@ -127,6 +127,9 @@ html[lang^="zh"] .site .hero h1 em { font-family: var(--cjk); font-style: normal
 .site .plan h3 small { font: 500 13px/1 var(--ui); color: var(--accent-text); background: var(--accent-soft); padding: 4px 8px; border-radius: 999px; }
 .site .plan .price { font: 600 40px/1 var(--ui); letter-spacing: -.02em; }
 .site .plan .price small { font: 400 15px/1 var(--ui); color: var(--fg-3); margin-left: 4px; }
+.site .plan .compare { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: -8px 0 0; font-size: 13.5px; color: var(--fg-3); }
+.site .plan .compare s { color: var(--fg-3); text-decoration-thickness: 1.5px; font-size: 15px; }
+.site .plan .compare .save { color: var(--accent-text); background: var(--accent-soft); font-weight: 600; font-size: 12.5px; padding: 2px 9px; border-radius: 999px; }
 .site .plan .for { color: var(--fg-2); font-size: 14.5px; min-height: 42px; margin: 0; }
 .site .plan ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14.5px; color: var(--fg); flex: 1; }
 .site .plan li { padding-left: 22px; position: relative; }
