@@ -117,6 +117,15 @@ const resubtitle = new ResubtitleQueue({ cloud, log: (level, text) => core && co
 const { Updater } = require('./lib/updater');
 const { UploadQueue } = require('./lib/uploads');
 const uploads = new UploadQueue({ cloud, log: (level, text) => core && core.log(level, text) });
+const { JobImporter } = require('./lib/import-job');
+// A finished cloud job is copied into the recordings folder so an added file behaves like any recording.
+const jobImporter = new JobImporter({
+  cloud,
+  dir: () => loadConfig().recordingsDir,
+  getMap: () => loadConfig().importedJobs || {},
+  setMap: (map) => { const c = loadConfig(); c.importedJobs = map; saveConfig(c); },
+  log: (level, text) => (core ? core.log(level, text) : consoleLog(level, text)),
+});
 const updater = new Updater({ cloud, log: (level, text) => (core ? core.log(level, `updates: ${text}`) : consoleLog(level, `updates: ${text}`)), packaged: PACKAGED });
 
 function consoleLog(level, text) {
@@ -175,7 +184,7 @@ async function startCore() {
     onLiveUsage: (seconds) => (cloud.status().loggedIn ? cloud.reportLive(seconds) : null),
     resubtitle,
     uploads,
-    cloudJobs: async () => (cloud.status().loggedIn ? cloud._fetch('/api/jobs', null, { method: 'GET' }) : []),
+    cloudJobs: async () => (cloud.status().loggedIn ? jobImporter.annotate(await cloud._fetch('/api/jobs', null, { method: 'GET' })) : []),
     onOpenDisplay: ({ fullscreen } = {}) => { const w = openDisplay(); if (fullscreen) w.setFullScreen(true); },
     displayStatus: () => ({ open: !!(wins.display && !wins.display.isDestroyed()), fullscreen: !!(wins.display && !wins.display.isDestroyed() && wins.display.isFullScreen()) }),
     onOpenExternal: (url) => shell.openExternal(url),

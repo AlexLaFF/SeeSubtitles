@@ -62,7 +62,7 @@
     drop.addEventListener('dragleave', () => drop.classList.remove('over'));
     drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); const d = App.desktop(); const f = e.dataTransfer.files[0]; if (!f) return; const p = d && d.pathForFile ? d.pathForFile(f) : null; if (p) addPath(p); else alert(t('files.useAdd')); });
     Promise.all([loadRecordings(), loadJobs()]).then(renderRows);
-    pollTimer = setInterval(() => { if (mounted === 'list') loadJobs().then(renderRows); }, 5000);
+    pollTimer = setInterval(() => { if (mounted === 'list') Promise.all([loadRecordings(), loadJobs()]).then(renderRows); }, 5000);
   }
 
   async function addFile() {
@@ -79,7 +79,7 @@
     const rs = s.resubtitle || {}; const mp = s.mp4 || {}; const sm = s.summary || {}; const up = s.uploads || {};
     const items = [];
     for (const r of recordings) items.push({ kind: 'rec', name: r.base, sub: t('files.recordingSub', { langs: r.style === 'legacy' ? t('files.legacy') : '粤语 → 中文' }), date: r.mtime, length: r.durationMs, rec: r });
-    for (const j of jobs) items.push({ kind: 'added', name: j.filename, sub: t('files.addedSub', { langs: `${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}` }), date: j.created_at, length: j.duration ? j.duration * 1000 : null, job: j });
+    for (const j of jobs) { if (j.importedBase) continue; items.push({ kind: 'added', name: j.filename, sub: t('files.addedSub', { langs: `${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}` }), date: j.created_at, length: j.duration ? j.duration * 1000 : null, job: j }); }
     if (up.current) items.push({ kind: 'added', name: up.current.name, sub: t('files.uploading'), date: up.current.startedAt, upload: up.current });
     for (const q of up.queue || []) items.push({ kind: 'added', name: q, sub: t('files.waiting'), date: Date.now(), queued: true });
     const shown = items.filter((it) => (filter === 'all' || it.kind === filter) && (!search || it.name.toLowerCase().includes(search))).sort((a, b) => (b.date || 0) - (a.date || 0));
