@@ -18,6 +18,23 @@ the full subtitles and a summary are already waiting.
 It was built for real conferences, classrooms and meetings in Hong Kong and Guangdong, where following
 the words is the difference between attending and taking part.
 
+## Get the app
+
+**1 · Ask for an account.** There is no self-service sign-up, by design — a server hands its Tencent speech
+credentials to every app that logs in, so accounts are opened by hand ([why](SECURITY.md)). The form is on
+the front page of **[seesubtitles.com](https://seesubtitles.com)**: say what you will subtitle, and you get
+an email back.
+
+**2 · Download.** The **Download for Mac** button on that page always points at the current build. macOS 13
+or later, Apple silicon. The app updates itself from then on.
+
+**3 · Open it and log in.** The app shows only a login card until you sign in with the address the account
+was opened for; everything else is behind that. Then pick a microphone, pick your two languages, and press
+**Start subtitles**.
+
+Subtitling a video or audio file needs no download at all — log in at
+[seesubtitles.com](https://seesubtitles.com) and drop the file into the web app.
+
 ## What it does
 
 **In the room.** A microphone on the speaker. Audio streams to Tencent 实时语音翻译 and each sentence
@@ -50,16 +67,14 @@ The Mac does the capture, the display and the recording. The hosted server exist
 laptop cannot do alone: the share link phones connect to, subtitling uploaded files, and re-running a
 recording through whole-file recognition.
 
-## Getting started
+## Running it yourself
 
-**Use it.** The app is distributed as a signed macOS build, and accounts are created by hand — there is
-no self-service sign-up ([why](SECURITY.md)). What the app can do, screen by screen, is in
-[docs/USING-THE-APP.md](docs/USING-THE-APP.md).
+**Every screen, explained.** What the app does once you are in it: [docs/USING-THE-APP.md](docs/USING-THE-APP.md).
 
-**Run your own.** The server is a Docker Compose stack with automatic HTTPS; you supply Tencent Cloud
-credentials. → **[docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)**
+**Your own server.** A Docker Compose stack with automatic HTTPS; you supply Tencent Cloud credentials.
+→ **[docs/SELF-HOSTING.md](docs/SELF-HOSTING.md)**
 
-**Build from source.** Node 24, one `npm install`, and the app runs from the repository. →
+**From source.** Node 24, one `npm install`, and the app runs from the repository. →
 **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**
 
 ```bash
@@ -84,8 +99,11 @@ npm start -w desktop
 Honest about what this is: a working product run by one person, not a managed service.
 
 - **macOS 13+ on Apple silicon** for the app. The web side runs in any browser.
-- **Cantonese → Mandarin** is what it is tuned for. The upload pipeline also handles Mandarin,
-  English, Japanese and Korean.
+- **Cantonese → Mandarin is what it is tuned for**, and what it has been run at real events. The other
+  pairs work but have had far less use in a room. See [Languages](#languages).
+- **Subtitle files are still named for Cantonese and Mandarin.** A Japanese → English recording saves
+  correct subtitles into `…中文字幕.zh.srt` and `…粤语字幕.yue.srt`, because those two names are slots in
+  the recording format rather than language codes. Renaming them is the next change to this pipeline.
 - **A server hands its Tencent credentials to every logged-in app**, so anyone with an account can
   spend your speech quota. `SIGNUP_MODE` is `closed` by default and should stay that way until the app
   receives short-lived credentials instead. This is the main open item — see
@@ -94,6 +112,40 @@ Honest about what this is: a working product run by one person, not a managed se
   anyone.
 - The interface is English and Simplified Chinese; every string lives in one catalogue and a test
   fails the build if a screen is only half translated.
+
+## Languages
+
+These lists are what the Tencent services answered when every language and pair was tried against a live
+account, not what the documentation advertises — the two disagree. `npm run probe:languages` runs the same
+check against your own keys and prints tables in this shape.
+
+**Live, in the room — 9 spoken languages, 46 pairs.** 实时语音翻译 refuses anything else at the handshake
+with `6001 参数不合法(not support this lang pair)`, so the app only offers what will connect: choosing a
+spoken language narrows the subtitle language to the column beside it.
+
+| Spoken | Subtitles can be |
+|---|---|
+| 粤语 Cantonese | Mandarin · English · Japanese · Korean · Cantonese |
+| 日本語 Japanese | Mandarin · English · Japanese · Korean · Cantonese |
+| 한국어 Korean | Mandarin · English · Japanese · Korean · Cantonese |
+| 普通话 Mandarin | the five above · Indonesian · Thai |
+| English | the five above · Indonesian · Thai |
+| 中英混合 Mandarin + English | the seven above · itself (each language becomes the other) |
+| Bahasa Indonesia | Mandarin · English · Indonesian |
+| ไทย Thai | Mandarin · English · Thai |
+| Русский Russian | Mandarin · English · Russian |
+
+**Uploaded files — 17 spoken languages into 31 subtitle languages.** Recognition uses 录音文件识别, so the
+list is different: Cantonese, Mandarin (plus a large model covering Mandarin, Cantonese, English and 28
+dialects, a Traditional Chinese engine and a mixed Mandarin/English/Cantonese one), English, Japanese,
+Korean, Vietnamese, Thai, Indonesian, Malay, Filipino, Spanish, Portuguese, French, German, Turkish,
+Arabic and Hindi, or an automatic multi-language engine.
+
+Translation is 混元翻译, which reaches 31 languages including Cantonese, both Chinese scripts, Italian,
+Dutch, Polish, Czech, Russian, Ukrainian, Hebrew, Persian, Urdu, Bengali, Tibetan, Uyghur and Mongolian.
+
+**Russian is live-only.** There is no Russian recognition engine for files, so a Russian talk can be
+subtitled as it happens but not re-subtitled from its recording afterwards.
 
 ## Documentation
 
