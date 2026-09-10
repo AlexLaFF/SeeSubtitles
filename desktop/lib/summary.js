@@ -95,12 +95,13 @@ function systemPrompt(language, budget = { target: 1200, cap: 1900, sections: 5 
 }
 
 class SummaryQueue extends EventEmitter {
-  constructor({ dir, apiKey, baseURL = 'https://tokenhub.tencentmaas.com', model = 'deepseek-v4-flash', language = 'zh', effort = 'high', pdfUrlFor = null, pdfRenderer = renderPdf } = {}) {
+  constructor({ dir, apiKey, baseURL = 'https://tokenhub.tencentmaas.com', headers = null, model = 'deepseek-v4-flash', language = 'zh', effort = 'high', pdfUrlFor = null, pdfRenderer = renderPdf } = {}) {
     super();
     this.dir = dir;
     this.pdfRenderer = pdfRenderer;
     this.pdfUrlFor = pdfUrlFor; // (base) => URL of the printable summary page; enables PDF output
     this.apiKey = apiKey;
+    this.headers = headers; // e.g. the account's bearer token when the server proxies the key
     this.baseURL = baseURL;
     this.model = model;
     this.language = language;
@@ -161,7 +162,7 @@ class SummaryQueue extends EventEmitter {
     const transcript = buildTranscript(this.dir, base);
     const budget = lengthBudget(transcript.spokenChars);
     this.emit('log', `${base}: transcript ${transcript.cues} cues, ${transcript.spokenChars} spoken chars, ${clock(transcript.durationMs)} long → summary target ${budget.target} chars, cap ${budget.cap}`);
-    const client = new Anthropic({ apiKey: this.apiKey || undefined, baseURL: this.baseURL || undefined, timeout: 30 * 60_000, maxRetries: 2 });
+    const client = new Anthropic({ apiKey: this.apiKey || undefined, baseURL: this.baseURL || undefined, ...(this.headers ? { defaultHeaders: this.headers } : {}), timeout: 30 * 60_000, maxRetries: 2 });
     this._set('asking the model', 0);
     let text = '';
     // Streaming keeps long outputs from hitting HTTP timeouts; server-side fallback re-runs on a

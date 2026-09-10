@@ -90,9 +90,20 @@ function cloudKeys(cfg) {
   if (!cfg.cloudKeysEnc) return {};
   try { return JSON.parse(decryptSecret(cfg.cloudKeysEnc)) || {}; } catch { return {}; }
 }
-/** Summary generator settings: TokenHub with the key the server handed out. */
+/**
+ * Summary generator settings. Logged in, the request goes through the hosted server, which adds its own
+ * TokenHub key — so no summary key is kept on this Mac either. A user with their own key (Settings) still
+ * talks to TokenHub directly.
+ */
 function summaryConfig(cfg) {
-  return { apiKey: cloudKeys(cfg).tokenhubKey || '', baseURL: 'https://tokenhub.tencentmaas.com', model: cfg.summaryModel && /^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'deepseek-v4-flash' };
+  const model = cfg.summaryModel && /^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'deepseek-v4-flash';
+  const cloudCfg = cloudConfig(cfg);
+  if (cloudCfg.token) {
+    const base = String(cloudCfg.url || DEFAULT_CLOUD_URL).replace(/\/$/, '');
+    // the SDK insists on an apiKey and sends it as x-api-key; the server reads the bearer header instead
+    return { apiKey: 'sent-as-bearer', baseURL: `${base}/api/desktop/tokenhub`, headers: { authorization: `Bearer ${cloudCfg.token}` }, model };
+  }
+  return { apiKey: cloudKeys(cfg).tokenhubKey || '', baseURL: 'https://tokenhub.tencentmaas.com', model };
 }
 /** Ask the server for the Tencent keys (after login, and once a day). Returns true when they changed. */
 async function refreshCloudKeys(cfg) {

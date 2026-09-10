@@ -280,6 +280,37 @@ async function api(req, res, url, user) {
     log('info', `signed ${count} live URL${count === 1 ? '' : 's'} for ${user.email} (${source}→${target}, good for ${LIVE_URL_TTL_S} s)`);
     return send(res, 200, { urls, expiresIn: LIVE_URL_TTL_S });
   }
+  // Summaries, without the TokenHub key leaving either. The desktop points the Anthropic SDK at this path
+  // and authenticates as itself; the server adds its own key and streams the answer straight back, so a
+  // long summary still arrives token by token rather than waiting on one large response.
+  if (p === '/api/desktop/tokenhub/v1/messages' && req.method === 'POST') {
+    if (!entitlements(user).limits.summaries) return fail(res, 403, 'AI summaries are not in this plan', { code: 'plan_summaries' });
+    const key = (process.env.TOKENHUB_API_KEY || '').trim();
+    if (!key) return fail(res, 503, 'the server has no TokenHub key configured');
+    const body = JSON.stringify(await readJson(req, 3e7)); // a whole transcript, so generous
+    let upstream;
+    try {
+      upstream = await fetch('https://tokenhub.tencentmaas.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${key}`,
+          ...(req.headers['anthropic-version'] ? { 'anthropic-version': req.headers['anthropic-version'] } : {}),
+        },
+        body,
+      });
+    } catch (err) {
+      return fail(res, 502, `the summary service could not be reached: ${err.message}`);
+    }
+    res.writeHead(upstream.status, {
+      'content-type': upstream.headers.get('content-type') || 'application/json',
+      'cache-control': 'no-store',
+    });
+    if (!upstream.body) return res.end();
+    const { Readable } = require('node:stream');
+    Readable.fromWeb(upstream.body).pipe(res);
+    return;
+  }
   if (p === '/api/logout' && req.method === 'POST') { auth.revoke(user.token); return send(res, 200, { ok: true }, undefined, { 'set-cookie': auth.clearCookie() }); }
 
   // live sessions

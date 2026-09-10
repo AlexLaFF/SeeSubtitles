@@ -249,6 +249,7 @@ async function createLocalServer(opts) {
     dir: opts.recordingsDir,
     apiKey: ((opts.summary && opts.summary.apiKey) || '').trim(),
     baseURL: (opts.summary && opts.summary.baseURL) || 'https://tokenhub.tencentmaas.com',
+    headers: (opts.summary && opts.summary.headers) || null,
     model: (opts.summary && opts.summary.model) || 'deepseek-v4-flash',
     language: env.SUMMARY_LANGUAGE || 'zh',
     effort: env.SUMMARY_EFFORT || 'high',
