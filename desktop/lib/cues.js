@@ -1,6 +1,7 @@
 'use strict';
-// Read and write a recording's subtitle cues: the two SRT sidecars (translation .zh.srt, original .yue.srt)
-// paired by start time into [{start, end, zh, yue}] and written back from the same shape.
+// Read and write a recording's subtitle cues: its two SRT sidecars, paired by start time into
+// [{start, end, target, source}] and written back from the same shape. Which file is which comes from the
+// recording's manifest, since the sidecars are named for the languages in them.
 const fs = require('node:fs');
 const names = require('@subs/core/names');
 const { srtTime } = require('@subs/core/recorder');
@@ -21,19 +22,20 @@ function parseSrt(text) {
 }
 
 /** Pair translation and original cues (written together, so starts match within 50 ms). */
-function pair(zh, yue) {
-  if (!zh.length) return yue.map((c) => ({ start: c.start, end: c.end, zh: '', yue: c.text }));
+function pair(target, source) {
+  if (!target.length) return source.map((c) => ({ start: c.start, end: c.end, target: '', source: c.text }));
   const used = new Set();
-  return zh.map((c) => {
-    const j = yue.findIndex((y, k) => !used.has(k) && Math.abs(y.start - c.start) < 50);
+  return target.map((c) => {
+    const j = source.findIndex((y, k) => !used.has(k) && Math.abs(y.start - c.start) < 50);
     if (j >= 0) used.add(j);
-    return { start: c.start, end: c.end, zh: c.text, yue: j >= 0 ? yue[j].text : '' };
+    return { start: c.start, end: c.end, target: c.text, source: j >= 0 ? source[j].text : '' };
   });
 }
 
 function readCues(dir, base) {
-  const read = (kind) => { const f = names.filePath(dir, base, kind); return fs.existsSync(f) ? parseSrt(fs.readFileSync(f, 'utf8')) : []; };
-  return pair(read('zh'), read('yue'));
+  const { source, target } = names.languagesOf(dir, base);
+  const read = (lang) => { const f = names.srtPath(dir, base, lang); return fs.existsSync(f) ? parseSrt(fs.readFileSync(f, 'utf8')) : []; };
+  return pair(read(target), source === target ? [] : read(source));
 }
 
 const clean = (s) => String(s || '').replace(/\r/g, '').trim();
@@ -45,12 +47,13 @@ function toSrt(cues, key) {
 /** Validate and write both SRT files (a file whose language has no text at all is removed). Returns the cleaned cues. */
 function writeCues(dir, base, cues) {
   if (!Array.isArray(cues)) throw new Error('cues must be an array');
-  const out = cues.map((c) => ({ start: Math.max(0, Number(c.start) || 0), end: Math.max(0, Number(c.end) || 0), zh: clean(c.zh), yue: clean(c.yue) }))
-    .filter((c) => c.zh || c.yue).sort((a, b) => a.start - b.start);
+  const { source, target } = names.languagesOf(dir, base);
+  const out = cues.map((c) => ({ start: Math.max(0, Number(c.start) || 0), end: Math.max(0, Number(c.end) || 0), target: clean(c.target), source: clean(c.source) }))
+    .filter((c) => c.target || c.source).sort((a, b) => a.start - b.start);
   for (const c of out) if (c.end <= c.start) c.end = c.start + 500;
-  for (const kind of ['zh', 'yue']) {
-    const file = names.filePath(dir, base, kind);
-    const srt = toSrt(out, kind);
+  for (const slot of (source === target ? ['target'] : ['target', 'source'])) {
+    const file = names.srtPath(dir, base, slot === 'target' ? target : source);
+    const srt = toSrt(out, slot);
     if (srt) { fs.writeFileSync(`${file}.part`, srt); fs.renameSync(`${file}.part`, file); }
     else if (fs.existsSync(file)) fs.rmSync(file);
   }

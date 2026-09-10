@@ -1,7 +1,7 @@
 // Renders subtitle frames for the MP4 export: a bottom-anchored stack of the latest cues (current one
 // bright, earlier ones dimmed), like the live display. Writes PNGs plus an ffconcat list.
 //
-//   render-subs --zh a.zh.srt [--yue a.yue.srt] --out DIR --width 1080 --height 1920 --font-size 64
+//   render-subs --target a.zh.srt [--source a.yue.srt] --out DIR --width 1080 --height 1920 --font-size 64
 //               --duration SECONDS [--show target|both] [--lines 4]
 import AppKit
 import CoreText
@@ -13,8 +13,8 @@ let args = CommandLine.arguments
 func arg(_ name: String, _ def: String) -> String { if let i = args.firstIndex(of: name), i + 1 < args.count { return args[i + 1] }; return def }
 func fail(_ m: String) -> Never { FileHandle.standardError.write((m + "\n").data(using: .utf8)!); exit(2) }
 
-let zhPath = arg("--zh", "")
-let yuePath = arg("--yue", "")
+let zhPath = arg("--target", "")
+let yuePath = arg("--source", "")
 let outDir = arg("--out", "")
 let W = Int(arg("--width", "1080")) ?? 1080
 let H = Int(arg("--height", "1920")) ?? 1920
@@ -22,7 +22,7 @@ let fontSize = CGFloat(Double(arg("--font-size", "64")) ?? 64)
 let duration = Double(arg("--duration", "0")) ?? 0
 let showBoth = arg("--show", "target") == "both"
 let maxLines = Int(arg("--lines", "60")) ?? 60 // cap on stacked cues; the frame height is the real limit
-if outDir.isEmpty || duration <= 0 { fail("usage: --zh file --out dir --duration seconds") }
+if outDir.isEmpty || duration <= 0 { fail("usage: --target file --out dir --duration seconds") }
 
 func parseSRT(_ path: String) -> [(Double, Double, String)] {
   guard !path.isEmpty, let s = try? String(contentsOfFile: path, encoding: .utf8) else { return [] }

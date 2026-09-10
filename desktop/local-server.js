@@ -154,13 +154,13 @@ async function createLocalServer(opts) {
     const all = kinds.includes('all');
     for (const r of listRecordings().filter((x) => bases.includes(x.base))) {
       if (all || kinds.includes('audio')) out.push(r.mp3);
-      if ((all || kinds.includes('subtitles')) && r.zh) out.push(r.zh);
-      if ((all || kinds.includes('subtitles')) && r.yue) out.push(r.yue);
+      if ((all || kinds.includes('subtitles')) && r.srtTarget) out.push(r.srtTarget);
+      if ((all || kinds.includes('subtitles')) && r.srtSource && r.srtSource !== r.srtTarget) out.push(r.srtSource);
       if ((all || kinds.includes('mp4')) && r.mp4) out.push(r.mp4);
       if ((all || kinds.includes('summary')) && r.summary) out.push(r.summary);
       if ((all || kinds.includes('summary')) && r.summaryPdf) out.push(r.summaryPdf);
       if (all || kinds.includes('plain')) {
-        for (const srt of [r.zh, r.yue].filter(Boolean)) {
+        for (const srt of [...new Set([r.srtTarget, r.srtSource].filter(Boolean))]) {
           const side = srt.replace(/\.srt$/i, '.plain.txt');
           if (fs.existsSync(path.join(opts.recordingsDir, side))) { out.push(side); continue; }
           const gen = path.join(tmp, side);
@@ -174,7 +174,8 @@ async function createLocalServer(opts) {
   /** Recordings with what the Files view needs: whether the subtitles came from the cloud, the live backups, the length. */
   function listRecordings() {
     return recorder.list().map((r) => {
-      const backups = ['zh', 'yue', 'mp4'].map((k) => liveName(opts.recordingsDir, r.base, k)).filter((f) => fs.existsSync(f)).map((f) => path.basename(f));
+      const backups = [names.srtPath(opts.recordingsDir, r.base, r.target), names.srtPath(opts.recordingsDir, r.base, r.source), names.filePath(opts.recordingsDir, r.base, 'mp4')]
+        .map(liveName).filter((f) => fs.existsSync(f)).map((f) => path.basename(f));
       let durationMs = null;
       try { const cues = readCues(opts.recordingsDir, r.base); if (cues.length) durationMs = cues[cues.length - 1].end; } catch { /* none */ }
       return { ...r, resubtitled: backups.some((b) => /\.srt$/.test(b)), backups, durationMs };

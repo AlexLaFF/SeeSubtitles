@@ -78,11 +78,12 @@ class Mp4Queue extends EventEmitter {
     const t0 = Date.now();
     const mp3 = names.filePath(this.dir, base, 'mp3');
     if (!fs.existsSync(mp3)) throw new Error(`${path.basename(mp3)} not found`);
-    const zh = names.filePath(this.dir, base, 'zh');
-    const yue = names.filePath(this.dir, base, 'yue');
-    const hasZh = fs.existsSync(zh);
-    const hasYue = fs.existsSync(yue);
-    if (!hasZh && !hasYue) throw new Error(`${base} has no subtitle files`);
+    const { source, target } = names.languagesOf(this.dir, base);
+    const targetSrt = names.srtPath(this.dir, base, target);
+    const sourceSrt = source === target ? null : names.srtPath(this.dir, base, source);
+    const hasTarget = fs.existsSync(targetSrt);
+    const hasSource = !!sourceSrt && fs.existsSync(sourceSrt);
+    if (!hasTarget && !hasSource) throw new Error(`${base} has no subtitle files`);
     const duration = await probeDuration(mp3);
     const helper = await buildHelper('render-subs', (t) => this.emit('log', t));
     if (!helper) throw new Error('subtitle renderer unavailable (needs Xcode command line tools)');
@@ -94,8 +95,8 @@ class Mp4Queue extends EventEmitter {
       this._set('rendering subtitle frames', 0);
       const args = ['--out', tmp, '--width', String(this.width), '--height', String(this.height), '--font-size', String(this.fontSize),
         '--duration', duration.toFixed(3), '--show', this.show, '--lines', String(this.lines)];
-      if (hasZh) args.push('--zh', zh);
-      if (hasYue) args.push('--yue', yue);
+      if (hasTarget) args.push('--target', targetSrt);
+      if (hasSource) args.push('--source', sourceSrt);
       const summary = await new Promise((resolve, reject) => {
         execFile(helper, args, { timeout: 30 * 60_000, maxBuffer: 1e7 }, (err, out, stderr) => {
           if (err) return reject(new Error(`render-subs: ${String(stderr || err.message).trim().slice(0, 200)}`));

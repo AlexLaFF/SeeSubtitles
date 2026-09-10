@@ -9,7 +9,8 @@ const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const names = require('@subs/core/names');
 
-const liveName = (dir, base, kind) => names.filePath(dir, base, kind).replace(/\.(srt|mp4)$/, '.live.$1');
+/** The `.live.` backup beside a recording file: the subtitles the talk itself produced. */
+const liveName = (file) => String(file).replace(/\.(srt|mp4)$/, '.live.$1');
 
 class ResubtitleQueue extends EventEmitter {
   /**
@@ -79,20 +80,21 @@ class ResubtitleQueue extends EventEmitter {
     }
     this._set('downloading', 100);
     const files = j.files || [];
-    const wanted = [['yue', files.find((f) => f.endsWith(`.${sourceLang}.srt`))]];
-    if (targetLang && targetLang !== 'none') wanted.push(['zh', files.find((f) => f.endsWith(`.${targetLang}.srt`))]);
+    const wanted = [['source', files.find((f) => f.endsWith(`.${sourceLang}.srt`))]];
+    if (targetLang && targetLang !== 'none') wanted.push(['target', files.find((f) => f.endsWith(`.${targetLang}.srt`))]);
     const written = [];
-    for (const [kind, remote] of wanted) {
-      if (!remote) throw new Error(`the cloud job produced no .${kind === 'yue' ? sourceLang : targetLang}.srt`);
-      const dest = names.filePath(dir, base, kind);
-      const backup = liveName(dir, base, kind);
+    for (const [slot, remote] of wanted) {
+      const lang = slot === 'source' ? sourceLang : targetLang;
+      if (!remote) throw new Error(`the cloud job produced no .${lang}.srt`);
+      const dest = names.srtPath(dir, base, lang);
+      const backup = liveName(dest);
       if (fs.existsSync(dest) && !fs.existsSync(backup)) fs.renameSync(dest, backup);
       await this.cloud.downloadJobFile(job.id, remote, dest);
       written.push(path.basename(dest));
     }
     const mp4 = names.filePath(dir, base, 'mp4');
     if (fs.existsSync(mp4)) {
-      const backup = liveName(dir, base, 'mp4');
+      const backup = liveName(mp4);
       if (fs.existsSync(backup)) fs.rmSync(backup);
       fs.renameSync(mp4, backup);
     }

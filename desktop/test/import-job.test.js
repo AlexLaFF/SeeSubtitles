@@ -37,7 +37,7 @@ test('a finished job becomes a recording the Files list can show', async () => {
   const { base, written } = await importer._import(doneJob());
   assert.equal(base, 'talk');
   assert.deepEqual(downloaded, ['audio.mp3', 'talk.yue.srt', 'talk.zh.srt']);
-  assert.deepEqual(written.sort(), ['talk中文字幕.zh.srt', 'talk录音.mp3', 'talk粤语字幕.yue.srt'].sort());
+  assert.deepEqual(written.sort(), ['talk中文字幕.zh.srt', 'talk录音.json', 'talk录音.mp3', 'talk粤语字幕.yue.srt'].sort());
   for (const f of written) assert.ok(fs.existsSync(path.join(dir, f)), `${f} on disk`);
 
   // the real check: the recorder lists it, with both subtitle tracks
@@ -45,7 +45,7 @@ test('a finished job becomes a recording the Files list can show', async () => {
   assert.equal(list.length, 1);
   assert.equal(list[0].base, 'talk');
   assert.ok(list[0].mp3, 'an mp3 is what makes it a recording');
-  assert.ok(list[0].zh && list[0].yue);
+  assert.ok(list[0].srtTarget && list[0].srtSource);
 });
 
 test('a rendered MP4 comes down too', async () => {
@@ -60,8 +60,10 @@ test('a job with no translation still imports', async () => {
   const { dir, importer } = setup();
   await importer._import(doneJob({ target_lang: 'none', files: ['talk.yue.srt'] }));
   const rec = new Recorder({ dir }).list()[0];
-  assert.ok(rec.mp3 && rec.yue);
-  assert.equal(rec.zh, null);
+  assert.ok(rec.mp3 && rec.srtSource);
+  // no translation was asked for, so both slots are the same file: the recording transcribes rather than translates
+  assert.equal(rec.srtTarget, rec.srtSource);
+  assert.deepEqual([rec.source, rec.target], ['yue', 'yue']);
 });
 
 test('a second import of the same name does not overwrite the first', async () => {

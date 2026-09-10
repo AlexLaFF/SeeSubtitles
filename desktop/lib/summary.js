@@ -35,11 +35,12 @@ const clock = (ms) => {
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 };
 
-/** Timestamped transcript text from the zh/yue SRT files of a recording. */
+/** Timestamped transcript text from a recording's two SRT sidecars, whatever languages they hold. */
 function buildTranscript(dir, base) {
   const read = (f) => (fs.existsSync(f) ? parseSrt(fs.readFileSync(f, 'utf8')) : []);
-  const zh = read(names.filePath(dir, base, 'zh'));
-  const yue = read(names.filePath(dir, base, 'yue'));
+  const { source, target } = names.languagesOf(dir, base);
+  const zh = read(names.srtPath(dir, base, target));
+  const yue = source === target ? [] : read(names.srtPath(dir, base, source));
   const cues = zh.length ? zh : yue;
   if (!cues.length) throw new Error('no subtitle cues found for this recording');
   const lines = cues.map((c) => {

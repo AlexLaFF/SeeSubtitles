@@ -47,13 +47,17 @@ test('records a playable MP3 and appends SRT cues', { skip: !hasFfmpeg && 'ffmpe
   assert.ok(mp3.size > 2000, `mp3 size ${mp3.size}`);
   const probed = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', path.join(dir, names.fileName('unit', 'mp3'))]).toString().trim();
   assert.ok(Math.abs(Number(probed) - 1) < 0.25, `duration ${probed}`);
-  assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'zh')), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好\n\n');
-  assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'yue')), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好呀\n\n');
-  assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'zh').replace('.srt', '.plain.txt')), 'utf8'), '你好\n');
-  assert.equal(fs.readFileSync(path.join(dir, names.fileName('unit', 'yue').replace('.srt', '.plain.txt')), 'utf8'), '你好呀\n');
+  // the sidecars are named for the languages that were actually chosen, not for Cantonese and Mandarin
+  assert.equal(names.srtName('unit', 'en'), 'unit英文字幕.en.srt');
+  assert.equal(fs.readFileSync(path.join(dir, names.srtName('unit', 'en')), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好\n\n');
+  assert.equal(fs.readFileSync(path.join(dir, names.srtName('unit', 'ja')), 'utf8'), '1\n00:00:00,100 --> 00:00:00,900\n你好呀\n\n');
+  assert.equal(fs.readFileSync(path.join(dir, names.srtName('unit', 'en').replace('.srt', '.plain.txt')), 'utf8'), '你好\n');
+  assert.equal(fs.readFileSync(path.join(dir, names.srtName('unit', 'ja').replace('.srt', '.plain.txt')), 'utf8'), '你好呀\n');
   const listed = r.list()[0];
   assert.equal(listed.base, 'unit');
   assert.deepEqual([listed.source, listed.target], ['ja', 'en'], 'the languages come back off the manifest');
+  assert.equal(listed.srtTarget, 'unit英文字幕.en.srt', 'and each slot resolves to the file for its language');
+  assert.equal(listed.srtSource, 'unit日文字幕.ja.srt');
   const manifest = JSON.parse(fs.readFileSync(path.join(dir, names.fileName('unit', 'manifest')), 'utf8'));
   assert.equal(manifest.source, 'ja');
   assert.equal(manifest.target, 'en');
@@ -66,12 +70,16 @@ test('a recording made before manifests existed still reads as Cantonese → Man
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   // exactly what an older build left behind: audio and two subtitle sidecars, no manifest
   fs.writeFileSync(path.join(dir, names.fileName('old', 'mp3')), 'x');
-  fs.writeFileSync(path.join(dir, names.fileName('old', 'zh')), '');
-  fs.writeFileSync(path.join(dir, names.fileName('old', 'yue')), '');
+  // the names an older build wrote — which happen to be exactly what the new scheme produces for these two
+  // languages, because that build really was recording Cantonese and subtitling Mandarin
+  fs.writeFileSync(path.join(dir, 'old中文字幕.zh.srt'), '');
+  fs.writeFileSync(path.join(dir, 'old粤语字幕.yue.srt'), '');
+  assert.equal(names.srtName('old', 'zh'), 'old中文字幕.zh.srt');
   const listed = new Recorder({ dir }).list()[0];
   assert.equal(listed.base, 'old');
   assert.deepEqual([listed.source, listed.target], ['yue', 'zh'], 'which is the only thing that build could do');
-  assert.ok(listed.zh && listed.yue, 'and its files are still found');
+  assert.equal(listed.srtTarget, 'old中文字幕.zh.srt', 'and its files are still found, by language');
+  assert.equal(listed.srtSource, 'old粤语字幕.yue.srt');
 });
 
 test('pads silence when captured audio falls behind the wall clock', { skip: !hasFfmpeg && 'ffmpeg not installed' }, async () => {

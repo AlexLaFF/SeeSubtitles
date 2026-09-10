@@ -12,7 +12,7 @@ test('ported recording, summary, overlay and preset routes work with desktop aut
   const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
   for (const [base, style] of [['9月6号10点00分', 'cn'], ['2026-09-05_14-33-05', 'legacy']]) {
     fs.writeFileSync(path.join(rec, names.fileName(base, 'mp3', style)), 'fixture');
-    fs.writeFileSync(path.join(rec, names.fileName(base, 'zh', style)), '1\n00:00:01,000 --> 00:00:03,000\n大家好\n');
+    fs.writeFileSync(path.join(rec, names.srtName(base, 'zh', style)), '1\n00:00:01,000 --> 00:00:03,000\n大家好\n');
     fs.writeFileSync(path.join(rec, names.fileName(base, 'summary', style)), '# 学习摘要\n\n- **结论** [00:01]\n');
   }
   let closed = 0, printed;
@@ -34,7 +34,7 @@ test('ported recording, summary, overlay and preset routes work with desktop aut
   const post = (p, data) => fetch(server.base+p, {method:'POST',headers:{cookie:'token=test-token','content-type':'application/json'},body:JSON.stringify(data)});
   assert.equal((await fetch(server.base+'/api/recordings')).status,401);
   const list = await (await get('/api/recordings')).json(); assert.equal(list.length,2);
-  assert.ok(list.every(r => r.summary && r.zh));
+  assert.ok(list.every(r => r.summary && r.srtTarget));
   const cn=list.find(r=>r.style==='cn');
   assert.equal(cn.mp3,'9月6号10点00分录音.mp3');
   assert.equal((await get('/summary?rec='+encodeURIComponent(cn.base))).status,200);
@@ -60,7 +60,7 @@ test('bulk download zips the chosen kinds and delete removes a whole recording s
   const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
   for (const base of ['9月6号10点00分', '9月6号11点00分']) {
     fs.writeFileSync(path.join(rec, names.fileName(base, 'mp3')), 'fixture');
-    fs.writeFileSync(path.join(rec, names.fileName(base, 'zh')), '1\n00:00:01,000 --> 00:00:03,000\n大家好。\n');
+    fs.writeFileSync(path.join(rec, names.srtName(base, 'zh')), '1\n00:00:01,000 --> 00:00:03,000\n大家好。\n');
     fs.writeFileSync(path.join(rec, names.fileName(base, 'summary')), '# 摘要\n');
   }
   fs.writeFileSync(path.join(rec, '9月6号10点00分中文字幕.zh.live.srt'), 'live');
@@ -95,7 +95,7 @@ test('a recording set can be renamed; bad names and clashes are handled', async 
   const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
   for (const base of ['9月6号10点00分', '营养讲座']) {
     fs.writeFileSync(path.join(rec, names.fileName(base, 'mp3')), 'fixture');
-    fs.writeFileSync(path.join(rec, names.fileName(base, 'zh')), '1\n00:00:01,000 --> 00:00:03,000\n大家好。\n');
+    fs.writeFileSync(path.join(rec, names.srtName(base, 'zh')), '1\n00:00:01,000 --> 00:00:03,000\n大家好。\n');
   }
   fs.writeFileSync(path.join(rec, '9月6号10点00分中文字幕.zh.live.srt'), 'live');
   const server = await createLocalServer({

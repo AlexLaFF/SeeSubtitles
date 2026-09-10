@@ -55,15 +55,26 @@ class JobImporter {
     await this.cloud.downloadJobFile(job.id, 'audio.mp3', path.join(dir, mp3));
     const written = [mp3];
 
-    // same mapping the cloud re-subtitle uses: the spoken language is "yue", the translation is "zh"
-    const wanted = [['yue', pick(`.${job.source_lang}.srt`)]];
-    if (job.target_lang && job.target_lang !== 'none') wanted.push(['zh', pick(`.${job.target_lang}.srt`)]);
+    // the same two slots a recording has: what was spoken, and what it was subtitled into
+    const wanted = [['source', pick(`.${job.source_lang}.srt`)]];
+    if (job.target_lang && job.target_lang !== 'none') wanted.push(['target', pick(`.${job.target_lang}.srt`)]);
     const mp4 = files.find((f) => f.endsWith('.mp4'));
     if (mp4) wanted.push(['mp4', mp4]);
 
-    for (const [kind, remote] of wanted) {
+    // an imported job is a recording like any other, so it gets the same manifest
+    try {
+      fs.writeFileSync(path.join(dir, names.fileName(base, 'manifest', 'cn')), JSON.stringify({
+        base, source: job.source_lang, target: job.target_lang && job.target_lang !== 'none' ? job.target_lang : job.source_lang,
+        startedAt: Date.now(), importedFrom: job.id,
+      }, null, 2));
+      written.push(names.fileName(base, 'manifest', 'cn'));
+    } catch (err) { this.log('warn', `import ${job.id}: manifest — ${err.message}`); }
+
+    for (const [slot, remote] of wanted) {
       if (!remote) continue; // a job without a translation, or with no render, is still worth importing
-      const dest = path.join(dir, names.fileName(base, kind, 'cn'));
+      const dest = slot === 'mp4'
+        ? path.join(dir, names.fileName(base, 'mp4', 'cn'))
+        : path.join(dir, names.srtName(base, slot === 'source' ? job.source_lang : job.target_lang, 'cn'));
       try {
         await this.cloud.downloadJobFile(job.id, remote, dest);
         written.push(path.basename(dest));

@@ -9,8 +9,8 @@ const names = require('@subs/core/names');
 
 function recording(dir, base, { withMp4 = true } = {}) {
   fs.writeFileSync(names.filePath(dir, base, 'mp3'), Buffer.alloc(1234, 1));
-  fs.writeFileSync(names.filePath(dir, base, 'zh'), 'LIVE ZH');
-  fs.writeFileSync(names.filePath(dir, base, 'yue'), 'LIVE YUE');
+  fs.writeFileSync(names.srtPath(dir, base, 'zh'), 'LIVE ZH');
+  fs.writeFileSync(names.srtPath(dir, base, 'yue'), 'LIVE YUE');
   if (withMp4) fs.writeFileSync(names.filePath(dir, base, 'mp4'), 'OLD MP4');
 }
 
@@ -46,20 +46,20 @@ test('re-subtitle uploads the mp3, replaces the live SRTs (keeping them as .live
   assert.ok(q.add({ base, dir, sourceLang: 'yue', targetLang: 'zh' }));
   assert.ok(!q.add({ base, dir, sourceLang: 'yue', targetLang: 'zh' }), 'no duplicate while running');
   const done = await wait(q, 'done');
-  assert.deepEqual(done.files, [names.fileName(base, 'yue'), names.fileName(base, 'zh')]);
+  assert.deepEqual(done.files, [names.srtName(base, 'yue'), names.srtName(base, 'zh')]);
   assert.deepEqual(cloud.calls.create, [{ filename: names.fileName(base, 'mp3'), size: 1234, sourceLang: 'yue', targetLang: 'zh' }]);
   assert.equal(cloud.calls.upload[0][1], names.filePath(dir, base, 'mp3'));
   assert.deepEqual(cloud.calls.downloads, ['talk.yue.srt', 'talk.zh.srt']);
-  assert.equal(fs.readFileSync(names.filePath(dir, base, 'zh'), 'utf8'), 'CLOUD talk.zh.srt');
-  assert.equal(fs.readFileSync(names.filePath(dir, base, 'yue'), 'utf8'), 'CLOUD talk.yue.srt');
-  assert.equal(fs.readFileSync(liveName(dir, base, 'zh'), 'utf8'), 'LIVE ZH');
-  assert.equal(fs.readFileSync(liveName(dir, base, 'yue'), 'utf8'), 'LIVE YUE');
+  assert.equal(fs.readFileSync(names.srtPath(dir, base, 'zh'), 'utf8'), 'CLOUD talk.zh.srt');
+  assert.equal(fs.readFileSync(names.srtPath(dir, base, 'yue'), 'utf8'), 'CLOUD talk.yue.srt');
+  assert.equal(fs.readFileSync(liveName(names.srtPath(dir, base, 'zh')), 'utf8'), 'LIVE ZH');
+  assert.equal(fs.readFileSync(liveName(names.srtPath(dir, base, 'yue')), 'utf8'), 'LIVE YUE');
   assert.ok(!fs.existsSync(names.filePath(dir, base, 'mp4')), 'old MP4 moved aside so Make MP4 reappears');
-  assert.equal(fs.readFileSync(liveName(dir, base, 'mp4'), 'utf8'), 'OLD MP4');
+  assert.equal(fs.readFileSync(liveName(names.filePath(dir, base, 'mp4')), 'utf8'), 'OLD MP4');
   assert.ok(stages.some((s) => s.startsWith('uploading:')) && stages.includes('recognizing:30') && stages.includes('translating:60') && stages.includes('downloading:100'), stages.join(' '));
   assert.equal(q.status().last.ok, true);
   // the .live.srt backups are not mistaken for recordings
-  assert.equal(names.parse(path.basename(liveName(dir, base, 'zh'))), null);
+  assert.equal(names.parse(path.basename(liveName(names.srtPath(dir, base, 'zh')))), null);
 });
 
 test('a failed cloud job leaves the live files untouched and reports the error', async (t) => {
@@ -71,7 +71,7 @@ test('a failed cloud job leaves the live files untouched and reports the error',
   q.add({ base, dir, sourceLang: 'yue', targetLang: 'zh' });
   const err = await wait(q, 'error');
   assert.match(err.error, /bad audio/);
-  assert.equal(fs.readFileSync(names.filePath(dir, base, 'zh'), 'utf8'), 'LIVE ZH');
+  assert.equal(fs.readFileSync(names.srtPath(dir, base, 'zh'), 'utf8'), 'LIVE ZH');
   assert.ok(fs.existsSync(names.filePath(dir, base, 'mp4')));
   assert.equal(q.status().current, null);
   assert.equal(q.status().last.ok, false);

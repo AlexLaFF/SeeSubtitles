@@ -104,7 +104,7 @@
         if (rs.current && rs.current.base === r.base) { subs.appendChild(el('span', { class: 'tag busy' }, t('files.tag.resub', { stage: stageName(rs.current.stage) }))); subs.appendChild(progress(rs.current.percent)); }
         else if ((rs.queue || []).includes(r.base)) subs.appendChild(el('span', { class: 'tag busy' }, t('files.tag.queued')));
         else if (r.resubtitled) subs.appendChild(el('span', { class: 'tag done' }, t('files.tag.complete')));
-        else if (r.zh || r.yue) { subs.appendChild(el('span', { class: 'tag live' }, t('files.tag.live'))); subs.appendChild(el('span', { class: 'muted', style: 'font-size:11px;margin-left:6px' }, t('files.fromTalk'))); }
+        else if (r.srtTarget || r.srtSource) { subs.appendChild(el('span', { class: 'tag live' }, t('files.tag.live'))); subs.appendChild(el('span', { class: 'muted', style: 'font-size:11px;margin-left:6px' }, t('files.fromTalk'))); }
         else subs.appendChild(el('span', { class: 'muted' }, t('files.tag.none')));
         if (rs.last && rs.last.base === r.base && !rs.last.ok) subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px;color:var(--bad)' }, rs.last.error));
         const mp4 = tr.appendChild(el('td'));
@@ -149,8 +149,8 @@
     const picked = () => recordings.filter((r) => selected.has(r.base));
     bar.appendChild(el('span', { class: 'muted', style: 'margin-right:4px' }, t('files.selected', { n: selected.size })));
     const b = (label, cls, fn) => { const x = el('button', { class: `small ${cls || ''}` }, label); x.addEventListener('click', fn); bar.appendChild(x); return x; };
-    if (canSummarise()) b(t('files.aiSummary'), '', async () => { const rs = picked().filter((r) => r.zh || r.yue); const have = rs.filter((r) => r.summary).length; if (have && !confirm(t('files.bulkRegen', { n: have }))) return; for (const r of rs) await post('/api/recordings/summary', { base: r.base }); });
-    b(t('files.makeMp4'), '', async () => { for (const r of picked().filter((r) => r.zh || r.yue)) await post('/api/recordings/mp4', { base: r.base }); });
+    if (canSummarise()) b(t('files.aiSummary'), '', async () => { const rs = picked().filter((r) => r.srtTarget || r.srtSource); const have = rs.filter((r) => r.summary).length; if (have && !confirm(t('files.bulkRegen', { n: have }))) return; for (const r of rs) await post('/api/recordings/summary', { base: r.base }); });
+    b(t('files.makeMp4'), '', async () => { for (const r of picked().filter((r) => r.srtTarget || r.srtSource)) await post('/api/recordings/mp4', { base: r.base }); });
     b(t('files.resub'), '', async () => { const c = Sub.status.cloud; if (!c || !c.loggedIn) return alert(t('files.loginFirst')); const rs = picked(); if (!confirm(t('files.bulkResubConfirm', { n: rs.length }))) return; for (const r of rs) await post('/api/recordings/resubtitle', { base: r.base }); });
     const dl = b(t('files.download'), '', () => downloadMenu(dl, picked()));
     b(t('files.deleteOne'), 'danger', async () => { if (await deleteRecordings(picked())) { selected.clear(); await loadRecordings(); renderRows(); } });
@@ -165,7 +165,7 @@
   const KINDS = ['all', 'audio', 'subtitles', 'plain', 'mp4', 'summary'];
   /** Download menu — the same six choices for one recording and for a selection. One file downloads directly, more become a zip. */
   function downloadMenu(anchor, recs) {
-    const has = (k) => recs.some((r) => k === 'all' || k === 'audio' || k === 'plain' ? true : k === 'subtitles' ? (r.zh || r.yue) : k === 'mp4' ? r.mp4 : (r.summary || r.summaryPdf));
+    const has = (k) => recs.some((r) => k === 'all' || k === 'audio' || k === 'plain' ? true : k === 'subtitles' ? (r.srtTarget || r.srtSource) : k === 'mp4' ? r.mp4 : (r.summary || r.summaryPdf));
     const items = KINDS.filter(has).map((k) => ({ label: t(`files.dlKind.${k}`), onClick: () => {
       const one = recs.length === 1 ? recs[0] : null;
       if (one && k === 'audio') return direct(one.mp3);
@@ -196,8 +196,8 @@
     const busy = (q) => (q.current && q.current.base === rr.base) || (q.queue || []).includes(rr.base);
     const items = [];
     items.push({ label: t('files.rename'), onClick: async () => { const nb = await renameRecording(rr); if (nb && onRenamed) onRenamed(nb); } });
-    if (canSummarise() && !busy(sm) && (rr.zh || rr.yue)) items.push({ label: rr.summary ? t('files.regenSummary') : t('files.aiSummary'), onClick: () => generateSummary(rr) });
-    if (!busy(mp) && (rr.zh || rr.yue)) items.push({ label: rr.mp4 ? t('files.remakeMp4') : t('files.makeMp4'), onClick: () => post('/api/recordings/mp4', { base: rr.base }) });
+    if (canSummarise() && !busy(sm) && (rr.srtTarget || rr.srtSource)) items.push({ label: rr.summary ? t('files.regenSummary') : t('files.aiSummary'), onClick: () => generateSummary(rr) });
+    if (!busy(mp) && (rr.srtTarget || rr.srtSource)) items.push({ label: rr.mp4 ? t('files.remakeMp4') : t('files.makeMp4'), onClick: () => post('/api/recordings/mp4', { base: rr.base }) });
     if (!busy(rs)) items.push({ label: t('files.resub'), onClick: () => resubtitle(rr) });
     items.push({ label: t('files.deleteOne'), onClick: async () => { if (await deleteRecordings([rr]) && onDeleted) onDeleted(); } });
     return items;
@@ -208,7 +208,7 @@
   }
   function resubtitle(rr) {
     const c = Sub.status.cloud; if (!c || !c.loggedIn) return alert(t('files.loginFirst'));
-    if ((rr.zh || rr.yue) && !confirm(t('files.confirmResub'))) return;
+    if ((rr.srtTarget || rr.srtSource) && !confirm(t('files.confirmResub'))) return;
     post('/api/recordings/resubtitle', { base: rr.base });
   }
   const progress = (pct) => { const p = el('span', { class: 'progress', style: 'margin-left:6px' }); p.appendChild(el('i', { style: `width:${Math.round(pct || 0)}%` })); return p; };
@@ -257,8 +257,8 @@
       if (n !== shown || force) {
         shown = n; stage.innerHTML = '';
         for (let i = Math.max(0, n - 6); i < n; i++) {
-          const l = el('div', { class: `l${i === n - 1 ? '' : ' old'}` }, cues[i].zh || cues[i].yue);
-          if ($('showSrc').checked && cues[i].yue && cues[i].zh) l.appendChild(el('span', { class: 's' }, cues[i].yue));
+          const l = el('div', { class: `l${i === n - 1 ? '' : ' old'}` }, cues[i].target || cues[i].source);
+          if ($('showSrc').checked && cues[i].source && cues[i].target) l.appendChild(el('span', { class: 's' }, cues[i].source));
           stage.appendChild(l);
         }
       }
@@ -276,12 +276,12 @@
         const tc = el('div', { class: 't' }, `${Sub.fmtClock(c.start)}\n${Sub.fmtClock(c.end)}`); tc.style.whiteSpace = 'pre';
         tc.addEventListener('click', () => { audio.currentTime = c.start / 1000; audio.play().catch(() => {}); });
         const texts = el('div');
-        const zh = el('textarea', { rows: 1 }); zh.value = c.zh || ''; zh.addEventListener('input', () => { c.zh = zh.value; markDirty(); });
-        const yue = el('textarea', { rows: 1, class: 'orig', placeholder: t('web.original') }); yue.value = c.yue || ''; yue.addEventListener('input', () => { c.yue = yue.value; markDirty(); });
+        const zh = el('textarea', { rows: 1 }); zh.value = c.target || ''; zh.addEventListener('input', () => { c.target = zh.value; markDirty(); });
+        const yue = el('textarea', { rows: 1, class: 'orig', placeholder: t('web.original') }); yue.value = c.source || ''; yue.addEventListener('input', () => { c.source = yue.value; markDirty(); });
         texts.append(zh, yue);
         const ops = el('div', { class: 'ops' });
         const merge = el('button', { title: t('files.mergeTitle') }, t('files.merge')); merge.disabled = i === cues.length - 1;
-        merge.addEventListener('click', () => { const n = cues[i + 1]; c.end = n.end; c.zh = [c.zh, n.zh].filter(Boolean).join(''); c.yue = [c.yue, n.yue].filter(Boolean).join(''); cues.splice(i + 1, 1); markDirty(); renderCues(); });
+        merge.addEventListener('click', () => { const n = cues[i + 1]; c.end = n.end; c.target = [c.target, n.target].filter(Boolean).join(''); c.source = [c.source, n.source].filter(Boolean).join(''); cues.splice(i + 1, 1); markDirty(); renderCues(); });
         const del = el('button', {}, t('files.delete')); del.addEventListener('click', () => { cues.splice(i, 1); markDirty(); renderCues(); });
         ops.append(merge, del);
         row.append(tc, texts, ops);
@@ -327,13 +327,13 @@
       if (changed) { await loadRecordings(); const rr = recordings.find((x) => x.base === base); if (rr) { const d2 = await fetch(`/api/recordings/cues?base=${encodeURIComponent(base)}`).then((x) => x.json()).catch(() => null); if (d2 && !dirty) { cues = d2.cues || []; renderCues(); sync(true); } } }
       const rr = recordings.find((x) => x.base === base) || r;
       const chip = $('dChip'); chip.className = `chip ${busy ? 'warn' : rr.resubtitled ? 'ok' : ''}`;
-      chip.innerHTML = ''; chip.append(el('span', { class: 'dot' }), cap(busy || (rr.resubtitled ? t('files.chip.complete') : (rr.zh || rr.yue) ? t('files.chip.live') : t('files.chip.none')) + (rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : '')));
+      chip.innerHTML = ''; chip.append(el('span', { class: 'dot' }), cap(busy || (rr.resubtitled ? t('files.chip.complete') : (rr.srtTarget || rr.srtSource) ? t('files.chip.live') : t('files.chip.none')) + (rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : '')));
       const talk = $('dTalk'); if (talk) {
         talk.innerHTML = '';
         const kv = (k, v) => { talk.appendChild(el('span', {}, k)); talk.appendChild(el('span', {}, v)); };
         kv(t('files.talk.recorded'), `${new Date(rr.mtime).toLocaleString()}${rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : ''}`);
         kv(t('files.talk.languages'), rr.style === 'legacy' ? t('files.legacy') : '粤语 → 中文');
-        kv(t('files.talk.subtitles'), rr.resubtitled ? t('files.talk.subsCloud', { n: cues.length }) : (rr.zh || rr.yue) ? t('files.talk.subsLive', { n: cues.length }) : t('files.talk.subsNone'));
+        kv(t('files.talk.subtitles'), rr.resubtitled ? t('files.talk.subsCloud', { n: cues.length }) : (rr.srtTarget || rr.srtSource) ? t('files.talk.subsLive', { n: cues.length }) : t('files.talk.subsNone'));
         kv(t('files.talk.video'), rr.mp4 ? t('files.talk.mp4', { size: Sub.fmtBytes(rr.mp4Bytes) }) : t('files.talk.noMp4'));
       }
       const df = $('dFoot'); if (df) df.textContent = t('files.foot.mp4', { onoff: s.mp4Auto === false ? t('common.off') : t('common.on') });
@@ -341,7 +341,7 @@
       const files = $('dFiles'); files.innerHTML = '';
       const f = (name, extra) => { const d = el('div'); const a = el('a', { href: `/recordings/${encodeURIComponent(name)}`, download: name }, name); d.appendChild(a); if (extra) d.appendChild(el('span', { class: 'muted' }, ` · ${extra}`)); files.appendChild(d); };
       f(rr.mp3, Sub.fmtBytes(rr.bytes)); if (rr.mp4) f(rr.mp4, Sub.fmtBytes(rr.mp4Bytes));
-      if (rr.zh) f(rr.zh); if (rr.yue) f(rr.yue);
+      if (rr.srtTarget) f(rr.srtTarget); if (rr.srtSource && rr.srtSource !== rr.srtTarget) f(rr.srtSource);
       for (const b of rr.backups || []) f(b, t('files.fromTalk'));
       if (rr.summary) f(rr.summary); if (rr.summaryPdf) f(rr.summaryPdf);
     };

@@ -54,7 +54,7 @@ class Recorder extends EventEmitter {
       // `zh` and `yue` are the two slots a recording has — the translation and the original — not a claim
       // about the languages in them. What was actually spoken and subtitled is in the manifest.
       source, target,
-      srt: { target: path.join(this.dir, names.fileName(base, 'zh')), source: path.join(this.dir, names.fileName(base, 'yue')) },
+      srt: { target: path.join(this.dir, names.srtName(base, target)), source: path.join(this.dir, names.srtName(base, source)) },
       cues: { target: 0, source: 0 },
       seen: new Set(),
       writtenSamples: 0,
@@ -143,9 +143,12 @@ class Recorder extends EventEmitter {
     if (end <= 0) return;
     rec.seen.add(line.id);
     const cue = (n, text) => `${n}\n${srtTime(Math.max(0, start))} --> ${srtTime(Math.max(end, start + 300))}\n${text}\n\n`;
+    // Transcribing rather than translating (source === target) puts both slots in one file; writing it twice
+    // would double every cue.
+    const oneFile = rec.srt.source === rec.srt.target;
     if (line.targetText) fs.appendFile(rec.srt.target, cue(++rec.cues.target, line.targetText), (err) => { if (err) this.emit('log', `srt: ${err.message}`); });
-    if (line.sourceText) fs.appendFile(rec.srt.source, cue(++rec.cues.source, line.sourceText), (err) => { if (err) this.emit('log', `srt: ${err.message}`); });
-    for (const [slot, text] of [['target', line.targetText], ['source', line.sourceText]]) {
+    if (line.sourceText && !oneFile) fs.appendFile(rec.srt.source, cue(++rec.cues.source, line.sourceText), (err) => { if (err) this.emit('log', `srt: ${err.message}`); });
+    for (const [slot, text] of (oneFile ? [['target', line.targetText]] : [['target', line.targetText], ['source', line.sourceText]])) {
       if (text) fs.appendFile(rec.srt[slot].replace(/\.srt$/i, '.plain.txt'), fromTexts([text]), (err) => { if (err) this.emit('log', `plain transcript: ${err.message}`); });
     }
   }
@@ -208,14 +211,13 @@ class Recorder extends EventEmitter {
       const p = names.parse(name);
       if (!p) continue;
       // yue → zh is the default because it is what every recording made before the manifest existed is.
-      const entry = byBase.get(p.base) || { base: p.base, style: p.style, mp3: null, mp4: null, mp4Bytes: 0, summary: null, summaryPdf: null, zh: null, yue: null, source: 'yue', target: 'zh', mtime: 0, bytes: 0 };
+      const entry = byBase.get(p.base) || { base: p.base, style: p.style, mp3: null, mp4: null, mp4Bytes: 0, summary: null, summaryPdf: null, srt: {}, srtTarget: null, srtSource: null, source: 'yue', target: 'zh', mtime: 0, bytes: 0 };
       const st = fs.statSync(path.join(this.dir, name));
       if (p.kind === 'mp3') { entry.mp3 = name; entry.bytes = st.size; entry.mtime = Math.max(entry.mtime, st.mtimeMs); }
       else if (p.kind === 'mp4') { entry.mp4 = name; entry.mp4Bytes = st.size; }
       else if (p.kind === 'summary') entry.summary = name;
       else if (p.kind === 'pdf') entry.summaryPdf = name;
-      else if (p.kind === 'zh') entry.zh = name;
-      else if (p.kind === 'yue') entry.yue = name;
+      else if (p.kind === 'srt') (entry.srt || (entry.srt = {}))[p.lang] = name;
       else if (p.kind === 'manifest') {
         try {
           const m = JSON.parse(fs.readFileSync(path.join(this.dir, name), 'utf8'));
@@ -224,6 +226,12 @@ class Recorder extends EventEmitter {
         } catch { /* unreadable: the default is what the app used to do anyway */ }
       }
       byBase.set(p.base, entry);
+    }
+    // Subtitle files are found by the language in their name; which slot each fills is the manifest's answer.
+    for (const e of byBase.values()) {
+      const by = e.srt || (e.srt = {});
+      e.srtTarget = by[e.target] || null;
+      e.srtSource = by[e.source] || null;
     }
     return [...byBase.values()].filter((e) => e.mp3).sort((a, b) => b.mtime - a.mtime).slice(0, limit);
   }
