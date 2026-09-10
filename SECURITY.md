@@ -26,13 +26,19 @@ Only the current release (`desktop/package.json`) receives fixes. There are no m
 
 These are understood and deliberate; they do not need reporting.
 
-- **The desktop app holds usable Tencent credentials.** After login the app fetches keys from
-  `/api/desktop/credentials` and stores them with Electron `safeStorage`. Anyone with an account on a
-  server can extract them from their own machine and use that server owner's Tencent quota. This is why
-  `SIGNUP_MODE` defaults to `closed`. Do not open sign-up on a server whose keys you care about until
-  the app receives short-lived credentials instead.
-- **Plan quotas are enforced by the app**, so an account holder can bypass them. Treat them as guidance
-  for cooperating users, not as a security control.
+- **`/api/desktop/credentials` still exists for older builds.** It hands a logged-in app the server's
+  permanent Tencent key, and anyone with an account can extract it from their own machine and spend the
+  server owner's quota. This is why `SIGNUP_MODE` defaults to `closed`. Builds from 0.6.9 do not call it:
+  the server signs each WebSocket connection instead (`/api/desktop/live-url`) and the app never receives
+  a key. The endpoint goes away once no installed build needs it — until then, treat a server with open
+  sign-up as a server whose key is public.
+- **Signed live URLs are bearer credentials for one connection.** Each is valid for two minutes to *open*
+  one stream and carries no key. `expired` gates the handshake only and never cuts an established stream
+  (measured: `server/probe-signature.js`), so the window can be short without shortening a talk. The app
+  keeps two or three in memory, never on disk.
+- **File quotas are enforced by the app**, so an account holder can bypass them. Live quotas are checked by
+  the server every time it signs a connection — twice an hour, since rotation is every 30 minutes — so they
+  hold for builds that no longer carry a key.
 - **Two-factor authentication is optional, not enforced.** Accounts can turn on TOTP under
   Account › Security, with ten one-time recovery codes. A server that hands out Tencent keys should
   have it on for every account. There is no hardware-key (WebAuthn) support yet.

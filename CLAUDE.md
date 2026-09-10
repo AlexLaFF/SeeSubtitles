@@ -2,14 +2,20 @@
 
 ## Blocker before any account other than the owner's exists
 
-**Do not enable sign-up, create accounts for other people, or hand out invite codes until the desktop app stops
-receiving long-lived Tencent keys.** Today `/api/desktop/credentials` (server/server.js) gives every logged-in app
-the permanent key of the `cantonese-subtitles` Tencent sub-user. Any account holder could extract it from their Mac
-and run Tencent's speech APIs on the owner's bill, and the live-hour quota (server/lib/plans.js) is enforced by the
-app itself, so it can be bypassed. Required first: temporary credentials from Tencent STS (a CAM role the server
-assumes, keys scoped to speech translation, ~30-minute lifetime, refreshed mid-stream) or the server proxying the
-audio stream. `SIGNUP_MODE` stays `closed` and `account.addMember` / invites stay unused for outsiders until then.
-Decided by Alex on 2026-09-10.
+**Do not enable sign-up, create accounts for other people, or hand out invite codes until
+`/api/desktop/credentials` is gone.** That endpoint (server/server.js) gives every logged-in app the permanent key
+of the `cantonese-subtitles` Tencent sub-user, so any account holder could extract it from their Mac and run
+Tencent's speech APIs on the owner's bill. `SIGNUP_MODE` stays `closed` and `account.addMember` / invites stay
+unused for outsiders until it is removed. Decided by Alex on 2026-09-10.
+
+The replacement is built and tested (2026-09-11). **STS turned out to be impossible, not merely awkward**: the
+speech WebSocket authenticates with a secretid and an HMAC-SHA1 signature over the query string and has no
+parameter to carry a session token, so temporary credentials cannot be used at all — the `X-TC-Token` header
+belongs to the TC3 HTTP APIs, which already run server-side. Instead the server signs each connection and returns
+only the finished `wss://` URL (`/api/desktop/live-url`, two-minute expiry), and proxies TokenHub for summaries;
+the app opens the URL directly, so nothing is proxied and the audio path is untouched. What is left before the
+blocker lifts: ship a build ≥ 0.6.9, confirm nothing older is installed, then delete the endpoint and this
+paragraph.
 
 ## Other standing rules
 
