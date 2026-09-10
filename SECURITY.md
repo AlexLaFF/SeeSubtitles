@@ -4,7 +4,7 @@
 
 Please report security problems privately, not in a public issue.
 
-- Preferred: [open a private advisory](https://github.com/AlexLaFF/transcriptionApp/security/advisories/new)
+- Preferred: [open a private advisory](https://github.com/AlexLaFF/SeeSubtitles/security/advisories/new)
   on this repository ("Report a vulnerability" under the Security tab).
 - Or email **alex@seesubtitles.com**.
 
