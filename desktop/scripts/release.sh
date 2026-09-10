@@ -23,6 +23,10 @@ if [ -f "$ENV_FILE" ]; then
 else
   echo "⚠ no $ENV_FILE — the build will not be notarized and verify-release.js will refuse it"
 fi
+# electron-builder reads the keychain profile from these two; the login keychain is the default place.
+if [ -n "$APPLE_KEYCHAIN_PROFILE" ] && [ -z "$APPLE_KEYCHAIN" ]; then
+  export APPLE_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
+fi
 npm run dist
 
 # electron-builder notarizes and staples the .app, then builds the dmg *from* it — so the dmg itself
@@ -31,10 +35,20 @@ npm run dist
 HERE="$(cd "$(dirname "$0")" && pwd)"
 VERSION=$(node -p "require('$HERE/../package.json').version")
 DMG="$HERE/../dist/See Subtitles-$VERSION-arm64.dmg"
-if [ -n "$APPLE_API_KEY" ] && [ -f "$DMG" ]; then
-  echo "· notarizing the dmg itself"
-  xcrun notarytool submit "$DMG" --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
-  xcrun stapler staple "$DMG"
+if [ -f "$DMG" ]; then
+  # Either way of holding the credentials works: a keychain profile (preferred — nothing on disk for an
+  # editor to overwrite) or the three variables.
+  if [ -n "$APPLE_KEYCHAIN_PROFILE" ]; then
+    echo "· notarizing the dmg itself (keychain profile $APPLE_KEYCHAIN_PROFILE)"
+    xcrun notarytool submit "$DMG" --keychain-profile "$APPLE_KEYCHAIN_PROFILE" --wait
+    xcrun stapler staple "$DMG"
+  elif [ -n "$APPLE_API_KEY" ]; then
+    echo "· notarizing the dmg itself"
+    xcrun notarytool submit "$DMG" --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+    xcrun stapler staple "$DMG"
+  else
+    echo "⚠ no notarization credentials — verify-release.js will refuse this build"
+  fi
 fi
 
 node "$HERE/verify-release.js"
