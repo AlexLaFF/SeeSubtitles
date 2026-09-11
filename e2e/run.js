@@ -328,7 +328,9 @@ async function main() {
       const resetToken = String(link || '').split('/').pop().split('=').pop();
       must(resetToken, 'no reset link came back for the new member');
       const info = await http(`${server.base}/api/reset/${resetToken}`);
-      must(info.status === 200 && info.json.email === email, `the reset link does not work: ${info.text.slice(0, 120)}`);
+      // the reset page shows the address masked (n•••@e2e.local), so whoever holds a link does not learn whose it is
+      must(info.status === 200 && info.json.ok && /^n\S*•\S*@e2e\.local$/.test(info.json.email || ''), `the reset link does not work: ${info.text.slice(0, 120)}`);
+      must(info.json.email !== email, 'the reset page shows the full address to whoever has the link');
       const set = await http(`${server.base}/api/reset`, { method: 'POST', body: { token: resetToken, password: 'newhire-password-e2e' } });
       must(set.status === 200, `setting a password failed: ${set.text.slice(0, 120)}`);
       const login = await http(`${server.base}/api/login`, { method: 'POST', body: { email, password: 'newhire-password-e2e', kind: 'bearer' } });
@@ -469,11 +471,18 @@ async function main() {
       must(job, 'no finished upload to render');
       const r = await http(`${server.base}/api/jobs/${job.id}/mp4`, { method: 'POST', token: tokens.member, body: { which: 'trans' } });
       must(r.status === 200, `the server refused: ${r.text.slice(0, 160)}`);
+      // The render only shows as running once the server has measured the audio, a moment after it answers, so "no
+      // render and no video" means failure once it has had time to start — or as soon as the server logs why not.
+      const askedAt = Date.now();
+      let started = false;
       const name = await waitFor('the render', async () => {
         const j = await member.cloud.getJob(job.id);
         const mp4 = (j.files || []).find((f) => f.endsWith('.mp4'));
+        if (j.render) started = true;
         if (mp4 && !j.render) return mp4;
-        if (!j.render && !mp4) throw new Error(`the render stopped without a video${j.error ? `: ${j.error}` : ''}`);
+        const why = server.log().split('\n').reverse().find((l) => l.includes(`job ${job.id} mp4`));
+        if (why) throw new Error(why.trim());
+        if (!j.render && (started || Date.now() - askedAt > 30_000)) throw new Error('the render stopped without a video');
         return null;
       }, 10 * 60_000, 2000);
       const dest = path.join(member.dir, name);
