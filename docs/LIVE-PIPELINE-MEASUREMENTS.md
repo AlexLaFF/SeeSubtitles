@@ -52,9 +52,16 @@ connection that has sent no audio for 15 seconds (`4008`), so anything delaying 
 On the first talk, hotwords alone took the shipped pipeline from 33/43 to 42/43 — a larger improvement
 than changing the architecture. Whatever happens to the pipeline, a per-talk glossary is worth having.
 
-## Not settled: cost
+## Cost
 
-Tencent's price list names tiers (大模型 2.0 ¥1.00/h, 大模型 1.0 ¥3.00–4.80/h, 标准版 ¥1.20–3.20/h) but
-never says which `engine_model_type` sits in which. The billing API refuses our sub-user — `finance:*`
-is denied, which is the scoping that limits what a leaked key can do — so the console bill is the only
-way to price `16k_zh_large`.
+**大模型实时语音翻译 — what the app uses live — bills at the flat list rate of ¥5.00/h**, checked against the
+account's invoice, with no volume discount at our size.
+
+实时语音识别 is sold by the hour and in packages; a 30-hour package lists at ¥3.00/h, and promotions go well
+below that. So recognition costs at most ¥3.00/h against ¥5.00/h for recognition-plus-translation, which is
+where the saving would come from. What remains unknown is whether a **大模型** engine such as `16k_zh_large`
+draws down such a package at all or bills as its own SKU (大模型 1.0, ¥3.00–4.80/h). A daily settlement
+covering a test run answers it: if a line named 大模型 appears, it does not.
+
+The billing API cannot be used for this. `finance:*` is denied to the speech sub-user — deliberately, since
+that is what limits a leaked key — so figures like these come from the console's exported invoice.
