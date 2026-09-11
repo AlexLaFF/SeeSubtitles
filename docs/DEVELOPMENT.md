@@ -137,18 +137,24 @@ start with uncommitted changes, or while the server has carried a talk in the la
 - plans: what a Hobbyist plan may not do it cannot do, and a spent plan cannot start a talk
 - live: an ordinary account through the relay — counted to the second, not reported twice by the app, and seen on a
   shared screen; the owner straight to Tencent on a signed connection, holding no key, with the glossary actually heard
-- what a talk leaves behind: MP3, subtitles in both languages, plain text, the manifest, the burnt-in MP4, an AI summary
+- what a talk leaves behind: MP3, subtitles in both languages, plain text, the manifest, an AI summary; and the
+  server's burnt-in MP4 for an uploaded file
 - uploads: a recording uploaded from the app comes back as subtitles and is imported as a recording
 - languages, the update feed and every page; and last, that neither key appears in any response or any file written
 
 Subtitles are checked for Traditional characters, source lines for Cantonese ones.
+
+**One part runs on the Mac.** The app draws the subtitles of its own MP4 with a native macOS renderer
+(`helpers/render-subs.swift`) that the Linux image cannot run, so the server run hands back one recording it made and
+`e2e/mac.js` renders it with the app's own `Mp4Queue` and checks the video. That step needs no keys.
 
 **The recordings.** Real talks, kept on the server in `~/e2e-fixtures` (owner-only permissions) with a
 `manifest.json` saying what each must contain — the glossary terms it must be heard to say, the fewest subtitles it
 may produce. They are never committed: this repository is public. To add one, cut it to 16 kHz mono WAV, copy it
 there and describe it in the manifest.
 
-**What it costs.** About ten minutes and ¥0.5 of Tencent time a run.
+**What it costs.** About two and a half minutes and ¥0.3 of Tencent time a run, plus a few minutes the first time
+the test image is built.
 
 **What it cannot see.** The windows. release.sh prints a short checklist at the end — menus, Settings, printing the
 PDF, the QR code, a real microphone — to walk before publishing.
