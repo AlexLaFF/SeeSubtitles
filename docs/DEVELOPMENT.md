@@ -116,3 +116,42 @@ electron-builder picks them up and notarizes the build.
 - Chinese is **Simplified only**.
 - Interface colours come from the design tokens (`var(--bg)`, `--surface`, `--fg`, `--accent`…), never
   hard-coded values.
+
+## The release test
+
+`npm run e2e` runs `e2e/run.js` — the whole app below its windows, end to end, with real recordings, real Tencent
+and real TokenHub. `npm run release -w desktop` runs it first and stops if anything fails, before a build is made or
+sent to Apple.
+
+**Where it runs.** On the server, because that is where the keys are and they never leave it.
+`desktop/scripts/e2e-on-server.sh` ships the committed code there, builds a throwaway image from `e2e/Dockerfile`
+beside the running service (capped at one core and 900 MB, so the service keeps its headroom) and runs it with the
+server's own `deploy/.env`. Inside, the test starts its own copy of the server — its own database and port, nothing
+shared with the live service — and makes throwaway accounts in it that disappear with the container. It refuses to
+start with uncommitted changes, or while the server has carried a talk in the last 15 minutes.
+
+**What it checks.** It drives the app's own core (`desktop/local-server.js`, `desktop/cloud.js`, the queues in
+`desktop/lib`) against that server the way the Mac app does, with a recording standing in for the microphone:
+
+- accounts: login, a wrong password, two-factor on, demanded and off; teams; account requests
+- plans: what a Hobbyist plan may not do it cannot do, and a spent plan cannot start a talk
+- live: an ordinary account through the relay — counted to the second, not reported twice by the app, and seen on a
+  shared screen; the owner straight to Tencent on a signed connection, holding no key, with the glossary actually heard
+- what a talk leaves behind: MP3, subtitles in both languages, plain text, the manifest, the burnt-in MP4, an AI summary
+- uploads: a recording uploaded from the app comes back as subtitles and is imported as a recording
+- languages, the update feed and every page; and last, that neither key appears in any response or any file written
+
+Subtitles are checked for Traditional characters, source lines for Cantonese ones.
+
+**The recordings.** Real talks, kept on the server in `~/e2e-fixtures` (owner-only permissions) with a
+`manifest.json` saying what each must contain — the glossary terms it must be heard to say, the fewest subtitles it
+may produce. They are never committed: this repository is public. To add one, cut it to 16 kHz mono WAV, copy it
+there and describe it in the manifest.
+
+**What it costs.** About ten minutes and ¥0.5 of Tencent time a run.
+
+**What it cannot see.** The windows. release.sh prints a short checklist at the end — menus, Settings, printing the
+PDF, the QR code, a real microphone — to walk before publishing.
+
+**Adding a check.** A `check('area: what must be true', async () => …)` in `e2e/run.js`, using the throwaway server
+(`server.base`), an app instance from `openApp`, and `must(condition, 'what went wrong')`.

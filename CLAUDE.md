@@ -28,8 +28,10 @@ which is why it has to be rotated rather than merely no longer sent. Once both a
 - **Deploying interrupts every live talk** now that the server carries the audio (server/lib/live-proxy.js).
   `docker compose up -d --build` restarts the container and every room loses its subtitles until the app
   reconnects — recordings are untouched, since they never involve the network. Do not deploy during an event.
-- Release: bump `desktop/package.json`, then `npm run release -w desktop` — it builds, notarizes with the credentials
-  in `~/.config/seesubtitles/notarize.env`, and refuses the build unless Gatekeeper accepts it. **Never publish a build
-  `verify-release.js` rejects**: every release up to 0.6.7 was signed with a development certificate and notarized
+- Release: bump `desktop/package.json`, then `npm run release -w desktop` — it first runs the release test on the server (`npm run e2e`:
+  the whole app below its windows, end to end, with real recordings and the real keys; see docs/DEVELOPMENT.md), then
+  builds, notarizes with the keychain profile named in `~/.config/seesubtitles/notarize.env`, and refuses the build
+  unless Gatekeeper accepts it. **Never publish a build the release test or `verify-release.js` rejects**, and walk
+  the window checklist release.sh prints before publishing: every release up to 0.6.7 was signed with a development certificate and notarized
   never, so it opened only on Macs registered to the team. Then copy the DMG to `~/Downloads`, publish the four files
   plus `latest-mac.yml` into the server's `/data/updates`, remove the previous version's files.
