@@ -23,10 +23,10 @@ if [ -f "$ENV_FILE" ]; then
 else
   echo "⚠ no $ENV_FILE — the build will not be notarized and verify-release.js will refuse it"
 fi
-# electron-builder reads the keychain profile from these two; the login keychain is the default place.
-if [ -n "$APPLE_KEYCHAIN_PROFILE" ] && [ -z "$APPLE_KEYCHAIN" ]; then
-  export APPLE_KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
-fi
+# electron-builder hands APPLE_KEYCHAIN_PROFILE to notarytool. Leave APPLE_KEYCHAIN unset unless the profile
+# really lives in one particular keychain file: `notarytool store-credentials` keeps profiles in the
+# data-protection keychain, which an explicit `--keychain <file>` excludes — naming the login keychain here made
+# every build refuse notarization with "No Keychain password item found for profile".
 npm run dist
 
 # electron-builder notarizes and staples the .app, then builds the dmg *from* it — so the dmg itself
