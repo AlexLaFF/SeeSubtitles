@@ -27,6 +27,10 @@ fi
 # really lives in one particular keychain file: `notarytool store-credentials` keeps profiles in the
 # data-protection keychain, which an explicit `--keychain <file>` excludes — naming the login keychain here made
 # every build refuse notarization with "No Keychain password item found for profile".
+# Every release first passes the release test on the server: the whole app below its windows, end to end, with real
+# recordings and the real keys (e2e/run.js). A failure stops here, before anything is built or sent to Apple.
+sh "$(dirname "$0")/e2e-on-server.sh"
+
 npm run dist
 
 # electron-builder notarizes and staples the .app, then builds the dmg *from* it — so the dmg itself
@@ -52,3 +56,14 @@ if [ -f "$DMG" ]; then
 fi
 
 node "$HERE/verify-release.js"
+
+cat <<'CHECKLIST'
+
+Before publishing, open the build once and check what the release test cannot see — the windows:
+  1. dist/mac-arm64/See Subtitles.app opens and the account page shows you logged in
+  2. Start subtitles: lines appear in the control window and on the display
+  3. Settings (⌘,) opens; Keys reads "none needed"; a glossary entry saves
+  4. Stop: the recording appears in Files with its MP3, subtitles and MP4
+  5. Files › a recording › AI summary › PDF: the PDF opens
+  6. Share to screens: the QR code opens the display page on a phone
+CHECKLIST
