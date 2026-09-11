@@ -103,17 +103,29 @@ const ACCOUNTS = {
   hobbyist: { email: 'hobbyist@e2e.local', password: 'hobbyist-password-e2e', plan: 'hobbyist' },
   boss: { email: 'boss@e2e.local', password: 'boss-password-e2e', plan: 'enterprise' },
   teammate: { email: 'teammate@e2e.local', password: 'teammate-password-e2e', plan: 'hobbyist' },
+  traveller: { email: 'traveller@e2e.local', password: 'traveller-password-e2e', plan: 'business' },
 };
 
 async function startServer() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-server-'));
   const db = openDb(root);
   const auth = createAuth(db);
-  for (const a of Object.values(ACCOUNTS)) {
-    auth.addUser(a.email, a.password);
+  const ids = {};
+  for (const [who, a] of Object.entries(ACCOUNTS)) {
+    ids[who] = auth.addUser(a.email, a.password).id;
     if (a.role) auth.setRole(a.email, a.role);
     if (a.plan) db.run('UPDATE users SET plan = ? WHERE email = ?', a.plan, a.email);
   }
+  // Signed-in devices, made exactly as a login makes them. Signing in is limited to 20 attempts per address every 15
+  // minutes and every request here comes from one address, so the checks about devices use these instead of logging
+  // in over and over; only the checks about logging in log in.
+  const nomad = auth.addUser('nomad@e2e.local', 'nomad-password-e2e').id;
+  const devices = {
+    nomadA: auth.issueToken(nomad, 'bearer', 'e2e Mac A'),
+    nomadB: auth.issueToken(nomad, 'bearer', 'e2e Mac B'),
+    nomadC: auth.issueToken(nomad, 'bearer', 'e2e Mac C'),
+    memberElsewhere: auth.issueToken(ids.member, 'bearer', 'e2e the other Mac'),
+  };
   db.close();
   // an update feed with a build newer than anything real, which the version endpoint must report
   const updates = path.join(root, 'updates');
@@ -132,7 +144,7 @@ async function startServer() {
   proc.stdout.on('data', (d) => { log += d; });
   proc.stderr.on('data', (d) => { log += d; });
   await waitFor('the server copy to answer', async () => { try { return (await realFetch(`${base}/healthz`)).ok; } catch { return false; } }, 30_000);
-  return { base, port, root, proc, log: () => log };
+  return { base, port, root, proc, devices, log: () => log };
 }
 
 // ---------------------------------------------------------------- the app, as the Mac runs it
@@ -288,6 +300,47 @@ async function main() {
       must(again.status === 200 && again.json.token, 'sign-in after turning it off still asks for a code');
     });
 
+    const signIn = (who, label, password = ACCOUNTS[who].password) => http(`${server.base}/api/login`, { method: 'POST', body: { email: ACCOUNTS[who].email, password, kind: 'bearer', label } });
+    const alive = async (token) => (await http(`${server.base}/api/me`, { token })).status === 200;
+
+    await check('accounts: changing the password needs the current one, and signs out every other device', async () => {
+      const here = tokens.traveller;
+      const there = (await signIn('traveller', 'e2e another Mac')).json.token;
+      must(here && there, 'could not be signed in on two devices');
+      const url = `${server.base}/api/account/password`;
+      must((await http(url, { method: 'POST', token: here, body: { current: 'not-the-password', next: 'a-new-password-e2e' } })).status === 400, 'the password changed without the current one');
+      must((await http(url, { method: 'POST', token: here, body: { current: ACCOUNTS.traveller.password, next: 'short' } })).status === 400, 'a five-letter password was accepted');
+      must(await alive(there), 'a refused change signed the other device out');
+      const ok = await http(url, { method: 'POST', token: here, body: { current: ACCOUNTS.traveller.password, next: 'traveller-new-password-e2e' } });
+      must(ok.status === 200, `the change failed: ${ok.text.slice(0, 120)}`);
+      must(await alive(here), 'the device that changed the password was signed out');
+      must(!(await alive(there)), 'the other device is still signed in');
+      must((await signIn('traveller', 'e2e')).status >= 400, 'the old password still works');
+      const fresh = await signIn('traveller', 'e2e', 'traveller-new-password-e2e');
+      must(fresh.status === 200 && fresh.json.token, 'the new password does not work');
+      ACCOUNTS.traveller.password = 'traveller-new-password-e2e';
+      return 'the other device signed out, the old password refused';
+    });
+
+    await check('accounts: the device list shows each sign-in; one can be signed out, or all the others at once', async () => {
+      const { nomadA: a, nomadB: b, nomadC: c } = server.devices;
+      const list = await http(`${server.base}/api/account/tokens`, { token: a });
+      must(Array.isArray(list.json), `no device list: ${list.text.slice(0, 120)}`);
+      const labels = list.json.map((d) => d.label);
+      must(['e2e Mac A', 'e2e Mac B', 'e2e Mac C'].every((l) => labels.includes(l)), `the list shows ${labels.join(', ')}`);
+      const current = list.json.filter((d) => d.current);
+      must(current.length === 1 && current[0].label === 'e2e Mac A', 'the list does not mark the asking device as the current one');
+      must(list.json.every((d) => !('token' in d)), 'the device list gives out the sign-in tokens themselves');
+      const bId = list.json.find((d) => d.label === 'e2e Mac B').id;
+      const one = await http(`${server.base}/api/account/tokens/revoke`, { method: 'POST', token: a, body: { id: bId } });
+      must(one.status === 200 && one.json.revoked === 1, `signing out one device signed out ${one.json && one.json.revoked}`);
+      must(!(await alive(b)) && (await alive(a)) && (await alive(c)), 'the wrong devices were signed out');
+      const rest = await http(`${server.base}/api/account/tokens/revoke`, { method: 'POST', token: a, body: { all: true } });
+      must(rest.status === 200 && rest.json.revoked === 1, `"sign out the others" signed out ${rest.json && rest.json.revoked}`);
+      must(!(await alive(c)) && (await alive(a)), 'signing out the others did not keep this device and drop the rest');
+      return `${list.json.length} devices listed; one, then all the others, signed out`;
+    });
+
     await check('plans: what a Hobbyist plan may not do, it cannot do', async () => {
       const t = tokens.hobbyist;
       const share = await http(`${server.base}/api/sessions`, { method: 'POST', token: t, body: { name: 'e2e' } });
@@ -335,6 +388,7 @@ async function main() {
       must(set.status === 200, `setting a password failed: ${set.text.slice(0, 120)}`);
       const login = await http(`${server.base}/api/login`, { method: 'POST', body: { email, password: 'newhire-password-e2e', kind: 'bearer' } });
       must(login.status === 200 && login.json.token, 'the new member cannot sign in with the password they set');
+      tokens.newhire = login.json.token;
       const me = await http(`${server.base}/api/me`, { token: login.json.token });
       must(me.json && me.json.plan && me.json.plan.plan === 'enterprise', `the member is on ${me.json && me.json.plan && me.json.plan.plan}, not the team's plan`);
       const view = await http(`${server.base}/api/org`, { token: tokens.boss });
@@ -342,6 +396,28 @@ async function main() {
       const existing = await http(`${server.base}/api/org/members`, { method: 'POST', token: tokens.boss, body: { email: ACCOUNTS.member.email } });
       must(existing.status >= 400, 'an address that already has an account was added to the team');
       return 'added, password set from the link, on the Enterprise plan';
+    });
+
+    await check("glossary: a list saved on one Mac reaches the account's other devices, tidied, and a team shares one list", async () => {
+      const url = `${server.base}/api/glossary`;
+      const saved = await http(url, { method: 'PUT', token: tokens.member, body: { items: [{ term: '松果菊', weight: 10 }, { term: '巨噬细胞', weight: 50, note: '免疫' }, { term: '香|蒜', weight: 100 }] } });
+      must(saved.status === 200, `saving failed: ${saved.text.slice(0, 120)}`);
+      const got = Object.fromEntries(saved.json.items.map((i) => [i.term, i]));
+      must(got['巨噬细胞'] && got['巨噬细胞'].weight === 11, 'a weight above 11 was not held to 11');
+      must(got['香蒜'] && got['香蒜'].weight === 100, 'a "|" was left in a term, or the forced weight 100 was changed');
+      const elsewhere = await http(url, { token: server.devices.memberElsewhere });
+      must(elsewhere.json && ['松果菊', '巨噬细胞', '香蒜'].every((t) => elsewhere.json.items.some((i) => i.term === t)), "the account's other device does not see the list");
+      must((await http(url, { method: 'PUT', token: tokens.member, body: { items: [{ term: '长'.repeat(41) }] } })).status === 400, 'a 41-character term was accepted');
+      must((await http(url, { token: tokens.member })).json.items.length === 3, 'a refused save changed the list');
+      must((await http(url, { method: 'PUT', token: tokens.boss, body: { items: [{ term: '辅酶Q10', weight: 8 }] } })).status === 200, 'the team owner could not save a list');
+      const teamList = await http(url, { token: tokens.newhire });
+      must(teamList.json && teamList.json.items.some((i) => i.term === '辅酶Q10'), "a team member does not see the owner's list");
+      await http(url, { method: 'PUT', token: tokens.newhire, body: { items: [{ term: '辅酶Q10', weight: 8 }, { term: '益生元' }] } });
+      const back = await http(url, { token: tokens.boss });
+      const added = back.json && back.json.items.find((i) => i.term === '益生元');
+      must(added, "a team member's change did not reach the shared list");
+      must(added.weight === 6, `a term saved without a weight got ${added.weight}, not the default 6`);
+      return 'synced across devices; weights and "|" tidied; one list for the team';
     });
 
     // ---- the slow ones, side by side: an upload, and two live talks by the two routes -------------------------------

@@ -133,7 +133,11 @@ start with uncommitted changes, or while the server has carried a talk in the la
 **What it checks.** It drives the app's own core (`desktop/local-server.js`, `desktop/cloud.js`, the queues in
 `desktop/lib`) against that server the way the Mac app does, with a recording standing in for the microphone:
 
-- accounts: login, a wrong password, two-factor on, demanded and off; teams; account requests
+- accounts: login, a wrong password, two-factor on, demanded and off; changing the password (and the other devices
+  it signs out); the device list, signing one device out and signing out all the others; teams, with a new member
+  setting a password from the reset link; account requests
+- glossary: a list saved on one Mac reaches the account's other devices, is tidied by the server, and a team shares
+  its owner's list
 - plans: what a Hobbyist plan may not do it cannot do, and a spent plan cannot start a talk
 - live: an ordinary account through the relay — counted to the second, not reported twice by the app, and seen on a
   shared screen; the owner straight to Tencent on a signed connection, holding no key, with the glossary actually heard
