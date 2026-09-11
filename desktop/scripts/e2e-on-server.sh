@@ -26,5 +26,24 @@ fi
 
 git archive --format=tar HEAD | ssh "$HOST" 'rm -rf ~/e2e-src && mkdir -p ~/e2e-src && tar -x -C ~/e2e-src'
 ssh "$HOST" 'docker image prune -f >/dev/null; cd ~/e2e-src && docker build -q -t seesubtitles-e2e -f e2e/Dockerfile . >/dev/null && echo "  test image built"'
-# --cpus / --memory keep the running service responsive; --env-file is the server's own key file; recordings read-only
-ssh "$HOST" 'docker run --rm --cpus 1 --memory 900m --env-file ~/SeeSubtitles/deploy/.env -v ~/e2e-fixtures:/fixtures:ro seesubtitles-e2e'
+# --cpus / --memory keep the running service responsive; --env-file is the server's own key file; the recordings are
+# read-only; /out receives the one recording the Mac step below renders.
+ssh "$HOST" 'rm -rf ~/e2e-out && mkdir -p ~/e2e-out'
+set +e
+ssh "$HOST" 'docker run --rm --cpus 1 --memory 900m --env-file ~/SeeSubtitles/deploy/.env -v ~/e2e-fixtures:/fixtures:ro -v ~/e2e-out:/out seesubtitles-e2e node e2e/run.js --fixtures /fixtures --out /out'
+SERVER=$?
+
+# The app's MP4 renderer is macOS-only, so the recording the server run just made is rendered here, as the app would.
+LOCAL=$(mktemp -d)
+scp -q "$HOST:e2e-out/*" "$LOCAL/" 2>/dev/null
+ssh "$HOST" 'rm -rf ~/e2e-out'
+node e2e/mac.js "$LOCAL"
+MAC=$?
+rm -rf "$LOCAL"
+set -e
+
+if [ "$SERVER" -ne 0 ] || [ "$MAC" -ne 0 ]; then
+  echo "✖ the release test failed — nothing will be built" >&2
+  exit 1
+fi
+echo "✔ the release test passed"

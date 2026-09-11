@@ -150,7 +150,8 @@ async function openApp(server, who, token, clipFile) {
     webDir: path.join(ROOT, 'web'), schemaFile: require.resolve('@subs/core/schema'),
     dataDir: path.join(dir, 'data'), recordingsDir: rec, transcriptsDir: path.join(dir, 'transcripts'),
     audioFile: clipFile, token: 'e2e', consoleLog: (level, text) => logs.push(`${level} ${text}`),
-    env: { MP4_AUTO: '1', START_PAUSED: '1', SUMMARY_LANGUAGE: 'zh', SUMMARY_EFFORT: 'low' },
+    // the app's MP4 renderer draws with a macOS-only helper, so it runs on the Mac (e2e/mac.js), not here
+    env: { MP4_AUTO: '0', START_PAUSED: '1', SUMMARY_LANGUAGE: 'zh', SUMMARY_EFFORT: 'low' },
     cloudLive: { url: server.base, token },
     liveUrls: (req) => cloud.liveUrls(req),
     trusted: () => (cloud.plan && cloud.plan.limits ? !!cloud.plan.limits.directLive : null),
@@ -318,13 +319,27 @@ async function main() {
       must((await http(`${server.base}/api/requests/pending`, { token: tokens.member })).status === 403, 'an ordinary account can read requests');
     });
 
-    await check('teams: an Enterprise owner adds a member, who then shares the plan', async () => {
-      const add = await http(`${server.base}/api/org/members`, { method: 'POST', token: tokens.boss, body: { email: ACCOUNTS.teammate.email } });
-      must(add.status === 200, `adding a member failed: ${add.text.slice(0, 120)}`);
-      const view = await http(`${server.base}/api/org`, { token: tokens.boss });
-      must(view.text.includes(ACCOUNTS.teammate.email), 'the member is not in the team');
-      const me = await http(`${server.base}/api/me`, { token: tokens.teammate });
+    await check('teams: an Enterprise owner adds a member, who sets a password from the link and shares the plan', async () => {
+      const email = 'newhire@e2e.local';
+      const add = await http(`${server.base}/api/org/members`, { method: 'POST', token: tokens.boss, body: { email } });
+      must(add.status === 200 && add.json && add.json.member && add.json.member.email === email, `adding a member failed: ${add.text.slice(0, 120)}`);
+      // a new member has no password yet: they set one from the reset link the owner is handed
+      const link = add.json.reset && typeof add.json.reset === 'object' ? (add.json.reset.token || add.json.reset.url) : add.json.reset;
+      const resetToken = String(link || '').split('/').pop().split('=').pop();
+      must(resetToken, 'no reset link came back for the new member');
+      const info = await http(`${server.base}/api/reset/${resetToken}`);
+      must(info.status === 200 && info.json.email === email, `the reset link does not work: ${info.text.slice(0, 120)}`);
+      const set = await http(`${server.base}/api/reset`, { method: 'POST', body: { token: resetToken, password: 'newhire-password-e2e' } });
+      must(set.status === 200, `setting a password failed: ${set.text.slice(0, 120)}`);
+      const login = await http(`${server.base}/api/login`, { method: 'POST', body: { email, password: 'newhire-password-e2e', kind: 'bearer' } });
+      must(login.status === 200 && login.json.token, 'the new member cannot sign in with the password they set');
+      const me = await http(`${server.base}/api/me`, { token: login.json.token });
       must(me.json && me.json.plan && me.json.plan.plan === 'enterprise', `the member is on ${me.json && me.json.plan && me.json.plan.plan}, not the team's plan`);
+      const view = await http(`${server.base}/api/org`, { token: tokens.boss });
+      must(view.text.includes(email), 'the member is not listed in the team');
+      const existing = await http(`${server.base}/api/org/members`, { method: 'POST', token: tokens.boss, body: { email: ACCOUNTS.member.email } });
+      must(existing.status >= 400, 'an address that already has an account was added to the team');
+      return 'added, password set from the link, on the Enterprise plan';
     });
 
     // ---- the slow ones, side by side: an upload, and two live talks by the two routes -------------------------------
@@ -411,18 +426,16 @@ async function main() {
       });
     }
 
-    await check('mp4: the subtitles are burnt into a video', async () => {
-      must(memberTalk && memberTalk.recording, 'no recording to render');
-      const mp4 = path.join(member.rec, names.fileName(memberTalk.recording.base, 'mp4'));
-      await waitFor('the MP4', () => fs.existsSync(mp4) && !member.logs.some((l) => /^error mp4/.test(l)), 6 * 60_000, 1000);
-      await waitFor('the MP4 to be finished', () => member.logs.some((l) => /mp4 ready/.test(l)), 6 * 60_000, 1000);
-      const p = ffprobe(mp4);
-      const kinds = p.streams.map((s) => s.codec_type);
-      must(kinds.includes('video') && kinds.includes('audio'), `the MP4 has ${kinds.join(' + ')}`);
-      const mp3 = Number(ffprobe(path.join(member.rec, names.fileName(memberTalk.recording.base, 'mp3'))).format.duration);
-      must(Math.abs(Number(p.format.duration) - mp3) < 3, `the MP4 is ${Number(p.format.duration).toFixed(1)} s, the audio ${mp3.toFixed(1)} s`);
-      return `${Number(p.format.duration).toFixed(0)} s, ${(fs.statSync(mp4).size / 1e6).toFixed(1)} MB`;
-    });
+    // The app burns subtitles into its MP4 with a native macOS renderer, which this Linux image cannot run: hand the
+    // recording back, and e2e/mac.js renders it on the Mac exactly as the app does.
+    const OUT = flag('out', '');
+    if (OUT && memberTalk && memberTalk.recording) {
+      const base = memberTalk.recording.base;
+      for (const f of fs.readdirSync(member.rec).filter((n) => n.startsWith(base))) {
+        fs.copyFileSync(path.join(member.rec, f), path.join(OUT, f));
+        fs.chmodSync(path.join(OUT, f), 0o666);
+      }
+    }
 
     await check('summary: an AI summary of the talk comes back through the server', async () => {
       must(memberTalk && memberTalk.recording, 'no recording to summarise');
@@ -450,6 +463,26 @@ async function main() {
         must(fs.existsSync(path.join(member.rec, f)), `the import has no ${f}`);
       }
       return base;
+    });
+
+    await check('mp4: the server burns the subtitles into a video for an uploaded file', async () => {
+      must(job, 'no finished upload to render');
+      const r = await http(`${server.base}/api/jobs/${job.id}/mp4`, { method: 'POST', token: tokens.member, body: { which: 'trans' } });
+      must(r.status === 200, `the server refused: ${r.text.slice(0, 160)}`);
+      const name = await waitFor('the render', async () => {
+        const j = await member.cloud.getJob(job.id);
+        const mp4 = (j.files || []).find((f) => f.endsWith('.mp4'));
+        if (mp4 && !j.render) return mp4;
+        if (!j.render && !mp4) throw new Error(`the render stopped without a video${j.error ? `: ${j.error}` : ''}`);
+        return null;
+      }, 10 * 60_000, 2000);
+      const dest = path.join(member.dir, name);
+      await member.cloud.downloadJobFile(job.id, name, dest);
+      const p = ffprobe(dest);
+      const kinds = p.streams.map((st) => st.codec_type);
+      must(kinds.includes('video') && kinds.includes('audio'), `the MP4 has ${kinds.join(' + ')}`);
+      must(Math.abs(Number(p.format.duration) - clips.upload.seconds) < 3, `the MP4 is ${Number(p.format.duration).toFixed(1)} s for ${clips.upload.seconds} s of audio`);
+      return `${Number(p.format.duration).toFixed(0)} s, ${(fs.statSync(dest).size / 1e6).toFixed(1)} MB`;
     });
 
     await check('pages: every page of the site and the shared screen loads', async () => {
