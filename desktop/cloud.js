@@ -21,6 +21,7 @@ class CloudLink {
     this.error = null;
     this.sent = 0;
     this.stopped = false;
+    this.onPlan = null; // (plan) → void, whenever a plan snapshot arrives: the live route depends on it
   }
 
   status() {
@@ -44,6 +45,7 @@ class CloudLink {
     try {
       const me = await this._fetch('/api/me', null, { method: 'GET' });
       this.plan = me && me.plan ? me.plan : null;
+      if (this.onPlan) this.onPlan(this.plan);
       this.role = me && me.user ? me.user.role : null;
       if (this.role === 'admin' && this.onPending) { try { this.onPending(await this._fetch('/api/requests/pending', null, { method: 'GET' })); } catch { /* next time */ } }
     } catch (err) { this.log('warn', `plan: ${err.message}`); }
@@ -53,7 +55,7 @@ class CloudLink {
   async reportLive(seconds) {
     if (!this.cfg.token) return null;
     const r = await this._fetch('/api/usage/live', { seconds: Math.round(seconds) });
-    if (r && r.plan) this.plan = r.plan;
+    if (r && r.plan) { this.plan = r.plan; if (this.onPlan) this.onPlan(this.plan); }
     return this.plan;
   }
 
@@ -163,14 +165,10 @@ class CloudLink {
     this.log('info', `account created on ${clean} as ${email}`);
     return { url: clean, token: r.token };
   }
-  /** Tencent keys for the live pipeline, handed out by the server to logged-in desktops. Superseded by
-   *  liveUrls(): kept so a new app can still talk to a server that has not been updated yet. */
-  fetchCredentials() {
-    return this._fetch('/api/desktop/credentials', null, { method: 'GET' });
-  }
   /**
-   * Signed WebSocket URLs for the live pipeline. The Tencent key stays on the server; this returns only
-   * finished wss:// addresses, each good for a couple of minutes to *open* one connection.
+   * Signed WebSocket URLs, for an account the server trusts to send its audio straight to Tencent. The
+   * Tencent key stays on the server; this returns only finished wss:// addresses, each good for a couple of
+   * minutes to *open* one connection. Everyone else is refused (code not_trusted) and goes through the server.
    * @returns {Promise<Array<{url:string, voiceId:string, expiresAt:number}>>}
    */
   async liveUrls({ source, target, transModel, tuning, count } = {}) {

@@ -34,9 +34,6 @@ const attempts = createLimiter({ max: 20, windowMs: 15 * 60_000 }); // login + s
 // caller who can still authenticate may ask for another.
 const signings = createLimiter({ max: 40, windowMs: 10 * 60_000 });
 const clientIp = (req) => (String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?');
-// Desktop apps get the Tencent keys from the server after login, so nobody types keys. Fine for an invite-only
-// team (every account is trusted with the shared key); with open sign-up it needs SHARE_TENCENT_KEYS=1 explicitly.
-const SHARE_KEYS = SIGNUP_MODE !== 'open' || /^(1|true|yes)$/i.test(process.env.SHARE_TENCENT_KEYS || '');
 // How long a signed live URL may be used to *open* a connection. Probed against the live API on 2026-09-11
 // (server/probe-signature.js): `expired` gates the handshake and never cuts an established stream — a stream
 // signed to expire in 45 s ran for its full 150 s hold — so this bounds only the window in which a stolen URL
@@ -254,13 +251,6 @@ async function api(req, res, url, user) {
       if ((r = m(/^\/api\/team\/users\/(\d+)\/reset$/)) && req.method === 'POST') return send(res, 200, { ok: true, ...account.createReset(Number(r[1])) });
       if ((r = m(/^\/api\/team\/requests\/(\d+)\/handled$/)) && req.method === 'POST') { account.handleRequest(Number(r[1]), user.id); return send(res, 200, { ok: true }); }
     } catch (err) { return fail(res, 400, err.message); }
-  }
-  if (p === '/api/desktop/credentials') {
-    if (!creds) return fail(res, 503, 'the server has no Tencent keys configured');
-    if (!SHARE_KEYS) return fail(res, 403, 'this server does not hand out keys to desktop apps (open sign-up); enter your own keys in Settings');
-    log('info', `desktop keys handed to ${user.email}`);
-    const tokenhubKey = entitlements(user).limits.summaries ? (process.env.TOKENHUB_API_KEY || '').trim() : ''; // AI summaries are a plan feature
-    return send(res, 200, { tencent: { appid: creds.appid, secretId: creds.secretId, secretKey: creds.secretKey, expiresAt: null }, tokenhub: tokenhubKey ? { apiKey: tokenhubKey } : null, fetchedAt: Date.now() });
   }
   // The live pipeline, without ever handing out a key. The server signs one WebSocket URL per connection and
   // returns only the finished wss:// address; the app opens it straight to Tencent, so the audio path is

@@ -101,12 +101,12 @@ Honest about what this is: a working product run by one person, not a managed se
 - **macOS 13+ on Apple silicon** for the app. The web side runs in any browser.
 - **Cantonese → Mandarin is what it is tuned for**, and what it has been run at real events. The other
   pairs work but have had far less use in a room. See [Languages](#languages).
-- **`/api/desktop/credentials` still hands a Tencent key to apps built before 0.6.9.** From 0.6.9 the
-  server signs each connection instead and the app holds no key at all, but the old endpoint has to stay
-  until nothing needs it — so `SIGNUP_MODE` is `closed` by default and should stay that way until it is
-  deleted. This is the main open item — see [SECURITY.md](SECURITY.md).
+- **No app receives the Tencent key from 0.7.0.** Audio goes through the server, which holds the key and
+  counts the hours; only the operator's own account connects straight to Tencent, on connections the server
+  signs. Builds up to 0.6.9 downloaded the key, so `SIGNUP_MODE` stays `closed` until the server running
+  0.7.0 is deployed and the key rotated — see [SECURITY.md](SECURITY.md).
 - **File quotas are enforced by the app**, so they guide cooperating users rather than restrict anyone.
-  Live quotas are checked by the server every time it signs a connection.
+  Live hours are counted by the server as the audio passes through it.
 - The interface is English and Simplified Chinese; every string lives in one catalogue and a test
   fails the build if a screen is only half translated.
 

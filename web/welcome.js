@@ -76,7 +76,6 @@
         }
         cfg = await d.getConfig();
         App.setLocked(false);
-        if (r.keys && String(r.keys).startsWith('unavailable')) { err.textContent = t('wel.keysUnavailable', { status: r.keys }); err.hidden = false; }
         if (!firstRun()) { App.go('live', {}, { replace: true }); return; }
         step = 2; renderStep();
       } catch (e) { err.textContent = String(e.message || e).replace(/^.*Error: /, ''); err.hidden = false; btn.disabled = false; labelBtn(); }

@@ -42,9 +42,8 @@ process.env.PATH = [BIN_DIR, process.env.PATH || '', '/opt/homebrew/bin', '/usr/
 // ------------------------------------------------------------------ config
 const DEFAULT_CONFIG = {
   appid: '', secretId: '', secretKeyEnc: '',
-  cloudKeysEnc: '', // Tencent keys handed out by the server after login (encrypted JSON), used when no manual keys are set
   language: 'system', // system | en | zh — every window, menu and dialog
-  summaryModel: 'deepseek-v4-flash', summaryLanguage: 'zh', summaryEffort: 'high', // Chinese models through TokenHub; the key comes with the login
+  summaryModel: 'deepseek-v4-flash', summaryLanguage: 'zh', summaryEffort: 'high', // Chinese models through TokenHub, reached through the account: no key on this Mac
   recordingsDir: path.join(app.getPath('videos'), 'See Subtitles'),
   demo: false, audioFile: '', edge: 'auto', bitrate: '128k', startPaused: true,
   mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
@@ -79,21 +78,18 @@ function decryptSecret(stored) {
 }
 // The cloud login token is stored encrypted like the API keys (older configs hold it in clear; decryptSecret accepts both).
 const cloudConfig = (cfg) => ({ ...cfg.cloud, token: decryptSecret(cfg.cloud.token) });
-/** Which Tencent keys the pipeline uses: the user's own (Settings) win over the ones the server handed out. */
+/**
+ * The user's own Tencent keys, entered in Settings to run without an account; null otherwise. Logged in, none
+ * are needed and none are ever sent here: the subtitle server keeps its key and signs or carries every talk.
+ */
 function resolveKeys(cfg) {
-  if (cfg.secretKeyEnc) return { source: 'manual', appid: cfg.appid, secretId: cfg.secretId, secretKey: decryptSecret(cfg.secretKeyEnc), ...(cloudKeys(cfg).tokenhubKey ? { tokenhubKey: cloudKeys(cfg).tokenhubKey } : {}) };
-  const k = cloudKeys(cfg);
-  return k.secretKey ? { source: 'cloud', ...k } : null;
-}
-/** The keys the server handed out (Tencent + TokenHub), decrypted; {} when none. */
-function cloudKeys(cfg) {
-  if (!cfg.cloudKeysEnc) return {};
-  try { return JSON.parse(decryptSecret(cfg.cloudKeysEnc)) || {}; } catch { return {}; }
+  if (!cfg.secretKeyEnc) return null;
+  return { source: 'manual', appid: cfg.appid, secretId: cfg.secretId, secretKey: decryptSecret(cfg.secretKeyEnc) };
 }
 /**
  * Summary generator settings. Logged in, the request goes through the hosted server, which adds its own
- * TokenHub key — so no summary key is kept on this Mac either. A user with their own key (Settings) still
- * talks to TokenHub directly.
+ * TokenHub key — so no summary key is kept on this Mac either. Logged out there is no key to use, and so no
+ * summaries.
  */
 function summaryConfig(cfg) {
   const model = cfg.summaryModel && /^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'deepseek-v4-flash';
@@ -103,20 +99,7 @@ function summaryConfig(cfg) {
     // the SDK insists on an apiKey and sends it as x-api-key; the server reads the bearer header instead
     return { apiKey: 'sent-as-bearer', baseURL: `${base}/api/desktop/tokenhub`, headers: { authorization: `Bearer ${cloudCfg.token}` }, model };
   }
-  return { apiKey: cloudKeys(cfg).tokenhubKey || '', baseURL: 'https://tokenhub.tencentmaas.com', model };
-}
-/** Ask the server for the Tencent keys (after login, and once a day). Returns true when they changed. */
-async function refreshCloudKeys(cfg) {
-  const r = await cloud.fetchCredentials();
-  if (!r || !r.tencent || !r.tencent.secretKey) throw new Error('the server did not return keys');
-  const tokenhubKey = (r.tokenhub && r.tokenhub.apiKey) || '';
-  const next = encryptSecret(JSON.stringify({ ...r.tencent, tokenhubKey, fetchedAt: Date.now() }));
-  const before = cfg.cloudKeysEnc ? decryptSecret(cfg.cloudKeysEnc) : '';
-  const prev = before ? JSON.parse(before) : {};
-  const changed = !before || prev.secretKey !== r.tencent.secretKey || prev.appid !== r.tencent.appid || (prev.tokenhubKey || '') !== tokenhubKey;
-  cfg.cloudKeysEnc = next;
-  saveConfig(cfg);
-  return changed;
+  return { apiKey: '', baseURL: 'https://tokenhub.tencentmaas.com', model };
 }
 
 // ------------------------------------------------------------------ core (local pipeline server)
@@ -146,6 +129,19 @@ function consoleLog(level, text) {
 
 function applyLanguage(cfg) { return i18n.setLanguage(i18n.resolve(cfg.language, app.getLocale())); }
 
+/**
+ * Whether the server trusts this account to send its audio straight to Tencent (server/lib/plans.js, directLive):
+ * the plan if it has arrived, otherwise what it said last time — so a restart does not open a talk on the wrong
+ * route while /api/me is on its way. null when neither is known, and the talk then goes through the server. Only
+ * a hint: the server refuses to sign for an account it does not trust, whatever this says.
+ */
+function routeTrust() {
+  const p = cloud.plan;
+  if (p && p.limits) return !!p.limits.directLive;
+  const last = loadConfig().cloud.directLive;
+  return typeof last === 'boolean' ? last : null;
+}
+
 async function startCore() {
   const cfg = loadConfig();
   applyLanguage(cfg);
@@ -163,8 +159,8 @@ async function startCore() {
         credsError = err.message.replace(/ in \.env.*$/, ' — open Settings (⌘,) and check the Tencent Cloud keys');
       }
     } else if (cfg.cloud.token) {
-      // Logged in: the pipeline runs on the hosted server, so this Mac holds no Tencent key and the hours
-      // the account uses are measured there rather than reported from here.
+      // Logged in: this Mac holds no Tencent key. The audio goes through the hosted server, which counts it —
+      // or, for an account the server trusts, straight to Tencent on connections the server signs.
       const cc = cloudConfig(cfg);
       cloudLive = { url: cc.url || DEFAULT_CLOUD_URL, token: cc.token };
       liveUrls = (req) => cloud.liveUrls(req); // only ever reached for an account the server trusts
@@ -181,8 +177,8 @@ async function startCore() {
     creds,
     cloudLive,
     liveUrls,
-    // the plan says whether this account may skip the metering; it is false until /api/me has answered
-    directAllowed: () => !!(cloud.plan && cloud.plan.limits && cloud.plan.limits.directLive),
+    // whether the server trusts this account to send its audio straight to Tencent (core/route-stream.js)
+    trusted: routeTrust,
     credsError,
     summary: summaryConfig(cfg),
     demo: cfg.demo,
@@ -259,14 +255,12 @@ async function cloudAction(body) {
       saveConfig(cfg);
       cloud.attach(core, cloudConfig(cfg));
       await cloud.refreshPlan();
-      // keys come from the server; start the pipeline with them unless the user entered their own
-      let keys = 'unchanged';
-      try { keys = (await refreshCloudKeys(cfg)) ? 'updated' : 'unchanged'; } catch (err) { keys = `unavailable: ${err.message}`; }
-      if (keys === 'updated') restartCore().catch(() => {}); // new Tencent and/or summary keys
-      return { ok: true, cloud: cloud.status(), keys };
+      // logged in, the live pipeline runs through the account: start it again on that footing
+      restartCore().catch(() => {});
+      return { ok: true, cloud: cloud.status() };
     }
     case 'logout':
-      cfg.cloud = { ...cfg.cloud, token: '', publish: false };
+      cfg.cloud = { ...cfg.cloud, token: '', publish: false, directLive: undefined };
       saveConfig(cfg);
       cloud.detach();
       return { ok: true, cloud: cloud.status() };
@@ -491,7 +485,7 @@ ipcMain.handle('config:get', () => {
   const keys = resolveKeys(cfg);
   return {
     ...cfg, summaryKeyEnc: undefined, secretKeyEnc: undefined, secretKeySet: !!cfg.secretKeyEnc,
-    cloudKeysEnc: undefined, keysSource: keys ? keys.source : null, cloudKeysAt: keys && keys.source === 'cloud' ? keys.fetchedAt : null, summaryKeyFromCloud: !!cloudKeys(cfg).tokenhubKey,
+    cloudKeysEnc: undefined, keysSource: keys ? keys.source : null,
     cloud: { ...cfg.cloud, token: undefined, loggedIn: !!cfg.cloud.token },
     version: app.getVersion(), packaged: PACKAGED, defaultCloudUrl: DEFAULT_CLOUD_URL, language: cfg.language || 'system',
   };
@@ -502,9 +496,9 @@ ipcMain.handle('config:save', async (_e, patch) => {
   delete next.secretKey;
   delete next.summaryKey; delete next.summaryKeySet; delete next.summaryKeyEnc; delete next.summaryProvider; delete next.summaryKeyFromCloud;
   delete next.secretKeySet;
-  delete next.keysSource; delete next.cloudKeysAt; delete next.version; delete next.packaged; delete next.defaultCloudUrl; delete next.useCloudKeys; delete next.restart;
+  delete next.keysSource; delete next.cloudKeysAt; delete next.cloudKeysEnc; delete next.version; delete next.packaged; delete next.defaultCloudUrl; delete next.clearOwnKeys; delete next.restart;
   if (patch.secretKey) next.secretKeyEnc = encryptSecret(String(patch.secretKey).trim());
-  if (patch.useCloudKeys) { next.secretKeyEnc = ''; next.appid = ''; next.secretId = ''; } // back to the server-provided keys
+  if (patch.clearOwnKeys) { next.secretKeyEnc = ''; next.appid = ''; next.secretId = ''; } // back to the account, which needs no key here
   next.appid = String(next.appid || '').trim();
   next.secretId = String(next.secretId || '').trim();
   saveConfig(next);
@@ -558,9 +552,19 @@ function notifyRequests(r) {
   saveConfig(cfg);
 }
 cloud.onPending = notifyRequests;
+// Which way the live audio goes depends on who the account is, and that arrives with its plan: remember the answer,
+// and let the pipeline move a talk in progress if it changed.
+cloud.onPlan = (plan) => {
+  const trusted = !!(plan && plan.limits && plan.limits.directLive);
+  const cfg = loadConfig();
+  if (cfg.cloud.directLive !== trusted) { cfg.cloud = { ...cfg.cloud, directLive: trusted }; saveConfig(cfg); }
+  if (core && core.recheckRoute) core.recheckRoute();
+};
 
 app.whenReady().then(async () => {
   const cfg = loadConfig();
+  // Versions up to 0.6.9 downloaded the server's Tencent key and kept it here. Nothing reads it any more.
+  if (cfg.cloudKeysEnc) { delete cfg.cloudKeysEnc; saveConfig(cfg); consoleLog('info', 'removed the Tencent key an older version had saved on this Mac'); }
   // an install that already has an account or keys never sees the first-run cards
   if (cfg.firstRunDone == null) { cfg.firstRunDone = !!(cfg.cloud.token || resolveKeys(cfg) || cfg.demo); saveConfig(cfg); }
   if (!cfg.demo && process.platform === 'darwin') {
@@ -568,12 +572,7 @@ app.whenReady().then(async () => {
   }
   await startCore();
   openControl();
-  if (!cfg.demo && !resolveKeys(cfg) && cfg.firstRunDone && cfg.cloud.token) openSettings();
-  // keys from the server: refresh once a day; updates: check shortly after launch and every 6 h
-  const keys = resolveKeys(cfg);
-  if (cfg.cloud.token && (!keys || !cloudKeys(cfg).tokenhubKey || (keys.source === 'cloud' && Date.now() - (keys.fetchedAt || 0) > 24 * 3600_000))) {
-    setTimeout(() => refreshCloudKeys(loadConfig()).then((changed) => { if (changed && !loadConfig().secretKeyEnc) restartCore(); }).catch((err) => consoleLog('warn', `keys from the server: ${err.message}`)), 3000);
-  }
+  // updates: check shortly after launch and every 6 h
   setTimeout(() => updater.check().catch(() => {}), 15_000);
   setInterval(() => updater.check().catch(() => {}), 6 * 3600_000).unref();
   if (!app.isPackaged && process.platform === 'darwin' && app.dock) app.dock.setIcon(path.join(__dirname, 'build', 'icon.png')); // packaged builds get it from the icns

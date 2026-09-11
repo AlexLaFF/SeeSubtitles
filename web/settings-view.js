@@ -115,8 +115,8 @@
     // ---- Tencent
     const tc = sec('tencent');
     const keysStatus = el('div', { class: 'status-line', style: 'flex:1' });
-    const btnUseCloud = el('button', { class: 'small' }, t('settings.useCloudKeys'));
-    tc.appendChild(row(t('settings.keys'), keysStatus, btnUseCloud));
+    const btnClearOwn = el('button', { class: 'small' }, t('settings.clearOwnKeys'));
+    tc.appendChild(row(t('settings.keys'), keysStatus, btnClearOwn));
     tc.appendChild(hint(t('settings.keysHint')));
     const edge = select([['auto', t('settings.edge.auto')], ['cn', t('settings.edge.cn')], ['system', t('settings.edge.system')]], cfg.edge || 'auto');
     tc.appendChild(row(t('settings.edge'), edge));
@@ -125,12 +125,12 @@
     ownIn.append(row(t('settings.appid'), appid), row(t('settings.secretId'), secretId), row(t('settings.secretKey'), secretKey), hint(t('settings.ownHint')));
     tc.appendChild(own);
     const tcStatus = el('div', { class: 'status-line', style: 'flex:1' }); tc.appendChild(row(t('settings.status'), tcStatus));
+    // Logged in, no key is needed at all: the subtitle server keeps it. Own keys are only for running without an account.
     const renderKeys = (c) => {
-      if (c.keysSource === 'manual') { keysStatus.textContent = t('settings.keys.manual'); btnUseCloud.hidden = false; own.open = true; }
-      else if (c.keysSource === 'cloud') { keysStatus.textContent = t('settings.keys.cloud') + (c.cloudKeysAt ? t('settings.keys.fetched', { when: new Date(c.cloudKeysAt).toLocaleString() }) : ''); btnUseCloud.hidden = true; }
-      else { keysStatus.textContent = c.cloud.loggedIn ? t('settings.keys.noneLoggedIn') : t('settings.keys.none'); btnUseCloud.hidden = true; }
+      if (c.keysSource === 'manual') { keysStatus.textContent = t('settings.keys.manual'); btnClearOwn.hidden = false; own.open = true; }
+      else { keysStatus.textContent = c.cloud.loggedIn ? t('settings.keys.account') : t('settings.keys.none'); btnClearOwn.hidden = true; }
     };
-    btnUseCloud.addEventListener('click', async () => { await d.saveConfig({ useCloudKeys: true }); appid.value = secretId.value = secretKey.value = ''; own.open = false; renderKeys(await d.getConfig()); });
+    btnClearOwn.addEventListener('click', async () => { await d.saveConfig({ clearOwnKeys: true }); appid.value = secretId.value = secretKey.value = ''; own.open = false; renderKeys(await d.getConfig()); });
     renderKeys(cfg);
 
     // ---- Summaries
@@ -141,7 +141,7 @@
     const sumLang = select([['zh', t('sumlang.zh')], ['en', t('sumlang.en')], ['yue', t('sumlang.yue')]], cfg.summaryLanguage || 'zh');
     const sumEffort = select([['low', t('effort.low')], ['medium', t('effort.medium')], ['high', t('effort.high')]], cfg.summaryEffort || 'high');
     su.append(hint(t('settings.sumHint')), row(t('settings.sumModel'), cloudModel), row(t('settings.sumKeyStatus'), sumKeyStatus), hint(t('settings.sumKeyHint')), row(t('settings.sumLang'), sumLang), row(t('settings.effort'), sumEffort));
-    const renderProvider = (c) => { sumKeyStatus.textContent = c.summaryKeyFromCloud ? t('settings.sumKey.cloud') : t('settings.sumKey.none'); };
+    const renderProvider = (c) => { sumKeyStatus.textContent = c.cloud && c.cloud.loggedIn ? t('settings.sumKey.account') : t('settings.sumKey.none'); };
     renderProvider(cfg);
 
     // ---- Recording

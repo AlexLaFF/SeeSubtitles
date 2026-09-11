@@ -10,9 +10,10 @@ const PLANS = {
   // Sharing to phones and screens stays a monthly-plan feature; summaries are a priced line item.
   payg: { name: 'Pay as you go', price: 0, liveHours: null, fileHours: null, sharing: false, summaries: true, team: false, directLive: false },
 };
-// directLive lets an account skip the metering proxy and connect straight to Tencent. It is not a perk of
-// a paid tier: metering exists to constrain people who are not paying the Tencent bill, and the owner is.
-// It also means the owner's own events do not stop when the server does.
+// directLive sends an account's audio straight to Tencent instead of through the metering proxy, on
+// connections the server signs (/api/desktop/live-url) but never carries. It is not a perk of a paid tier:
+// metering exists to constrain people who are not paying the Tencent bill, and the owner is. A talk already
+// running on it survives a server restart or outage; starting one still needs the server to sign it.
 const ADMIN = { name: 'Administrator', price: 0, liveHours: null, fileHours: null, sharing: true, summaries: true, team: true, directLive: true };
 const IDS = Object.keys(PLANS);
 

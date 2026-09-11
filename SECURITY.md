@@ -26,33 +26,29 @@ Only the current release (`desktop/package.json`) receives fixes. There are no m
 
 These are understood and deliberate; they do not need reporting.
 
-- **`/api/desktop/credentials` still exists for older builds.** It hands a logged-in app the server's
-  permanent Tencent key, and anyone with an account can extract it from their own machine and spend the
-  server owner's quota. This is why `SIGNUP_MODE` defaults to `closed`. Builds from 0.6.9 do not call it:
-  the server signs each WebSocket connection instead (`/api/desktop/live-url`) and the app never receives
-  a key. The endpoint goes away once no installed build needs it — until then, treat a server with open
-  sign-up as a server whose key is public.
-- **Signed live URLs are bearer credentials for one connection.** Each is valid for two minutes to *open*
-  one stream and carries no key. `expired` gates the handshake only and never cuts an established stream
+- **Builds up to 0.6.9 downloaded the server's Tencent key.** From 0.7.0 the server has no endpoint that
+  hands it out and the app never receives one: audio goes through the server, which holds the key and counts
+  the seconds (`server/lib/live-proxy.js`), or, for an account trusted with `directLive`, straight to Tencent
+  on a connection the server signs. A copy stored by an older build stays valid until the key is rotated, so
+  rotate it once those builds are gone — until then, treat that key as one that has left the server.
+- **Signed live URLs are bearer credentials for one connection**, and only an account trusted with
+  `directLive` is given them. Each is valid for two minutes to *open* one stream and carries no key. `expired` gates the handshake only and never cuts an established stream
   (measured: `server/probe-signature.js`), so the window can be short without shortening a talk. The app
   keeps two or three in memory, never on disk.
-- **Quotas are still counted by the app, so an account holder can bypass them.** The server refuses to sign
-  a connection once the recorded hours exceed the plan, but the recording only grows when the app reports its
-  own usage (`POST /api/usage/live`). A modified client that simply never reports has a counter that never
-  moves. Signing is rate-limited per account (40 requests per 10 minutes, far above what a talk needs) so the
-  damage is bounded, but that is a cap on the blast radius, not accounting.
-  Closing it properly needs the server to charge for each connection it issues and let the app reconcile the
-  figure downwards — a client that stays silent is then charged the pessimistic rate rather than nothing.
-  **This is what has to exist before sign-up can open**, alongside deleting `/api/desktop/credentials`.
+- **Live hours are counted by the server, except on a direct route.** Audio through the server is metered as
+  it passes, so a modified client cannot under-report it, and a spent plan closes the talk. A `directLive`
+  account's direct connection is not carried by the server, so its hours are whatever the app reports — which
+  is why that flag belongs to the operator, whose account has no limit to enforce, and is never a plan feature.
+  File quotas are still enforced by the app.
 - **A signed URL's two-minute expiry protects a leaked URL, not a leaked account.** Anyone who can still
   authenticate can ask for another one at any time; that is what an account is for. What bounds them is the
   quota above, and the rate limit.
 - **Two-factor authentication is optional, not enforced.** Accounts can turn on TOTP under
-  Account › Security, with ten one-time recovery codes. A server that hands out Tencent keys should
-  have it on for every account. There is no hardware-key (WebAuthn) support yet.
+  Account › Security, with ten one-time recovery codes. Turn it on for every account trusted with
+  `directLive`. There is no hardware-key (WebAuthn) support yet.
 - **A second factor guards login, not a session.** Bearer tokens last 90 days, so a token already
-  issued to a machine keeps working, and `/api/desktop/credentials` still answers it. Two-factor
-  raises the cost of taking over an account; it does not protect the keys already on a logged-in Mac.
+  issued to a machine keeps working. Two-factor raises the cost of taking over an account, not of using
+  a Mac that is already logged in.
 - **Losing the phone and the recovery codes means the account is stuck.** A password-reset link does
   not clear TOTP by design, so whoever runs the server has to clear `users.totp_secret` for that
   account by hand.

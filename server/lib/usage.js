@@ -7,7 +7,7 @@
 //                           QcloudASRFullAccess / QcloudASRReadOnlyAccess, i.e. the keys the server already has.
 //   DescribeAccountBalance  billing 2018-07-09, no parameters; amounts in 分. Needs a finance permission
 //                           (billing:DescribeAccountBalance), so it takes its own key (TENCENT_BILLING_SECRET_ID/KEY)
-//                           and the keys handed to desktop apps never gain it.
+//                           and the key the server uses for speech never gains it.
 // Tencent has no API that returns a resource pack's remaining quota, so the pack is described by the operator
 // (TENCENT_PACK = "<hours>h@<purchase date>") and remaining = size − usage since that date.
 const tc3 = require('./tc3');

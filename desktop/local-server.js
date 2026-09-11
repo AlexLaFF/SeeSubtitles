@@ -6,7 +6,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
-const { TranslationStream, RemoteTranslationStream, FailoverStream, Transcript, Recorder, schema } = require('@subs/core');
+const { TranslationStream, RemoteTranslationStream, RouteStream, Transcript, Recorder, schema } = require('@subs/core');
 const names = require('@subs/core/names');
 const { readCues, writeCues } = require('./lib/cues');
 const { fromSrt } = require('@subs/core/plain-text');
@@ -45,6 +45,10 @@ function readJson(req) {
  * @param {string} opts.transcriptsDir
  * @param {object|null} opts.creds       {appid, secretId, secretKey} or null (no Tencent connection)
  * @param {string|null} [opts.credsError]
+ * @param {object|null} [opts.cloudLive] {url, token}: run the live pipeline through the hosted server (logged in)
+ * @param {function} [opts.liveUrls]     (req) => signed wss:// URLs, for an account the server trusts to go direct
+ * @param {function} [opts.trusted]      () => true | false | null — whether the server trusts this account (its plan)
+ * @param {function} [opts.onLiveUsage]  (seconds) => report live seconds that did not pass through the server
  * @param {boolean} [opts.demo]
  * @param {string} [opts.audioFile]      loop a 16 kHz WAV instead of the microphone
  * @param {string} [opts.host]
@@ -278,14 +282,19 @@ async function createLocalServer(opts) {
       rotateMs: (Number(env.TENCENT_ROTATE_MINUTES) || 290) * 60_000,
       edge: env.TENCENT_EDGE || 'auto',
   };
-  // Through the server, which meters the audio — falling back to a direct connection only when the server
-  // cannot be reached and only for an account allowed one (see server/lib/plans.js, directLive).
+  // Through the server, which meters the audio — or, for an account the server trusts, straight to Tencent on
+  // connections the server signs (core/route-stream.js). Which one is decided by who the account is, never by
+  // what failed. Own keys (Settings) sign here and involve no server at all.
+  // A refused signature means the server no longer trusts this account, whatever its cached plan says.
+  const signed = async (req) => {
+    try { return await opts.liveUrls(req); } catch (err) { if (err && err.code === 'not_trusted' && stream) stream.withdraw(); throw err; }
+  };
   const stream = cloudLive
-    ? new FailoverStream({
+    ? new RouteStream({
       viaServer: () => new RemoteTranslationStream(cloudLive, streamOpts),
-      direct: opts.liveUrls ? () => new TranslationStream(null, { ...streamOpts, urlFor: opts.liveUrls }) : null,
-      directAllowed: opts.directAllowed || (() => false),
-      log: (t) => log('warn', t),
+      direct: opts.liveUrls ? () => new TranslationStream(null, { ...streamOpts, urlFor: signed }) : null,
+      trusted: opts.trusted || (() => false),
+      log: (t) => log('info', t),
     })
     : creds ? new TranslationStream(creds, streamOpts)
       : null;
@@ -325,8 +334,9 @@ async function createLocalServer(opts) {
     stream.on('status', () => broadcast('status', status()));
   }
 
-  // ---- live hours: the seconds the Tencent stream is connected while subtitles run, reported to the account every
-  // minute; when the plan's month is used up the subtitles pause (an administrator has no limit, own keys none either).
+  // ---- live hours: the seconds a route the server does not carry is connected while subtitles run (the trusted
+  // account's direct one), reported to the account every minute. Through the server they are counted there, as the
+  // audio passes. When the plan's month is used up the subtitles pause (an administrator has no limit, own keys none either).
   let liveUnreported = 0;
   let liveTickAt = Date.now();
   function liveExhausted() {
@@ -338,7 +348,9 @@ async function createLocalServer(opts) {
   async function liveTick(flush = false) {
     const now = Date.now();
     const dt = (now - liveTickAt) / 1000; liveTickAt = now;
-    if (stream && settings.streaming && stream.status().state === 'ready') liveUnreported += Math.min(dt, 60);
+    // through the server, the server counts the seconds itself: reporting them as well would charge them twice
+    const st = stream ? stream.status() : null;
+    if (st && settings.streaming && st.state === 'ready' && !st.metered) liveUnreported += Math.min(dt, 60);
     if ((liveUnreported >= 60 || (flush && liveUnreported >= 1)) && opts.onLiveUsage) {
       const s = Math.round(liveUnreported); liveUnreported = 0;
       try { await opts.onLiveUsage(s); } catch (err) { liveUnreported += s; log('warn', `live hours not reported: ${err.message}`); }
@@ -761,6 +773,8 @@ async function createLocalServer(opts) {
     get recording() { return recorder.recording; },
     clear: () => { transcript.clear(); broadcast('clear', {}); },
     addFile,
+    /** The account's plan changed: move a talk in progress if its route should change with it. */
+    recheckRoute: () => { if (stream && stream.recheck) stream.recheck(); },
     setLanguage: (l) => { language = l === 'zh' ? 'zh' : 'en'; broadcast('language', { language }); },
     recordingsDir: opts.recordingsDir,
     pageUrl: (page = '/', extra = '') => `${base}${page}${opts.token ? `${page.includes('?') ? '&' : '?'}token=${opts.token}` : ''}${extra}`,

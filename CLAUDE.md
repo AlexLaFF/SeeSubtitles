@@ -2,19 +2,20 @@
 
 ## Blocker before any account other than the owner's exists
 
-**Do not enable sign-up, create accounts for other people, or hand out invite codes until
-`/api/desktop/credentials` is gone.** That endpoint (server/server.js) gives every logged-in app the permanent key
-of the `cantonese-subtitles` Tencent sub-user, so any account holder could extract it from their Mac and run
-Tencent's speech APIs on the owner's bill. `SIGNUP_MODE` stays `closed` and `account.addMember` / invites stay
-unused for outsiders until it is removed. Decided by Alex on 2026-09-10.
+**Do not enable sign-up, create accounts for other people, or hand out invite codes until the server running
+0.7.0's code is deployed and the `cantonese-subtitles` Tencent key has been rotated.** Until that deploy the
+running server still has `/api/desktop/credentials`, which gives every logged-in app the permanent key of that
+sub-user, so any account holder could extract it from their Mac and run Tencent's speech APIs on the owner's
+bill. `SIGNUP_MODE` stays `closed` and `account.addMember` / invites stay unused for outsiders until then. Decided
+by Alex on 2026-09-10.
 
-The replacement is built and tested (2026-09-11). **STS turned out to be impossible, not merely awkward**: the
-speech WebSocket authenticates with a secretid and an HMAC-SHA1 signature over the query string and has no
-parameter to carry a session token, so temporary credentials cannot be used at all — the `X-TC-Token` header
-belongs to the TC3 HTTP APIs, which already run server-side. Instead the server signs each connection and returns
-only the finished `wss://` URL (`/api/desktop/live-url`, two-minute expiry), and proxies TokenHub for summaries;
-the app opens the URL directly, so nothing is proxied and the audio path is untouched. What is left before the
-blocker lifts: ship a build ≥ 0.6.9, confirm nothing older is installed, then delete the endpoint and this
+What replaced it (2026-09-12): no app receives a key. Everyone's audio goes through the server
+(`/api/desktop/live`, server/lib/live-proxy.js), which holds the key and counts the seconds as they pass. An
+account with `directLive` (server/lib/plans.js — the owner's) sends its audio straight to Tencent instead, on
+connections the server signs (`/api/desktop/live-url`), so a talk in progress survives a server restart; the
+route is chosen by who the account is, never by what failed (core/route-stream.js). STS is impossible here —
+the speech WebSocket has no parameter for a session token. Builds up to 0.6.9 downloaded and stored the key,
+which is why it has to be rotated rather than merely no longer sent. Once deployed and rotated, delete this
 paragraph.
 
 ## Other standing rules
