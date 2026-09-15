@@ -8,6 +8,33 @@ complete web app on its own: upload a video or audio file, get subtitles, edit t
 > their plan's hours — so decide who gets one. `SIGNUP_MODE` defaults to `closed`. If you ever ran a desktop
 > build older than 0.7.0 against your server, it stored your keys: replace them with `deploy/rotate-keys.sh`.
 
+## Operations
+
+**Deploying.** `npm run deploy` from a Mac with the `subtitle-hk` SSH alias, or `sh deploy/deploy.sh` on the server:
+pulls the commit on GitHub, rebuilds and restarts. A restart cuts off every talk the server is carrying, so it first
+asks the running server (`deploy/talks.sh`) and refuses while one is on; `--force` overrides that.
+
+**Backups.** `deploy/backup.sh` runs from cron at 03:30 and writes `~/backups/<date>/platform.sqlite` (a consistent
+snapshot of the database, integrity-checked before it is kept) and `data.tgz` (the jobs and sessions folders;
+published builds are left out, they are on GitHub). Seven days are kept. A Mac pulls them nightly with
+`deploy/backup-pull.sh` (installed as a launchd job by `npm run backup:install`), keeping thirty days in
+`~/Backups/SeeSubtitles`. Run `npm run backup:pull` any time for a copy now.
+
+**Restoring.** With the app stopped, put a day's files back into the data volume, then start it:
+
+```bash
+cd ~/SeeSubtitles && sudo docker compose -f deploy/docker-compose.yml --env-file deploy/.env stop app
+docker run --rm -v deploy_subs-data:/data -v ~/backups/2026-09-15:/b alpine sh -c 'rm -f /data/platform.sqlite* && cp /b/platform.sqlite /data/ && tar -C /data -xzf /b/data.tgz'
+sudo docker compose -f deploy/docker-compose.yml --env-file deploy/.env start app
+```
+
+The published builds come back by copying them from the GitHub release into `/data/updates`.
+
+**Replacing the keys.** `ssh -t subtitle-hk bash rotate-keys.sh` (a copy of `deploy/rotate-keys.sh` lives in the
+home directory on the server): it asks for each new value with the secret halves hidden, tries them with Tencent and
+TokenHub before writing anything, restarts the app and confirms it is running on them. Then run the release test,
+and only then delete the old keys in the consoles.
+
 ## Quick start
 
 ```bash

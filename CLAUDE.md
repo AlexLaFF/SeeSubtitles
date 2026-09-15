@@ -24,9 +24,14 @@ before writing them), run `npm run e2e`, and only then delete the old keys.
 - Never print `.env` values or keys; refer to them by name.
 - Every string goes through the catalog in `web/locales.js` (`t()` / `data-i18n`); `desktop/test/i18n.test.js` checks it.
 - The account is the door in the desktop app: a logged-out app shows only the login card; do not add a login form to Settings.
-- **Deploying interrupts every live talk** now that the server carries the audio (server/lib/live-proxy.js).
-  `docker compose up -d --build` restarts the container and every room loses its subtitles until the app
-  reconnects — recordings are untouched, since they never involve the network. Do not deploy during an event.
+- **Deploy with `npm run deploy`** (deploy/deploy.sh on the server). A restart cuts off every talk the relay is
+  carrying (server/lib/live-proxy.js) — recordings are untouched, they never involve the network — so the script
+  refuses while one is running (deploy/talks.sh asks the server) and `npm run deploy -- --force` overrides it.
+- **Backups:** the server copies its database (consistent snapshot) and data folders to `~/backups/<date>` at 03:30
+  daily (deploy/backup.sh, cron, 7 days kept); Alex's Mac pulls them to `~/Backups/SeeSubtitles` at 04:30
+  (deploy/backup-pull.sh via launchd, 30 days). Restore steps are in docs/SELF-HOSTING.md.
+- **Each plan caps how many talks run at once** (server/lib/plans.js `talks`: Hobbyist 1, Business 3, Enterprise 10
+  across the team, pay-as-you-go 1, administrators unlimited); the relay refuses the next one with `plan_talks`.
 - Release: bump `desktop/package.json`, then `npm run release -w desktop` — it first runs the release test on the server (`npm run e2e`:
   the whole app below its windows, end to end, with real recordings and the real keys; see docs/DEVELOPMENT.md), then
   builds, notarizes with the keychain profile named in `~/.config/seesubtitles/notarize.env`, and refuses the build

@@ -18,11 +18,12 @@ fi
 echo "▶ release test for $(git rev-parse --short HEAD) on $HOST"
 
 # A talk in progress would share the server's two cores with the test: wait for it to end instead.
-ACTIVE=$(ssh "$HOST" 'docker logs --since 15m deploy-app-1 2>&1 | grep -cE "opened a talk|signed [0-9]+ live URL" || true')
-if [ "${ACTIVE:-0}" -gt 0 ]; then
-  echo "✖ the server has carried a talk in the last 15 minutes — run the release test once it is over" >&2
-  exit 1
-fi
+TALKS=$(ssh "$HOST" 'sh ~/SeeSubtitles/deploy/talks.sh 2>/dev/null' || echo unknown)
+case "${TALKS%% *}" in
+  0) ;;
+  unknown|'') echo "· could not ask the server whether a talk is running — going ahead" ;;
+  *) echo "✖ the server is carrying a talk right now ($TALKS) — run the release test once it is over" >&2; exit 1 ;;
+esac
 
 git archive --format=tar HEAD | ssh "$HOST" 'rm -rf ~/e2e-src && mkdir -p ~/e2e-src && tar -x -C ~/e2e-src'
 ssh "$HOST" 'docker image prune -f >/dev/null; cd ~/e2e-src && docker build -q -t seesubtitles-e2e -f e2e/Dockerfile . >/dev/null && echo "  test image built"'
