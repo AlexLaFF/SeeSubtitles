@@ -93,6 +93,7 @@
       lines: [
         { en: '10 hours of live subtitles a month', zh: '每月 10 小时实时字幕' },
         { en: '5 hours of file subtitling a month', zh: '每月 5 小时文件字幕' },
+        { en: 'One talk at a time', zh: '同时进行 1 场' },
         { en: 'Display window and overlay on the Mac', zh: 'Mac 上的显示窗口和悬浮字幕' },
         { en: 'Recordings with editable subtitles and MP4 export', zh: '录音、可编辑字幕和 MP4 导出' },
         { en: 'Sharing to phones and other screens (QR code, link)', zh: '分享到手机和其他屏幕（二维码、链接）', no: true },
@@ -104,6 +105,7 @@
       lines: [
         { en: '40 hours of live subtitles a month', zh: '每月 40 小时实时字幕' },
         { en: '20 hours of file subtitling a month', zh: '每月 20 小时文件字幕' },
+        { en: 'Up to 3 talks at once', zh: '最多同时进行 3 场' },
         { en: 'Everything in Hobbyist', zh: '爱好者版的全部功能' },
         { en: 'Share to every phone and screen: QR code, link, printable poster', zh: '分享到每一部手机和屏幕：二维码、链接、可打印海报' },
         { en: 'AI summary for every recording, as Markdown or PDF', zh: '每段录音的 AI 总结，Markdown 或 PDF' },
@@ -115,6 +117,7 @@
       lines: [
         { en: '200 hours of live subtitles a month', zh: '每月 200 小时实时字幕' },
         { en: '100 hours of file subtitling a month', zh: '每月 100 小时文件字幕' },
+        { en: 'Up to 10 talks at once, across the team', zh: '全团队最多同时进行 10 场' },
         { en: 'Everything in Business', zh: '商务版的全部功能' },
         { en: 'Team accounts: members, roles, shared glossary, usage per member', zh: '团队账号：成员、角色、共享词汇表、按成员统计用量' },
         { en: 'Invoice billing and a named contact', zh: '对公开票，专人对接' },

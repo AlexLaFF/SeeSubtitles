@@ -236,6 +236,19 @@ async function talk(server, app, clip, { record = true, share = false } = {}) {
   return { route: st.route, keyless: st.keyless, lines: final, recording, shared, streamedMs, code: share ? app.cloud.session && app.cloud.session.code : null };
 }
 
+/** A relay connection held open, answered with its first message; close() ends the talk. */
+function relayOpen(server, token, query = 'source=yue&target=zh') {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/api/desktop/live?${query}`, { headers: { authorization: `Bearer ${token}` } });
+    const close = () => { try { ws.terminate(); } catch { /* gone */ } };
+    const done = (answer) => resolve({ answer, close });
+    ws.on('message', (d) => { try { const m = JSON.parse(d.toString()); if (m.type === 'ready') done('ready'); else if (m.type === 'error') done(`error:${m.code}`); } catch { /* not ours */ } });
+    ws.on('unexpected-response', (_q, res) => done(`HTTP ${res.statusCode}`));
+    ws.on('error', () => done('error'));
+    setTimeout(() => done('timeout'), 10_000);
+  });
+}
+
 /** A WebSocket onto the relay, answered with its first message — enough to see who is let on and who is not. */
 function relayAnswer(server, token, query = 'source=yue&target=zh') {
   return new Promise((resolve) => {
@@ -349,8 +362,15 @@ async function main() {
       must(sum.status === 403 && sum.json.code === 'plan_summaries', `AI summaries were not refused (HTTP ${sum.status})`);
       const signed = await http(`${server.base}/api/desktop/live-url`, { method: 'POST', token: t, body: { source: 'yue', target: 'zh' } });
       must(signed.status === 403 && signed.json.code === 'not_trusted', 'a Hobbyist account was signed a direct connection');
+      const one = await relayOpen(server, t);
+      must(one.answer === 'ready', `a Hobbyist talk was not let onto the relay: ${one.answer}`);
+      const two = await relayOpen(server, t);
+      must(two.answer === 'error:plan_talks', `a second talk at the same time was not refused: ${two.answer}`);
+      two.close(); one.close();
+      await sleep(500);
       for (let i = 0; i < 10; i++) await http(`${server.base}/api/usage/live`, { method: 'POST', token: t, body: { seconds: 3600 } });
       must((await relayAnswer(server, t)) === 'error:plan_quota', 'the relay let a spent plan start a talk');
+      return 'no sharing, no summaries, no direct connection, one talk at a time, nothing once the hours are spent';
     });
 
     await check('languages: the server lists them and refuses a pair Tencent does not serve', async () => {

@@ -94,3 +94,34 @@ test('every account may use the relay; a stranger may not', async (t) => {
   assert.equal(await open(s.tokens.member), 'ready', 'an ordinary account is let onto the relay');
   assert.equal(await open(null), 'HTTP 401');
 });
+
+/** A relay connection held open, answered with its first message; close() ends the talk. */
+function relayOpen(port, token) {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/api/desktop/live?source=yue&target=zh`, { headers: { authorization: `Bearer ${token}` } });
+    const close = () => { try { ws.terminate(); } catch { /* gone */ } };
+    const done = (answer) => resolve({ answer, close });
+    ws.on('message', (d) => { try { const m = JSON.parse(d.toString()); if (m.type === 'ready') done('ready'); else if (m.type === 'error') done(`error:${m.code}`); } catch { /* not ours */ } });
+    ws.on('unexpected-response', (_q, res) => done(`HTTP ${res.statusCode}`));
+    ws.on('error', () => done('error'));
+    setTimeout(() => done('timeout'), 5000);
+  });
+}
+
+test('a plan runs only so many talks at once: a second is refused until the first ends; an administrator is not capped', async (t) => {
+  const s = await startServer(t);
+  const first = await relayOpen(s.port, s.tokens.member); // an ordinary account: the Hobbyist plan, one talk at a time
+  assert.equal(first.answer, 'ready');
+  const second = await relayOpen(s.port, s.tokens.member);
+  assert.equal(second.answer, 'error:plan_talks', 'a second simultaneous talk on a Hobbyist plan must be refused');
+  second.close();
+  first.close();
+  await sleep(300); // the relay notices the first talk ending
+  const again = await relayOpen(s.port, s.tokens.member);
+  assert.equal(again.answer, 'ready', 'once the first talk has ended a new one is let on');
+  again.close();
+  const a = await relayOpen(s.port, s.tokens.owner);
+  const b = await relayOpen(s.port, s.tokens.owner);
+  assert.equal(b.answer, 'ready', 'an administrator has no cap');
+  a.close(); b.close();
+});

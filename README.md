@@ -104,8 +104,8 @@ Honest about what this is: a working product run by one person, not a managed se
   counts the hours; only the operator's own account connects straight to Tencent, on connections the server
   signs. The keys that builds up to 0.6.9 downloaded were replaced and deleted on 15 September 2026 — see
   [SECURITY.md](SECURITY.md).
-- **File quotas are enforced by the app**, so they guide cooperating users rather than restrict anyone.
-  Live hours are counted by the server as the audio passes through it.
+- **Hours are enforced by the server.** Live hours are counted as the audio passes through it, an upload that
+  does not fit the month's file hours is refused, and each plan caps how many talks run at once.
 - The interface is English and Simplified Chinese; every string lives in one catalogue and a test
   fails the build if a screen is only half translated.
 

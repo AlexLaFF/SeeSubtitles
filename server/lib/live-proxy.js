@@ -83,6 +83,15 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
       send(ws, { type: 'error', code: 'plan_quota', message: 'the live subtitle hours of this month are used up' });
       return ws.close(4003, 'plan quota');
     }
+    // How many talks the plan runs at once, a team's all together (server/lib/plans.js, talks).
+    if (quotas.talkLimit) {
+      const { limit, ids } = quotas.talkLimit(planRow(user));
+      const open = [...live.values()].filter((s) => ids.includes(s.user.id)).length;
+      if (limit != null && open >= limit) {
+        send(ws, { type: 'error', code: 'plan_talks', message: `this plan runs ${limit} talk${limit === 1 ? '' : 's'} at a time, and ${open} ${open === 1 ? 'is' : 'are'} running` });
+        return ws.close(4004, 'talk limit');
+      }
+    }
 
     const stream = new TranslationStream(creds, {
       source,

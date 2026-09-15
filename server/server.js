@@ -385,6 +385,12 @@ const server = http.createServer(async (req, res) => {
   const p = url.pathname;
   let r;
   try {
+    // For the deploy script only: answers from inside the container and never through Caddy. Which talks the
+    // relay is carrying, so an update can wait for them to end rather than cut them off (deploy/talks.sh).
+    if (p === '/internal/talks') {
+      if (!/^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '')) return fail(res, 404, 'unknown endpoint');
+      return send(res, 200, { talks: liveProxy.status() });
+    }
     if (p.startsWith('/api/')) return await api(req, res, url, auth.authenticate(req));
     // public
     if ((r = /^\/media\/([a-f0-9]{32})\.mp3$/.exec(p))) {

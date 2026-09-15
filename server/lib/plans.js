@@ -2,19 +2,21 @@
 // Plans and monthly quotas. Hours are audio per calendar month (UTC); an administrator has no limits and every
 // feature. Plan ids match the website (web/site.js PLANS) and the request form.
 const PLANS = {
-  hobbyist: { name: 'Hobbyist', price: 28, liveHours: 10, fileHours: 5, sharing: false, summaries: false, team: false, directLive: false },
-  business: { name: 'Business', price: 88, liveHours: 40, fileHours: 20, sharing: true, summaries: true, team: false, directLive: false },
-  enterprise: { name: 'Enterprise', price: 388, liveHours: 200, fileHours: 100, sharing: true, summaries: true, team: true, directLive: false },
+  hobbyist: { name: 'Hobbyist', price: 28, liveHours: 10, fileHours: 5, talks: 1, sharing: false, summaries: false, team: false, directLive: false },
+  business: { name: 'Business', price: 88, liveHours: 40, fileHours: 20, talks: 3, sharing: true, summaries: true, team: false, directLive: false },
+  enterprise: { name: 'Enterprise', price: 388, liveHours: 200, fileHours: 100, talks: 10, sharing: true, summaries: true, team: true, directLive: false },
   // Pay as you go (web/site.js RATES): billed per hour actually processed, so there is no monthly cap —
   // null hours mean unmetered *here* while Quotas.add keeps recording the seconds to invoice from.
   // Sharing to phones and screens stays a monthly-plan feature; summaries are a priced line item.
-  payg: { name: 'Pay as you go', price: 0, liveHours: null, fileHours: null, sharing: false, summaries: true, team: false, directLive: false },
+  payg: { name: 'Pay as you go', price: 0, liveHours: null, fileHours: null, talks: 1, sharing: false, summaries: true, team: false, directLive: false },
 };
+// talks: how many live talks the account — a team all together — may run at once. The monthly hours cap how much
+// is spent; this caps how fast, and how many Tencent connections one account can hold open against everyone else's.
 // directLive sends an account's audio straight to Tencent instead of through the metering proxy, on
 // connections the server signs (/api/desktop/live-url) but never carries. It is not a perk of a paid tier:
 // metering exists to constrain people who are not paying the Tencent bill, and the owner is. A talk already
 // running on it survives a server restart or outage; starting one still needs the server to sign it.
-const ADMIN = { name: 'Administrator', price: 0, liveHours: null, fileHours: null, sharing: true, summaries: true, team: true, directLive: true };
+const ADMIN = { name: 'Administrator', price: 0, liveHours: null, fileHours: null, talks: null, sharing: true, summaries: true, team: true, directLive: true };
 const IDS = Object.keys(PLANS);
 
 const monthKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0, 7);
@@ -57,9 +59,17 @@ class Quotas {
     const l = limitsOf(plan);
     return {
       plan, name: l.name, price: l.price, month: monthKey(), team: sc.team,
-      limits: { liveSeconds: l.liveHours == null ? null : l.liveHours * 3600, fileSeconds: l.fileHours == null ? null : l.fileHours * 3600, sharing: l.sharing, summaries: l.summaries, team: l.team, directLive: !!l.directLive },
+      limits: { liveSeconds: l.liveHours == null ? null : l.liveHours * 3600, fileSeconds: l.fileHours == null ? null : l.fileHours * 3600, talks: l.talks == null ? null : l.talks, sharing: l.sharing, summaries: l.summaries, team: l.team, directLive: !!l.directLive },
       used: this.usedBy(sc.ids),
     };
+  }
+  /** How many talks may run at once for the plan this row is on, and whose talks count towards it — a team's all together. */
+  talkLimit(row) {
+    const sc = this.scope(row);
+    let plan = planOf(sc.planRow);
+    if (plan === 'admin' && sc.team && sc.team.member) plan = 'team';
+    const l = limitsOf(plan);
+    return { limit: l.talks == null ? null : l.talks, ids: sc.ids };
   }
   /** Seconds left this month for 'live' or 'file' (Infinity when the plan has no limit). */
   remaining(row, kind) {

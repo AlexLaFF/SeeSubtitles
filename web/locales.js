@@ -105,6 +105,7 @@
     'notify.requestBody': ['{who} · {org} · {note}', '{who} · {org} · {note}'],
     'err.plan_sharing': ['Sharing to phones and screens is not in the Hobbyist plan', '爱好者版不包含分享到手机和屏幕'],
     'err.plan_quota': ['The file subtitling hours of this month are used up', '本月文件字幕小时已用完'],
+    'err.plan_talks': ['This plan runs a limited number of talks at once — end another talk first', '此方案同时进行的场次有限，请先结束另一场'],
     'live.chip.noAudio': ['no audio', '无声音'],
     'live.chip.veryQuiet': ['very quiet', '声音很小'],
     'live.chip.recording': ['Recording {time}', '录音中 {time}'],
