@@ -3,9 +3,10 @@
 The hosted side gives the desktop app its share links and cloud re-subtitling, and it is also a
 complete web app on its own: upload a video or audio file, get subtitles, edit the cues, export.
 
-> **Read [SECURITY.md](../SECURITY.md) before you open an account for anyone else.** After login the
-> desktop app is handed the server's Tencent credentials, so every account holder can use your speech
-> quota. `SIGNUP_MODE` defaults to `closed` for that reason.
+> **Read [SECURITY.md](../SECURITY.md) before you open an account for anyone else.** No app is ever given
+> your Tencent or TokenHub key, but every account holder spends your speech quota through the server, within
+> their plan's hours — so decide who gets one. `SIGNUP_MODE` defaults to `closed`. If you ever ran a desktop
+> build older than 0.7.0 against your server, it stored your keys: replace them with `deploy/rotate-keys.sh`.
 
 ## Quick start
 

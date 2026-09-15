@@ -20,8 +20,7 @@ the words is the difference between attending and taking part.
 
 ## Get the app
 
-**1 · Ask for an account.** There is no self-service sign-up, by design — a server hands its Tencent speech
-credentials to every app that logs in, so accounts are opened by hand ([why](SECURITY.md)). The form is on
+**1 · Ask for an account.** There is no self-service sign-up — accounts are opened by hand. The form is on
 the front page of **[seesubtitles.com](https://seesubtitles.com)**: say what you will subtitle, and you get
 an email back.
 
@@ -103,8 +102,8 @@ Honest about what this is: a working product run by one person, not a managed se
   pairs work but have had far less use in a room. See [Languages](#languages).
 - **No app receives the Tencent key from 0.7.0.** Audio goes through the server, which holds the key and
   counts the hours; only the operator's own account connects straight to Tencent, on connections the server
-  signs. Builds up to 0.6.9 downloaded the key, so `SIGNUP_MODE` stays `closed` until the server's keys
-  are rotated — see [SECURITY.md](SECURITY.md).
+  signs. The keys that builds up to 0.6.9 downloaded were replaced and deleted on 15 September 2026 — see
+  [SECURITY.md](SECURITY.md).
 - **File quotas are enforced by the app**, so they guide cooperating users rather than restrict anyone.
   Live hours are counted by the server as the audio passes through it.
 - The interface is English and Simplified Chinese; every string lives in one catalogue and a test

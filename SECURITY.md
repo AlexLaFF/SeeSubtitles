@@ -26,11 +26,13 @@ Only the current release (`desktop/package.json`) receives fixes. There are no m
 
 These are understood and deliberate; they do not need reporting.
 
-- **Builds up to 0.6.9 downloaded the server's Tencent key.** From 0.7.0 the server has no endpoint that
-  hands it out and the app never receives one: audio goes through the server, which holds the key and counts
-  the seconds (`server/lib/live-proxy.js`), or, for an account trusted with `directLive`, straight to Tencent
-  on a connection the server signs. A copy stored by an older build stays valid until the key is rotated, so
-  rotate it once those builds are gone — until then, treat that key as one that has left the server.
+- **No app holds the server's keys.** From 0.7.0 the server has no endpoint that hands them out and the app never
+  receives one: audio goes through the server, which holds the Tencent key and counts the seconds
+  (`server/lib/live-proxy.js`), or, for an account trusted with `directLive`, straight to Tencent on a connection
+  the server signs; summaries go through the server, which adds the TokenHub key. Builds up to 0.6.9 downloaded and
+  stored both keys, so both were replaced and the old ones deleted on 2026-09-15: a copy an old build kept no longer
+  works. If you run your own server and ever ran a build before 0.7.0 against it, replace yours the same way
+  (`deploy/rotate-keys.sh`).
 - **Signed live URLs are bearer credentials for one connection**, and only an account trusted with
   `directLive` is given them. Each is valid for two minutes to *open* one stream and carries no key. `expired` gates the handshake only and never cuts an established stream
   (measured: `server/probe-signature.js`), so the window can be short without shortening a talk. The app

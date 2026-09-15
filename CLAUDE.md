@@ -1,20 +1,19 @@
 # Working rules for this repository
 
-## Blocker before any account other than the owner's exists
+## How the Tencent and TokenHub keys are kept
 
-**Do not enable sign-up, create accounts for other people, or hand out invite codes until the server's Tencent
-key and its TokenHub key have been rotated.** The server stopped handing out keys on 2026-09-12 (0.7.0's code,
-deployed that day), but builds up to 0.6.9 downloaded both and stored copies on the machine, and a copy stays
-valid until the key is replaced. `SIGNUP_MODE` stays `closed` and `account.addMember` / invites stay unused for
-outsiders until then. Decided by Alex on 2026-09-10.
+No app ever receives either key; both live only in the server's `deploy/.env`. Everyone's audio goes through the
+server (`/api/desktop/live`, server/lib/live-proxy.js), which counts the seconds as they pass. An account with
+`directLive` (server/lib/plans.js — the owner's) sends its audio straight to Tencent instead, on connections the server
+signs (`/api/desktop/live-url`), so a talk in progress survives a server restart; the route is chosen by who the
+account is, never by what failed (core/route-stream.js). STS is impossible here — the speech WebSocket has no parameter
+for a session token. Alex declined keeping a key on their own Mac, even as an outage backup.
 
-What replaced it (2026-09-12): no app receives a key. Everyone's audio goes through the server
-(`/api/desktop/live`, server/lib/live-proxy.js), which holds the key and counts the seconds as they pass. An
-account with `directLive` (server/lib/plans.js — the owner's) sends its audio straight to Tencent instead, on
-connections the server signs (`/api/desktop/live-url`), so a talk in progress survives a server restart; the
-route is chosen by who the account is, never by what failed (core/route-stream.js). STS is impossible here —
-the speech WebSocket has no parameter for a session token. Builds up to 0.6.9 downloaded and stored the key,
-which is why it has to be rotated rather than merely no longer sent. Once both are rotated, delete this paragraph.
+Builds up to 0.6.9 downloaded and stored both keys, so both were replaced on 2026-09-15 and the old ones deleted —
+which lifted the blocker on accounts for other people. Opening sign-up is still Alex's decision: `SIGNUP_MODE` stays
+`closed` until they say otherwise. To replace the keys again: create the new ones in the console, run
+`ssh -t subtitle-hk bash rotate-keys.sh` (a copy of deploy/rotate-keys.sh; it tests new keys with Tencent and TokenHub
+before writing them), run `npm run e2e`, and only then delete the old keys.
 
 ## Other standing rules
 
