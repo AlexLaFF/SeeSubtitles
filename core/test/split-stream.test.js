@@ -89,6 +89,26 @@ test('gives the translator the previous lines as context, on the same model', as
     assert.equal(t.calls[0].context, undefined, 'the first line has nothing before it');
     assert.equal(t.calls.at(-1).context, '第一句', 'the second line is given the first');
     assert.ok(t.calls.every((c) => c.model === 'hy-mt2-pro'), 'draft and final use one model');
+    assert.ok(!t.calls.some((c) => c.text === c.context), 'a line is never its own context');
+  });
+});
+
+test('the draft is translated with the same context as the final, so settling barely changes it', async () => {
+  const m = await mockAsr((ws) => {
+    ws.send(ok());
+    setTimeout(() => ws.send(word(1, '第一句', { end: true })), 40);
+    setTimeout(() => ws.send(word(2, '第二句开头')), 300);
+    setTimeout(() => ws.send(word(2, '第二句开头和结尾', { end: true, start_time: 1600, end_time: 2600 })), 700);
+  });
+  const t = mockTranslate(async (b) => `${b.context ? '有上文:' : '无上文:'}${b.text}`);
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, rollMs: 100, contextLines: 2 });
+  await withCleanup(m, s, async () => {
+    s.start();
+    for (let i = 0; i < 10; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(60); }
+    await sleep(400);
+    const second = t.calls.filter((c) => c.text.startsWith('第二句'));
+    assert.ok(second.length >= 2, 'the second line was drafted and settled');
+    assert.ok(second.every((c) => c.context === '第一句'), 'draft and final were given the same context');
   });
 });
 

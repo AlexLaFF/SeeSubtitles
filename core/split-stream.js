@@ -19,7 +19,7 @@ const { buildRecognition, resolveMainland, pinnedOptions } = require('./tencent'
 const CHUNK_MS = 200;
 const CHUNK_BYTES = 6400;
 const SILENCE = Buffer.alloc(CHUNK_BYTES);
-const MAX_QUEUE = 5; // ≤ 1 s of audio buffered while (re)connecting
+const MAX_QUEUE = 5; // ≤ 1 s of audio held while (re)connecting; there is nowhere to send it yet
 const KEEPALIVE_MS = 5000; // 实时语音识别 hangs up after 15 s without audio, so never go quiet that long
 const STABLE_MS = 30_000; // a connection this old counts as healthy, so the backoff starts over
 const BACKOFF_MS = [500, 1000, 2000, 5000, 10_000];
@@ -96,10 +96,18 @@ class SplitStream extends EventEmitter {
     this._setState('stopped');
   }
 
-  /** Audio, 16 kHz mono 16-bit PCM, in the chunks the capture produces. `t0` is when it was captured. */
+  /**
+   * Audio, 16 kHz mono 16-bit PCM, in the chunks the capture produces. `t0` is when it was captured.
+   * It goes out the moment it arrives. 实时语音翻译 refuses more than three seconds of audio in one second
+   * (error 6000), which is why that pipeline paces its sends; 实时语音识别 has no such rule, and holding a
+   * chunk back for the next tick would put about 100 ms between the speaker and every subtitle.
+   */
   push(chunk, meta = {}) {
     if (!this.running) return;
-    this.queue.push({ chunk, t0: meta.t0 != null ? meta.t0 : Date.now() - CHUNK_MS });
+    const t0 = meta.t0 != null ? meta.t0 : Date.now() - CHUNK_MS;
+    const sock = this.sock;
+    if (sock && sock.ws.readyState === WebSocket.OPEN) return this._send(sock, chunk, t0);
+    this.queue.push({ chunk, t0 });
     while (this.queue.length > MAX_QUEUE) { this.dropped += this.queue.shift().chunk.length; }
   }
 
@@ -195,16 +203,17 @@ class SplitStream extends EventEmitter {
     setTimeout(() => { try { sock.ws.terminate(); } catch { /* gone */ } }, 1000).unref?.();
   }
 
+  /** Flush whatever arrived while the socket was down, then keep the connection from going quiet. */
   _tick() {
     if (!this.running) return;
     const sock = this.sock;
     const now = Date.now();
     if (!sock || sock.ws.readyState !== WebSocket.OPEN) return;
     if (this.attempt && now - sock.openedAt > STABLE_MS) this.attempt = 0;
-    const n = this.queue.length > 2 ? 2 : Math.min(1, this.queue.length);
-    for (let i = 0; i < n; i++) { const item = this.queue.shift(); this._send(sock, item.chunk, item.t0); }
+    const held = this.queue.length;
+    while (this.queue.length) { const item = this.queue.shift(); this._send(sock, item.chunk, item.t0); }
     // silence rather than nothing: this endpoint drops a connection that has sent no audio for 15 s
-    if (!n && now - this.lastSentAt > KEEPALIVE_MS) { this._send(sock, SILENCE, now - CHUNK_MS); this.keepalives++; }
+    if (!held && now - this.lastSentAt > KEEPALIVE_MS) { this._send(sock, SILENCE, now - CHUNK_MS); this.keepalives++; }
   }
 
   _send(sock, chunk, t0) {
@@ -268,9 +277,11 @@ class SplitStream extends EventEmitter {
     });
   }
 
-  _context() {
+  /** The lines before this one, which both the draft and the final translation are given. */
+  _context(exclude = null) {
     const n = Number(this.opts.contextLines) || 0;
-    return n ? this.done.slice(-n).join('') : '';
+    if (!n) return '';
+    return this.done.filter((r) => r !== exclude).slice(-n).map((r) => r.text).join('');
   }
 
   _onPartial(row) {
@@ -283,7 +294,9 @@ class SplitStream extends EventEmitter {
     this.rolling.lastText = row.text;
     const gen = ++this.rolling.gen;
     const roll = this.rolling;
-    this._translate(row.text, { final: false }).then((out) => {
+    // the draft is given the same context as the final will be: translated without it, the draft reads
+    // differently, and every line is then rewritten the moment it settles
+    this._translate(row.text, { final: false, context: this._context(row) }).then((out) => {
       if (!out || this.rolling !== roll || gen !== roll.gen || roll.settled) return;
       roll.target = out;
       this._emit(row, out, false);
@@ -295,10 +308,10 @@ class SplitStream extends EventEmitter {
     if (roll) roll.settled = true;
     this.rolling = null;
     this._emit(row, roll ? roll.target : '', false); // the settled words, translation to follow
-    const context = this._context();
+    const context = this._context(row);
+    this.done.push(row); // in place before the next sentence starts, so its draft has this line too
+    if (this.done.length > 8) this.done.shift();
     this._translate(row.text, { final: true, context }).then((out) => {
-      this.done.push(row.text);
-      if (this.done.length > 8) this.done.shift();
       this._emit(row, out || (roll && roll.target) || '', true);
     });
   }
