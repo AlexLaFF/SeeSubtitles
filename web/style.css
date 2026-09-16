@@ -28,8 +28,12 @@ body.fade #stage {
 }
 #lines { display: flex; flex-direction: column; gap: var(--line-gap); font-size: var(--font-size);
   line-height: var(--line-height); font-weight: var(--font-weight); text-align: var(--align); }
+/* A line still being spoken is a draft: its wording can change when the sentence settles, so it reads as
+   provisional — clearly lighter — and comes up to full strength once it is final. At 0.88 it looked finished,
+   and the settle then read as the subtitle being corrected (docs/LIVE-PIPELINE-MEASUREMENTS.md). No transition:
+   display.js re-appends every line on each update, which would cancel one, and the step itself says "final". */
 .line { overflow-wrap: anywhere; word-break: break-word; will-change: transform; }
-.line.partial { opacity: 0.88; }
+.line.partial { opacity: 0.6; }
 .line .sub { display: block; font-size: 0.45em; line-height: 1.2; opacity: 0.72; margin-top: 0.1em; font-weight: 500; }
 .line .sub[hidden] { display: none; }
 body.shadow .line { text-shadow: 0 0 0.06em rgba(0,0,0,.95), 0 0 0.18em rgba(0,0,0,.9), 0 0.05em 0.1em rgba(0,0,0,.8); }

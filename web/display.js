@@ -106,8 +106,11 @@
     const row = (Number(Sub.settings.fontSize) || 100) * (Number(Sub.settings.lineSpacing) || 1.25);
     const dur = Math.min(2000, Math.max(260, Math.round(260 + (Math.abs(dy) / row) * 340)));
     for (const a of el.getAnimations()) a.cancel(); // `before` already captured the in-flight position
+    // fade up to where the line rests, not to full strength: a draft rests lighter (style.css, .line.partial),
+    // and fading it to 1 would make it drop back the moment the animation lets go
+    const rest = getComputedStyle(el).opacity || '1';
     const frames = fadeIn
-      ? [{ transform: `translateY(${dy}px)`, opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }]
+      ? [{ transform: `translateY(${dy}px)`, opacity: 0 }, { transform: 'translateY(0)', opacity: rest }]
       : [{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }];
     el.animate(frames, { duration: dur, easing: 'cubic-bezier(.25,.6,.3,1)', fill: 'none' });
   }
