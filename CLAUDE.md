@@ -27,6 +27,10 @@ often a line the audience has already read is rewritten. A pause of 700 ms ends 
 Tencent's own 实时语音翻译 is still there as `combined`, and is the fallback if TokenHub is unreachable. Why, with
 numbers: docs/LIVE-PIPELINE-MEASUREMENTS.md. Recordings and exports were already on `hy-mt2-pro`.
 
+**TokenHub must be on postpaid billing** (console › 在线推理 › 开启后付费). Its free package is one million tokens per
+model; `hy-mt2-pro`'s ran out on 2026-09-17 and it refused every call until billing was switched on. Translation
+steps down pro → plus → lite when a model is refused, but those share the same free package.
+
 ## Other standing rules
 
 - Simplified Chinese only in every user-facing string; never Traditional.

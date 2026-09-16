@@ -305,3 +305,38 @@ the same size — both keep 40% of the line — and the relay makes slightly *fe
 455). What differs is that the last draft sits about 300 ms longer before the final replaces it, which pushes many
 lines across the 1.5 s line: at a 0.8 s threshold the two are 67 and 62. Rolling faster would close it, but at
 600 ms a talk needs about 70 translations a minute, past `hy-mt2-pro`'s limit of 60.
+
+## Both pipelines through the relay (17 September)
+
+The rewrite comparison above set B measured through the relay against A measured by the probe, which is not like
+with like. This is A through the relay too — the same client, the same four talks, the tuning sent as the app
+sends it — and B from the relay runs made while `hy-mt2-pro` still answered.
+
+| talk | A settles | B settles | A rewrites / 100 lines | B rewrites / 100 lines |
+|---|---|---|---|---|
+| 13:47 | 1201 ms | 785–846 ms | 18.4 | 16.7–20.1 |
+| 16:33 | 1213 ms | 853 ms | 11.6 | 13.8 |
+| 19:27 | 509 ms* | 843 ms | 41.5* | 22.5 |
+| 9:32 | 1200 ms | 832 ms | 26.5 | 31.0 |
+
+\* A's connection on 19:27 landed on the faster backend described earlier: it settles in about half a second
+and rewrites far more. It had not been seen since 10 September; it came back on one connection in four here.
+
+**Through the relay the two rewrite about as often** — A a few per hundred lines fewer on three talks, B about
+half as often on the fourth. "Half as often" from the probe comparison does not hold in production. B still
+settles every line 350–400 ms sooner, and hears the same words (glossary terms 13/36, 15 or 14/28, 11/23 and
+21/32 on both). A draft line is now drawn at 60% opacity rather than 88%, so what the audience sees at a settle is
+a draft finishing rather than a subtitle being corrected.
+
+## TokenHub's free trial, and what happens when a model is refused
+
+TokenHub gives each account a free package of one million tokens per model, and every translation so far — live,
+file jobs, the research — ran on it. `hy-mt2-pro`'s ran out at about 01:05 on 17 September, during the relay
+runs above: from then on it answered every call with `402 401008 The free trial quota for the service has been
+exhausted and postpaid billing is not enabled`, and a live talk showed Cantonese with no subtitles at all.
+
+Translation now steps down when a model is refused outright — `hy-mt2-pro` to `hy-mt2-plus` to `hy-mt2-lite` —
+logs why, and stays there (`core/split-stream.js`, `server/lib/tokenhub.js`). That keeps subtitles coming, at
+lower quality, but plus and lite are on the same free package and will run out in turn. **Postpaid billing has to
+be on:** TokenHub console › 在线推理 › 开启后付费, which applies to the whole account. At 0.5 元 in and 2 元 out per
+million tokens, a live hour on pro is about ¥0.30.
