@@ -72,6 +72,7 @@ class SplitStream extends EventEmitter {
   get status() {
     return {
       state: this.state, connects: this.connects, reconnects: Math.max(0, this.connects - 1),
+      keyless: !this.creds || !!this.opts.urlFor,
       engine: this._engine(), model: this.opts.model, source: this.opts.source, target: this.opts.target,
       translateCalls: this.calls, translateRetries: this.retries, translateFailures: this.failures,
       keepalives: this.keepalives, droppedBytes: this.dropped, lastError: this.lastError,

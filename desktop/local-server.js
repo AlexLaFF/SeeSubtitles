@@ -297,18 +297,26 @@ async function createLocalServer(opts) {
   // The split pipeline translates with the TokenHub key, which no app ever holds, so its translation has to
   // happen on the server: there is no direct route for it. An account trusted to go straight to Tencent keeps
   // that route on 实时语音翻译, where the stream both recognises and translates.
-  const directOffered = opts.liveUrls && settings.pipeline !== 'split';
-  const stream = cloudLive
-    ? new RouteStream({
-      viaServer: () => new RemoteTranslationStream(cloudLive, streamOpts),
-      direct: directOffered ? () => new TranslationStream(null, { ...streamOpts, urlFor: signed }) : null,
-      trusted: opts.trusted || (() => false),
-      log: (t) => log('info', t),
-    })
-    : creds ? (settings.pipeline === 'split' && env.TOKENHUB_API_KEY
-      ? new SplitStream(creds, { ...streamOpts, tokenhubKey: env.TOKENHUB_API_KEY })
-      : new TranslationStream(creds, streamOpts))
-      : null;
+  function makeStream() {
+    const now = { ...streamOpts, pipeline: settings.pipeline, source: settings.source, target: settings.target,
+      transModel: settings.transModel, model: settings.transModel, hotwords: settings.hotwords,
+      vadSilenceTime: settings.vadSilenceTime, maxSpeakTime: settings.maxSpeakTime,
+      noiseThreshold: settings.noiseThreshold, filterModal: settings.filterModal };
+    const directOffered = opts.liveUrls && settings.pipeline !== 'split';
+    if (cloudLive) {
+      return new RouteStream({
+        viaServer: () => new RemoteTranslationStream(cloudLive, now),
+        direct: directOffered ? () => new TranslationStream(null, { ...now, urlFor: signed }) : null,
+        trusted: opts.trusted || (() => false),
+        log: (t) => log('info', t),
+      });
+    }
+    if (!creds) return null;
+    return settings.pipeline === 'split' && env.TOKENHUB_API_KEY
+      ? new SplitStream(creds, { ...now, tokenhubKey: env.TOKENHUB_API_KEY })
+      : new TranslationStream(creds, now);
+  }
+  let stream = makeStream();
 
   let level = null;
   let devices = [];
@@ -339,10 +347,23 @@ async function createLocalServer(opts) {
     if (MP4_AUTO && info.durationMs > 1000 && (info.cues.target || info.cues.source)) { log('info', `queueing MP4 export for ${info.base}`); mp4.add(info.base); }
   });
   transcript.on('log', (t) => log('warn', t));
-  if (stream) {
-    stream.on('result', (r) => transcript.apply(r));
-    stream.on('log', (t) => log(/^✖/.test(t) ? 'error' : 'info', t.replace(/^[✖✔]\s*/, '')));
-    stream.on('status', () => broadcast('status', status()));
+  function attachStream(s) {
+    if (!s) return;
+    s.on('result', (r) => transcript.apply(r));
+    s.on('log', (t) => log(/^✖/.test(t) ? 'error' : 'info', t.replace(/^[✖✔]\s*/, '')));
+    s.on('status', () => broadcast('status', status()));
+  }
+  attachStream(stream);
+
+  /** Changing the pipeline changes which stream class runs, so the old one is stopped and a new one built. */
+  function rebuildStream(why) {
+    const wasStreaming = stream && settings.streaming;
+    if (stream) { try { stream.stop(); } catch { /* already stopped */ } stream.removeAllListeners(); }
+    stream = makeStream();
+    attachStream(stream);
+    log('info', `live pipeline: ${settings.pipeline} (${why})`);
+    if (stream && wasStreaming) stream.start();
+    broadcast('status', status());
   }
 
   // ---- live hours: the seconds a route the server does not carry is connected while subtitles run (the trusted
@@ -424,10 +445,19 @@ async function createLocalServer(opts) {
     for (const k of changed) settings[k] = clean[k];
     // The two language fields are only valid together: picking a spoken language the current subtitle
     // language cannot be reached from moves the subtitle language to one the API does accept.
+    if (changed.includes('pipeline')) {
+      // Each pipeline has its own spoken languages, subtitle languages and translation models.
+      const source = schema.coerceSource(settings.source, settings.pipeline);
+      const target = schema.coerceTarget(source, settings.target, settings.pipeline);
+      const model = schema.coerceModel(settings.pipeline, settings.transModel);
+      for (const [k, v] of [['source', source], ['target', target], ['transModel', model]]) {
+        if (settings[k] !== v) { settings[k] = v; if (!changed.includes(k)) changed.push(k); }
+      }
+    }
     if (changed.includes('source') || changed.includes('target')) {
-      const fixed = schema.coerceTarget(settings.source, settings.target);
+      const fixed = schema.coerceTarget(settings.source, settings.target, settings.pipeline);
       if (fixed !== settings.target) {
-        log('warn', `${settings.source} → ${settings.target} is not a pair 实时语音翻译 accepts; using ${settings.source} → ${fixed}`);
+        log('warn', `${settings.source} → ${settings.target} is not a pair this pipeline accepts; using ${settings.source} → ${fixed}`);
         settings.target = fixed;
         if (!changed.includes('target')) changed.push('target');
       }
@@ -437,11 +467,12 @@ async function createLocalServer(opts) {
       log('info', `switching microphone to "${settings.audioDevice}"`);
       capture.setDevice(settings.audioDevice);
     }
+    if (changed.includes('pipeline')) rebuildStream('setting changed');
     if (stream) {
-      const TUNING = ['source', 'target', 'transModel', 'hotwords', 'vadSilenceTime', 'maxSpeakTime', 'noiseThreshold', 'filterModal'];
+      const TUNING = ['source', 'target', 'transModel', 'model', 'hotwords', 'vadSilenceTime', 'maxSpeakTime', 'noiseThreshold', 'filterModal'];
       if (changed.some((k) => TUNING.includes(k))) {
         const patch = {};
-        for (const k of TUNING) patch[k] = settings[k];
+        for (const k of TUNING) patch[k] = k === 'model' ? settings.transModel : settings[k];
         stream.setOptions(patch); // graceful rotation to a connection with the new parameters
       }
       if (changed.includes('streaming')) {

@@ -123,6 +123,7 @@ class RemoteTranslationStream extends EventEmitter {
       tuning: r.tuning || {},
       edge: r.edge ? `server · ${r.edge}` : 'server',
       viaServer: true,
+      keyless: true, // the key is the server's; this app never had one
     };
   }
 
