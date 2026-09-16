@@ -2,6 +2,7 @@
 module.exports = {
   ...require('./tencent'),
   ...require('./translator'),
+  ...require('./split-stream'),
   ...require('./remote-stream'),
   ...require('./route-stream'),
   ...require('./decimator'),

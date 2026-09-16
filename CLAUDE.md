@@ -6,7 +6,9 @@ No app ever receives either key; both live only in the server's `deploy/.env`. E
 server (`/api/desktop/live`, server/lib/live-proxy.js), which counts the seconds as they pass. An account with
 `directLive` (server/lib/plans.js — the owner's) sends its audio straight to Tencent instead, on connections the server
 signs (`/api/desktop/live-url`), so a talk in progress survives a server restart; the route is chosen by who the
-account is, never by what failed (core/route-stream.js). STS is impossible here — the speech WebSocket has no parameter
+account is, never by what failed (core/route-stream.js). **The direct route exists only on the combined pipeline**
+(实时语音翻译): the split one translates with the TokenHub key, which no app holds, so its translation happens on the
+server and every account is relayed. STS is impossible here — the speech WebSocket has no parameter
 for a session token. Alex declined keeping a key on their own Mac, even as an outage backup.
 
 Builds up to 0.6.9 downloaded and stored both keys, so both were replaced on 2026-09-15 and the old ones deleted —
@@ -14,6 +16,16 @@ which lifted the blocker on accounts for other people. Opening sign-up is still 
 `closed` until they say otherwise. To replace the keys again: create the new ones in the console, run
 `ssh -t subtitle-hk bash rotate-keys.sh` (a copy of deploy/rotate-keys.sh; it tests new keys with Tencent and TokenHub
 before writing them), run `npm run e2e`, and only then delete the old keys.
+
+## Which live pipeline runs
+
+Since 0.8.0 the app opens on the **split pipeline**: 实时语音识别 `16k_zh_large` (or the engine for the spoken
+language) with the talk's hotwords, and our own 混元翻译 call — `hy-mt2-pro` with the previous two lines as context,
+for both the rolling draft and the final line. One model for both: mixing a fast draft with a better final doubles how
+often a line the audience has already read is rewritten. A pause of 700 ms ends a line and nothing runs past 6 s.
+`core/split-stream.js`, chosen by the `pipeline` setting (`split` | `combined`), which the relay also honours.
+Tencent's own 实时语音翻译 is still there as `combined`, and is the fallback if TokenHub is unreachable. Why, with
+numbers: docs/LIVE-PIPELINE-MEASUREMENTS.md. Recordings and exports were already on `hy-mt2-pro`.
 
 ## Other standing rules
 

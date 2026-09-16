@@ -26,7 +26,7 @@ class RemoteTranslationStream extends EventEmitter {
   constructor(cloud, opts = {}) {
     super();
     this.cloud = cloud;
-    this.opts = { source: 'yue', target: 'zh', transModel: 'hunyuan-translation-lite', ...opts };
+    this.opts = { source: 'yue', target: 'zh', transModel: 'hy-mt2-pro', pipeline: 'split', ...opts };
     this.queue = [];
     this.ws = null;
     this.running = false;
@@ -69,7 +69,7 @@ class RemoteTranslationStream extends EventEmitter {
   setOptions(patch) {
     Object.assign(this.opts, patch);
     // languages are in the query string, so they need a new socket; tuning can be sent down the open one
-    const relevant = ['source', 'target', 'transModel'];
+    const relevant = ['source', 'target', 'transModel', 'pipeline'];
     if (relevant.some((k) => k in patch)) return this.reconnect('settings changed');
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try { this.ws.send(JSON.stringify({ type: 'settings', ...this.opts })); } catch { /* next connection */ }
@@ -119,6 +119,7 @@ class RemoteTranslationStream extends EventEmitter {
       source: this.opts.source,
       target: this.opts.target,
       transModel: this.opts.transModel,
+      pipeline: this.opts.pipeline,
       tuning: r.tuning || {},
       edge: r.edge ? `server · ${r.edge}` : 'server',
       viaServer: true,
@@ -133,7 +134,13 @@ class RemoteTranslationStream extends EventEmitter {
     this.retryTimer = null;
     this.retryAt = null;
     const base = String(this.cloud.url || '').replace(/^http/, 'ws').replace(/\/$/, '');
+    // The pipeline and the tuning travel with the connection: the server opens the stream on our behalf, so
+    // anything that is fixed when a connection is made has to be known before it makes one.
     const q = new URLSearchParams({ source: this.opts.source, target: this.opts.target, transModel: this.opts.transModel });
+    for (const [key, value] of [['pipeline', this.opts.pipeline], ['hotwords', this.opts.hotwords],
+      ['vadSilenceTime', this.opts.vadSilenceTime], ['maxSpeakTime', this.opts.maxSpeakTime]]) {
+      if (value !== undefined && value !== null && value !== '') q.set(key, String(value));
+    }
     this.connects++;
     this._setState('connecting');
     const ws = new WebSocket(`${base}/api/desktop/live?${q}`, {

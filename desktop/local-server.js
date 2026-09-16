@@ -6,7 +6,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
-const { TranslationStream, RemoteTranslationStream, RouteStream, Transcript, Recorder, schema } = require('@subs/core');
+const { TranslationStream, SplitStream, RemoteTranslationStream, RouteStream, Transcript, Recorder, schema } = require('@subs/core');
 const names = require('@subs/core/names');
 const { readCues, writeCues } = require('./lib/cues');
 const { fromSrt } = require('@subs/core/plain-text');
@@ -111,9 +111,12 @@ async function createLocalServer(opts) {
     if (err.code !== 'ENOENT') log('warn', `settings.json ignored: ${err.message}`);
     Object.assign(settings, schema.sanitize({ audioDevice: env.AUDIO_DEVICE, transModel: env.TENCENT_TRANS_MODEL }));
   }
-  // A settings.json written by an older build can hold a pair the speech API refuses; fix it before connecting
+  // A settings.json written by an older build can hold a pair this pipeline refuses — it may even name a
+  // spoken language or a translation model that belongs to the other one. Fix all three before connecting,
   // rather than reconnecting into 6001 forever.
-  settings.target = schema.coerceTarget(settings.source, settings.target);
+  settings.source = schema.coerceSource(settings.source, settings.pipeline);
+  settings.target = schema.coerceTarget(settings.source, settings.target, settings.pipeline);
+  settings.transModel = schema.coerceModel(settings.pipeline, settings.transModel);
   // START_PAUSED=1: open with subtitles paused so nothing is sent to Tencent until the operator presses Start
   settings.streaming = !/^(1|true|yes)$/i.test(String(env.START_PAUSED || ''));
   let saveTimer = null;
@@ -273,7 +276,9 @@ async function createLocalServer(opts) {
   const streamOpts = {
       source: settings.source,
       target: settings.target,
+      pipeline: settings.pipeline,
       transModel: settings.transModel,
+      model: settings.transModel, // the split pipeline names it `model`; the combined one `transModel`
       hotwords: settings.hotwords,
       vadSilenceTime: settings.vadSilenceTime,
       maxSpeakTime: settings.maxSpeakTime,
@@ -289,14 +294,20 @@ async function createLocalServer(opts) {
   const signed = async (req) => {
     try { return await opts.liveUrls(req); } catch (err) { if (err && err.code === 'not_trusted' && stream) stream.withdraw(); throw err; }
   };
+  // The split pipeline translates with the TokenHub key, which no app ever holds, so its translation has to
+  // happen on the server: there is no direct route for it. An account trusted to go straight to Tencent keeps
+  // that route on 实时语音翻译, where the stream both recognises and translates.
+  const directOffered = opts.liveUrls && settings.pipeline !== 'split';
   const stream = cloudLive
     ? new RouteStream({
       viaServer: () => new RemoteTranslationStream(cloudLive, streamOpts),
-      direct: opts.liveUrls ? () => new TranslationStream(null, { ...streamOpts, urlFor: signed }) : null,
+      direct: directOffered ? () => new TranslationStream(null, { ...streamOpts, urlFor: signed }) : null,
       trusted: opts.trusted || (() => false),
       log: (t) => log('info', t),
     })
-    : creds ? new TranslationStream(creds, streamOpts)
+    : creds ? (settings.pipeline === 'split' && env.TOKENHUB_API_KEY
+      ? new SplitStream(creds, { ...streamOpts, tokenhubKey: env.TOKENHUB_API_KEY })
+      : new TranslationStream(creds, streamOpts))
       : null;
 
   let level = null;

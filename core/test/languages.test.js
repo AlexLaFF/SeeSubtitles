@@ -6,15 +6,29 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const schema = require('../schema');
 
-const { LIVE_PAIRS, LANG_NAMES, targetsFor, coerceTarget, byKey } = schema;
+const { LIVE_PAIRS, COMBINED_PAIRS, SPLIT_PAIRS, SPLIT_SOURCES, SPLIT_TARGETS, LANG_NAMES, targetsFor, coerceTarget, byKey } = schema;
 
-test('every source and target in the matrix has a name, and every name is used', () => {
-  const used = new Set([...Object.keys(LIVE_PAIRS), ...Object.values(LIVE_PAIRS).flat()]);
+test('every source and target of both pipelines has a name, and every name is used', () => {
+  const used = new Set([...Object.keys(COMBINED_PAIRS), ...Object.values(COMBINED_PAIRS).flat(),
+    ...Object.keys(SPLIT_PAIRS), ...Object.values(SPLIT_PAIRS).flat()]);
   for (const code of used) assert.ok(LANG_NAMES[code], `no name for "${code}"`);
   for (const code of Object.keys(LANG_NAMES)) assert.ok(used.has(code), `"${code}" is named but unreachable`);
 });
 
-test('the pairs are the ones the API accepts, Cantonese first', () => {
+test('the split pipeline offers the engines that open and the languages hy-mt2 takes', () => {
+  // Both lists were checked against the account on 2026-09-16; see docs/LIVE-PIPELINE-MEASUREMENTS.md.
+  assert.equal(SPLIT_SOURCES.length, 18, 'seventeen spoken languages, Mandarin twice for the mixed engine');
+  assert.equal(SPLIT_TARGETS.length, 36);
+  assert.ok(!SPLIT_SOURCES.includes('ru'), '16k_ru is refused, so Russian is a subtitle language only');
+  assert.ok(SPLIT_TARGETS.includes('ru') && SPLIT_TARGETS.includes('it'));
+  assert.ok(!SPLIT_TARGETS.includes('sv') && !SPLIT_TARGETS.includes('zh-Hant'), 'hy-mt2 refuses these');
+  for (const source of SPLIT_SOURCES) {
+    assert.ok(targetsFor(source, 'split').includes(source), `${source} cannot be transcribed without translating`);
+    assert.ok(targetsFor(source, 'split').includes('zh'), `${source} cannot reach Mandarin`);
+  }
+});
+
+test('the combined pipeline keeps the pairs the API accepts, Cantonese first', () => {
   assert.deepEqual(Object.keys(LIVE_PAIRS), ['yue', 'zh', 'zh_en', 'en', 'ja', 'ko', 'id', 'th', 'ru']);
   assert.deepEqual(LIVE_PAIRS.yue, ['zh', 'en', 'ja', 'ko', 'yue']);
   assert.deepEqual(LIVE_PAIRS.ru, ['zh', 'en', 'ru']); // Russian reaches only Chinese, English and itself
@@ -26,9 +40,9 @@ test('the pairs are the ones the API accepts, Cantonese first', () => {
   }
 });
 
-test('every source can be transcribed without translating (source is its own target)', () => {
+test('every combined source can be transcribed without translating (source is its own target)', () => {
   for (const source of Object.keys(LIVE_PAIRS)) {
-    assert.ok(targetsFor(source).includes(source), `${source} cannot be its own target`);
+    assert.ok(targetsFor(source, 'combined').includes(source), `${source} cannot be its own target`);
   }
 });
 
@@ -37,26 +51,39 @@ test('the defaults are a pair the API accepts', () => {
   assert.equal(d.source, 'yue');
   assert.equal(d.target, 'zh');
   assert.equal(coerceTarget(d.source, d.target), 'zh');
+  assert.equal(d.pipeline, 'split', 'the app opens on the split pipeline');
+  assert.equal(d.transModel, 'hy-mt2-pro');
+  assert.equal(d.vadSilenceTime, 700);
+  assert.equal(d.maxSpeakTime, 6);
 });
 
-test('coerceTarget keeps a valid pair and repairs an impossible one', () => {
-  assert.equal(coerceTarget('yue', 'ja'), 'ja');
-  assert.equal(coerceTarget('ru', 'ja'), 'zh'); // ru → ja is refused with 6001; fall back to the first target
-  assert.equal(coerceTarget('th', 'ko'), 'zh');
-  assert.equal(coerceTarget('zh_en', 'zh_en'), 'zh_en');
-  assert.equal(coerceTarget('nonsense', 'zh'), 'zh'); // unknown source behaves like the default one
+test('coerceTarget keeps a valid pair and repairs an impossible one, per pipeline', () => {
+  assert.equal(coerceTarget('yue', 'ja', 'combined'), 'ja');
+  assert.equal(coerceTarget('ru', 'ja', 'combined'), 'zh'); // ru → ja is refused with 6001; fall back to the first
+  assert.equal(coerceTarget('th', 'ko', 'combined'), 'zh');
+  assert.equal(coerceTarget('zh_en', 'zh_en', 'combined'), 'zh_en');
+  assert.equal(coerceTarget('nonsense', 'zh', 'combined'), 'zh'); // unknown source behaves like the default one
+  assert.equal(coerceTarget('yue', 'th', 'split'), 'th', 'the split pipeline reaches Thai from Cantonese');
+  assert.equal(coerceTarget('de', 'sv', 'split'), 'zh', 'Swedish is not a language hy-mt2 has');
+  assert.equal(schema.coerceSource('ru', 'split'), 'yue', 'Russian cannot be spoken on the split pipeline');
+  assert.equal(schema.coerceSource('ru', 'combined'), 'ru');
+  assert.equal(schema.coerceModel('split', 'hunyuan-translation'), 'hy-mt2-pro', 'each pipeline keeps its own models');
+  assert.equal(schema.coerceModel('combined', 'hy-mt2-pro'), 'hunyuan-translation');
 });
 
 test('the subtitle-language field narrows itself to the chosen spoken language', () => {
   const target = byKey.target;
   assert.equal(typeof target.optionsFor, 'function');
-  assert.deepEqual(target.optionsFor({ source: 'ru' }), ['zh', 'en', 'ru']);
+  assert.deepEqual(target.optionsFor({ source: 'ru', pipeline: 'combined' }), ['zh', 'en', 'ru']);
+  assert.equal(target.optionsFor({ source: 'de', pipeline: 'split' }).length, 36, 'the split pipeline offers them all');
   // every option the field can ever show is a language the matrix knows
   for (const [code] of target.options) assert.ok(LANG_NAMES[code], `target option "${code}" has no name`);
-  for (const [code] of byKey.source.options) assert.ok(LIVE_PAIRS[code], `source option "${code}" has no pairs`);
+  for (const [code] of byKey.source.options) assert.ok(SPLIT_PAIRS[code], `source option "${code}" has no pairs`);
 });
 
 test('sanitize still refuses a language that is not in the matrix at all', () => {
   assert.deepEqual(schema.sanitize({ source: 'kl' }), {});
   assert.deepEqual(schema.sanitize({ source: 'th' }), { source: 'th' });
+  assert.deepEqual(schema.sanitize({ pipeline: 'nonsense' }), {});
+  assert.deepEqual(schema.sanitize({ pipeline: 'combined' }), { pipeline: 'combined' });
 });

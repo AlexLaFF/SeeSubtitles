@@ -36,13 +36,18 @@ test('every issued URL is a different connection', () => {
   assert.notEqual(a.signature, b.signature);
 });
 
-test('the pairs the endpoint refuses are the ones the API refuses', () => {
+test('the pairs each pipeline refuses are the ones its API refuses', () => {
   // What the endpoint checks before signing anything, so a request can never produce a dead stream.
-  assert.ok(schema.LIVE_PAIRS.yue, 'Cantonese is a spoken language');
-  assert.ok(!schema.LIVE_PAIRS.fr, 'French is not');
-  assert.ok(schema.targetsFor('yue').includes('ja'));
-  assert.ok(!schema.targetsFor('yue').includes('th'), 'Cantonese to Thai is refused with 6001');
-  assert.ok(!schema.targetsFor('ru').includes('ja'), 'Russian reaches only Chinese, English and itself');
+  // 实时语音翻译 answers `6001 not support this lang pair`; the split pipeline is limited instead by which
+  // recognition engines open and which languages hy-mt2 takes (docs/LIVE-PIPELINE-MEASUREMENTS.md).
+  assert.ok(schema.COMBINED_PAIRS.yue, 'Cantonese is a spoken language');
+  assert.ok(!schema.COMBINED_PAIRS.fr, 'French is not, on 实时语音翻译');
+  assert.ok(schema.targetsFor('yue', 'combined').includes('ja'));
+  assert.ok(!schema.targetsFor('yue', 'combined').includes('th'), 'Cantonese to Thai is refused with 6001');
+  assert.ok(!schema.targetsFor('ru', 'combined').includes('ja'), 'Russian reaches only Chinese, English and itself');
+  assert.ok(schema.SPLIT_PAIRS.fr, 'French is a spoken language on the split pipeline');
+  assert.ok(schema.targetsFor('yue', 'split').includes('th'), 'and Cantonese reaches Thai there');
+  assert.ok(!schema.SPLIT_PAIRS.ru, 'Russian is not: 16k_ru is refused on this account');
 });
 
 test('changing what is signed changes the signature, so a stale URL cannot be re-aimed', () => {

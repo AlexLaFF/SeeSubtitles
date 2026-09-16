@@ -13,7 +13,7 @@
 // What the client sends: binary frames of 16 kHz mono 16-bit PCM, and JSON {type:'settings', ...} to change
 // languages or tuning mid-talk. What it receives: JSON {type:'ready'|'result'|'status'|'log'|'error'}.
 const { WebSocketServer } = require('ws');
-const { TranslationStream, schema } = require('@subs/core');
+const { TranslationStream, SplitStream, schema } = require('@subs/core');
 
 const SAMPLE_BYTES = 16000 * 2; // one second of the audio the pipeline sends
 const METER_MS = 15_000; // how often streamed audio is charged to the month
@@ -26,6 +26,7 @@ const secondsOf = (bytes) => bytes / SAMPLE_BYTES;
 /**
  * @param {object} o
  * @param {object} o.creds      Tencent credentials — they stay here and are never sent anywhere
+ * @param {string} [o.tokenhubKey]  TokenHub key for the split pipeline's translation — it stays here too
  * @param {Function} o.authenticate  (req) → user row or null
  * @param {object} o.quotas     Quotas (plans.js): remaining() and add()
  * @param {Function} o.planRow  (user) → the row whose plan applies (a team's owner, usually)
@@ -34,7 +35,8 @@ const secondsOf = (bytes) => bytes / SAMPLE_BYTES;
  * @param {number} [o.meterMs]  how often streamed audio is charged
  * @param {string} [o.wsUrl]    stand-in for the Tencent endpoint (tests only)
  */
-function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = process.env, meterMs = METER_MS, wsUrl = null }) {
+function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = process.env, meterMs = METER_MS, wsUrl = null,
+  tokenhubKey = (env.TOKENHUB_API_KEY || '').trim() }) {
   const wss = new WebSocketServer({ noServer: true });
   const live = new Map(); // ws → session, for status and shutdown
 
@@ -73,10 +75,14 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
 
   wss.on('connection', (ws, req, user) => {
     const url = new URL(req.url, 'http://x');
+    // Which pipeline carries this talk: the split one (recognition here, translation ours) unless the client
+    // asks for 实时语音翻译, and never the split one without a TokenHub key to translate with.
+    const asked = String(url.searchParams.get('pipeline') || schema.DEFAULT_PIPELINE);
+    const pipeline = schema.PIPELINES.includes(asked) && (asked !== 'split' || tokenhubKey) ? asked : 'combined';
     const source = String(url.searchParams.get('source') || 'yue');
     const target = String(url.searchParams.get('target') || 'zh');
-    if (!schema.LIVE_PAIRS[source] || !schema.targetsFor(source).includes(target)) {
-      send(ws, { type: 'error', code: 'bad_language', message: `${source} → ${target} is not a pair 实时语音翻译 accepts` });
+    if (!schema.pairsFor(pipeline)[source] || !schema.targetsFor(source, pipeline).includes(target)) {
+      send(ws, { type: 'error', code: 'bad_language', message: `${source} → ${target} is not a pair this pipeline accepts` });
       return ws.close(4000, 'bad language pair');
     }
     if (quotas.remaining(planRow(user), 'live') <= 0) {
@@ -93,15 +99,29 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
       }
     }
 
-    const stream = new TranslationStream(creds, {
-      source,
-      target,
-      transModel: url.searchParams.get('transModel') || 'hunyuan-translation-lite',
-      rotateMs: (Number(env.TENCENT_ROTATE_MINUTES) || 290) * 60_000,
-      edge: env.TENCENT_EDGE || 'auto',
-      ...(wsUrl ? { wsUrl } : {}), // tests point this at a stand-in for Tencent
-    });
-    const s = { ws, user, stream, bytes: 0, charged: 0, billed: 0, closed: false, lastFrom: Date.now() };
+    const model = schema.coerceModel(pipeline, url.searchParams.get('transModel'));
+    const stream = pipeline === 'split'
+      ? new SplitStream(creds, {
+        source,
+        target,
+        model,
+        tokenhubKey,
+        engine: url.searchParams.get('engine') || undefined,
+        vadSilenceTime: Number(url.searchParams.get('vadSilenceTime')) || undefined,
+        maxSpeakTime: Number(url.searchParams.get('maxSpeakTime')) || undefined,
+        hotwords: url.searchParams.get('hotwords') || undefined,
+        edge: env.TENCENT_EDGE || 'auto',
+        ...(wsUrl ? { wsUrl } : {}), // tests point this at a stand-in for Tencent
+      })
+      : new TranslationStream(creds, {
+        source,
+        target,
+        transModel: model,
+        rotateMs: (Number(env.TENCENT_ROTATE_MINUTES) || 290) * 60_000,
+        edge: env.TENCENT_EDGE || 'auto',
+        ...(wsUrl ? { wsUrl } : {}),
+      });
+    const s = { ws, user, stream, pipeline, bytes: 0, charged: 0, billed: 0, closed: false, lastFrom: Date.now() };
     live.set(ws, s);
 
     stream.on('result', (r) => send(ws, { type: 'result', result: r }));
@@ -131,9 +151,10 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
       let msg = null;
       try { msg = JSON.parse(data.toString()); } catch { return; }
       if (msg.type === 'settings') {
-        const nextSource = schema.LIVE_PAIRS[msg.source] ? msg.source : s.stream.opts.source;
-        const nextTarget = schema.coerceTarget(nextSource, msg.target);
-        stream.setOptions({ source: nextSource, target: nextTarget, transModel: msg.transModel, hotwords: msg.hotwords,
+        const nextSource = schema.coerceSource(msg.source, s.pipeline);
+        const nextTarget = schema.coerceTarget(nextSource, msg.target, s.pipeline);
+        const nextModel = schema.coerceModel(s.pipeline, msg.transModel);
+        stream.setOptions({ source: nextSource, target: nextTarget, transModel: nextModel, model: nextModel, hotwords: msg.hotwords,
           vadSilenceTime: msg.vadSilenceTime, maxSpeakTime: msg.maxSpeakTime, noiseThreshold: msg.noiseThreshold, filterModal: msg.filterModal });
       } else if (msg.type === 'stop') {
         close(s, 1000, 'client stopped');

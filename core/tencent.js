@@ -12,6 +12,7 @@ const path = require('node:path');
 
 const HOST = 'asr.cloud.tencent.com';
 const PATH_PREFIX = '/asr/speech_translate/';
+const RECOGNIZE_PREFIX = '/asr/v2/';
 const PLACEHOLDER = /^(your_|<)|^$/;
 
 function loadEnv(file = path.join(__dirname, '..', '.env')) {
@@ -83,6 +84,46 @@ function buildConnection(creds, opts = {}) {
   const stringToSign = `${HOST}${PATH_PREFIX}${creds.appid}?${query}`;
   const signature = hmacSha1Base64(creds.secretKey, stringToSign);
   const url = `wss://${HOST}${PATH_PREFIX}${creds.appid}?${canonicalQuery(encoded)}&signature=${encodeURIComponent(signature)}`;
+  return { url, params, stringToSign, signature, voiceId: params.voice_id };
+}
+
+/**
+ * Sign one 实时语音识别 connection — the words only, which core/split-stream.js then translates itself.
+ * Same recipe as buildConnection above; a different path, and the tuning parameters this endpoint honours.
+ * @param {{appid:string, secretId:string, secretKey:string}} creds
+ * @param {{engine?:string, voiceId?:string, hotwords?:string, vadSilenceTime?:number, maxSpeakTime?:number,
+ *          noiseThreshold?:number, filterModal?:number, extra?:object}} [opts]
+ */
+function buildRecognition(creds, opts = {}) {
+  const now = Math.floor(Date.now() / 1000);
+  const hw = hotwordList(opts.hotwords);
+  const params = {
+    secretid: creds.secretId,
+    timestamp: now,
+    expired: now + 24 * 3600,
+    nonce: 1 + Math.floor(Math.random() * 999_999_999),
+    engine_model_type: opts.engine || '16k_zh_large',
+    voice_id: opts.voiceId || crypto.randomUUID(),
+    voice_format: 1, // PCM
+    needvad: 1, // the service decides where a sentence ends, as 实时语音翻译 does
+    filter_punc: 0,
+    filter_dirty: 0,
+    filter_modal: Number(opts.filterModal) || 0,
+    convert_num_mode: 1,
+    ...(hw ? { hotword_list: hw } : {}),
+    ...(opts.vadSilenceTime ? { vad_silence_time: Math.round(Number(opts.vadSilenceTime)) } : {}),
+    ...(opts.maxSpeakTime ? { max_speak_time: Math.round(Number(opts.maxSpeakTime) * 1000) } : {}),
+    ...(Number(opts.noiseThreshold) ? { noise_threshold: Number(opts.noiseThreshold) } : {}),
+    ...(opts.extra || {}),
+  };
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === '') delete params[k];
+  }
+  const encoded = {};
+  for (const [k, v] of Object.entries(params)) encoded[k] = /[^A-Za-z0-9_.~-]/.test(String(v)) ? encodeURIComponent(String(v)) : String(v);
+  const stringToSign = `${HOST}${RECOGNIZE_PREFIX}${creds.appid}?${canonicalQuery(params)}`;
+  const signature = hmacSha1Base64(creds.secretKey, stringToSign);
+  const url = `wss://${HOST}${RECOGNIZE_PREFIX}${creds.appid}?${canonicalQuery(encoded)}&signature=${encodeURIComponent(signature)}`;
   return { url, params, stringToSign, signature, voiceId: params.voice_id };
 }
 
@@ -175,6 +216,8 @@ module.exports = {
   canonicalQuery,
   hmacSha1Base64,
   buildConnection,
+  buildRecognition,
+  RECOGNIZE_PREFIX,
   maskSecret,
   resolveMainland,
   forgetMainland,

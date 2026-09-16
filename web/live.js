@@ -102,7 +102,7 @@
     $('btnPause').addEventListener('click', () => Sub.update({ streaming: !Sub.settings.streaming }));
     $('btnClear').addEventListener('click', () => Sub.post('/api/clear'));
     // 1 Source — the glossary (app config + account) replaces the hotwords textarea inside the desktop app
-    Controls.renderFields($('srcFields'), ['audioDevice', 'source', 'target', 'transModel']);
+    Controls.renderFields($('srcFields'), ['audioDevice', 'pipeline', 'source', 'target', 'transModel']);
     renderGlossaryRow();
     const tune = fold(inApp ? t('live.tuning2') : t('live.tuning'));
     Controls.renderFields(tune.inner, inApp ? ['vadSilenceTime', 'maxSpeakTime', 'filterModal', 'noiseThreshold'] : ['hotwords', 'vadSilenceTime', 'maxSpeakTime', 'filterModal', 'noiseThreshold']);

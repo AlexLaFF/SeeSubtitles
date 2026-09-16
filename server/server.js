@@ -440,7 +440,8 @@ const server = http.createServer(async (req, res) => {
 // else — so a token here is a promise with no one behind it. Measured cost of the extra hop from the box in
 // Hong Kong to the Guangzhou edge: 34 ms round trip, against a pipeline that waits a second of silence to
 // end a sentence.
-const liveProxy = createLiveProxy({ creds, authenticate: (req) => auth.authenticate(req), quotas, planRow, log, env: process.env });
+const liveProxy = createLiveProxy({ creds, authenticate: (req) => auth.authenticate(req), quotas, planRow, log, env: process.env,
+  tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim() });
 server.on('upgrade', (req, socket, head) => {
   if (liveProxy.upgrade(req, socket, head)) return;
   socket.destroy();

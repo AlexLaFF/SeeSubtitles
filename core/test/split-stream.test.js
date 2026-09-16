@@ -1,0 +1,140 @@
+'use strict';
+// The split pipeline against a stand-in for 实时语音识别 and a stand-in for TokenHub: the frames it emits,
+// the rolling translation, the context it passes, the retry, and that a late draft never overwrites a final.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { WebSocketServer } = require('ws');
+const { SplitStream } = require('../split-stream');
+
+const creds = { appid: '1250000000', secretId: 'AKIDtest', secretKey: 'sk' };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const ok = (extra = {}) => JSON.stringify({ code: 0, message: 'success', ...extra });
+const word = (index, text, { end = false, start_time = 0, end_time = 500 } = {}) =>
+  ok({ result: { slice_type: end ? 2 : 1, index, start_time, end_time, voice_text_str: text } });
+
+/** Stand-in for the recognition endpoint. */
+function mockAsr(onConn) {
+  return new Promise((resolve) => {
+    const wss = new WebSocketServer({ port: 0 }, () => resolve({ url: `ws://127.0.0.1:${wss.address().port}`, conns, close }));
+    const conns = [];
+    wss.on('connection', (ws) => {
+      const conn = { ws, chunks: 0 };
+      conns.push(conn);
+      ws.on('message', (data, isBinary) => { if (isBinary) conn.chunks++; });
+      onConn(ws, conn);
+    });
+    function close() { for (const c of wss.clients) c.terminate(); wss.close(); }
+  });
+}
+
+/** Stand-in for TokenHub. `reply(body)` returns either a string (the translation) or an {error} object. */
+function mockTranslate(reply) {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push(body);
+    const out = await reply(body, calls.length);
+    if (out && out.error) return { ok: false, status: out.status || 500, json: async () => ({ error: { message: out.error } }) };
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: out } }] }) };
+  };
+  return { fetchImpl, calls };
+}
+
+async function withCleanup(m, s, fn) {
+  try { await fn(); } finally { s.stop(); await sleep(100); m.close(); }
+}
+
+test('emits the words first, then the rolling translation, then the settled line', async () => {
+  const m = await mockAsr((ws) => {
+    ws.send(ok());
+    setTimeout(() => ws.send(word(1, '今日講營養')), 40);
+    setTimeout(() => ws.send(word(1, '今日講營養同肝臟', { end: true, end_time: 1500 })), 600);
+  });
+  const t = mockTranslate(async (b) => (b.text.length > 6 ? '今天讲营养和肝脏' : '今天讲营养'));
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, rollMs: 100 });
+  const results = [];
+  s.on('result', (r) => results.push(r));
+  await withCleanup(m, s, async () => {
+    s.start();
+    for (let i = 0; i < 8; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(60); }
+    await sleep(500);
+    assert.ok(results.length >= 3, `expected several frames, got ${results.length}`);
+    const first = results[0];
+    assert.equal(first.sourceText, '今日講營養');
+    assert.equal(first.sentenceEnd, false);
+    assert.equal(first.sentenceId, results[1].sentenceId, 'one sentence keeps one id');
+    const final = results.at(-1);
+    assert.equal(final.sentenceEnd, true);
+    assert.equal(final.sourceText, '今日講營養同肝臟');
+    assert.equal(final.targetText, '今天讲营养和肝脏');
+    assert.equal(final.source, 'yue');
+    assert.equal(final.target, 'zh');
+    assert.ok(results.some((r) => r.targetText === '今天讲营养' && !r.sentenceEnd), 'the draft was shown while speaking');
+  });
+});
+
+test('gives the translator the previous lines as context, on the same model', async () => {
+  const m = await mockAsr((ws) => {
+    ws.send(ok());
+    setTimeout(() => ws.send(word(1, '第一句', { end: true })), 40);
+    setTimeout(() => ws.send(word(2, '第二句', { end: true, start_time: 1600, end_time: 2000 })), 300);
+  });
+  const t = mockTranslate(async (b) => `译:${b.text}`);
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, model: 'hy-mt2-pro', contextLines: 2 });
+  await withCleanup(m, s, async () => {
+    s.start();
+    for (let i = 0; i < 6; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(50); }
+    await sleep(300);
+    assert.ok(t.calls.length >= 2, 'both sentences were translated');
+    assert.equal(t.calls[0].context, undefined, 'the first line has nothing before it');
+    assert.equal(t.calls.at(-1).context, '第一句', 'the second line is given the first');
+    assert.ok(t.calls.every((c) => c.model === 'hy-mt2-pro'), 'draft and final use one model');
+  });
+});
+
+test('retries a failed final once, and keeps the draft when translation is down', async () => {
+  const m = await mockAsr((ws) => {
+    ws.send(ok());
+    setTimeout(() => ws.send(word(1, '一句話', { end: true })), 40);
+  });
+  let n = 0;
+  const t = mockTranslate(async () => { n += 1; return n === 1 ? { error: 'HTTP 500' } : '一句话'; });
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl });
+  const results = [];
+  s.on('result', (r) => results.push(r));
+  await withCleanup(m, s, async () => {
+    s.start();
+    for (let i = 0; i < 4; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(50); }
+    await sleep(300);
+    assert.equal(t.calls.length, 2, 'the failed final was tried again');
+    assert.equal(results.at(-1).targetText, '一句话');
+    assert.equal(s.status.translateRetries, 1);
+  });
+});
+
+test('reports a recognition error and keeps the engine and model in its status', async () => {
+  const m = await mockAsr((ws) => { ws.send(JSON.stringify({ code: 4001, message: '参数不合法' })); });
+  const t = mockTranslate(async () => 'x');
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, source: 'ja' });
+  const errors = [];
+  s.on('server-error', (e) => errors.push(e));
+  await withCleanup(m, s, async () => {
+    s.start();
+    await sleep(200);
+    assert.equal(errors[0].code, 4001);
+    assert.equal(s.status.engine, '16k_ja', 'the engine follows the spoken language');
+    assert.equal(s.status.model, 'hy-mt2-pro');
+  });
+});
+
+test('drops audio rather than growing a backlog while disconnected', async () => {
+  const m = await mockAsr(() => { /* never answers, so nothing is ever ready */ });
+  const t = mockTranslate(async () => 'x');
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl });
+  await withCleanup(m, s, async () => {
+    s.start();
+    for (let i = 0; i < 40; i++) s.push(Buffer.alloc(6400), { t0: Date.now() });
+    assert.ok(s.queue.length <= 5, `queue stayed short, was ${s.queue.length}`);
+    assert.ok(s.status.droppedBytes > 0, 'the audio it could not send was counted');
+  });
+});

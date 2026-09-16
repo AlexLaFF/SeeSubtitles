@@ -12,9 +12,13 @@ const { createLocalServer } = require('../local-server');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function start(t, { trusted, liveUrls }) {
+async function start(t, { trusted, liveUrls, pipeline = 'combined' }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'subtitle-route-'));
   const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
+  // The direct route exists only on 实时语音翻译: the split pipeline translates with the TokenHub key, which
+  // no app holds, so its translation happens on the server (desktop/local-server.js).
+  fs.mkdirSync(path.join(root, 'data'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'data', 'settings.json'), JSON.stringify({ pipeline }));
   const audio = path.join(root, 'silence.pcm');
   fs.writeFileSync(audio, Buffer.alloc(32000)); // one second of 16 kHz mono silence; FileCapture loops it
   const asked = [];
@@ -69,4 +73,11 @@ test('a plan that arrives after the talk started moves it onto the direct route'
   await sleep(50);
   assert.equal(h.route().route, 'direct');
   assert.ok(h.asked.length >= 1);
+});
+
+test('the split pipeline has no direct route: its translation needs the key only the server holds', async (t) => {
+  const h = await start(t, { trusted: () => true, liveUrls: async () => { throw new Error('must not be asked'); }, pipeline: 'split' });
+  await sleep(150);
+  assert.equal(h.route().route, 'viaServer', 'even the trusted account goes through the server');
+  assert.equal(h.asked.length, 0, 'and never asks for a signed connection');
 });

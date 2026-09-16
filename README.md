@@ -36,8 +36,8 @@ Subtitling a video or audio file needs no download at all — log in at
 
 ## What it does
 
-**In the room.** A microphone on the speaker. Audio streams to Tencent 实时语音翻译 and each sentence
-comes back translated as it finishes. Show it in a Display window on the projector, a transparent
+**In the room.** A microphone on the speaker. Audio streams to Tencent 实时语音识别, and each sentence is
+translated with 混元翻译 as it is spoken, so the caption rolls rather than appearing whole. Show it in a Display window on the projector, a transparent
 Overlay over your slides on any screen, or a share link and QR code that puts the subtitles on every
 phone — where each attendee picks translation, original or both, at their own text size.
 
@@ -53,7 +53,7 @@ cues, fix the timing, export SRT, VTT, plain text or a burned-in MP4.
 ## How it works
 
 ```
-microphone ─► 48→16 kHz ─► Tencent 实时语音翻译 ─► sentence + translation
+microphone ─► 48→16 kHz ─► 实时语音识别 ─► 混元翻译 ─► sentence + translation
                                                         │
                         ┌───────────────────────────────┼───────────────────────────┐
                         ▼                               ▼                           ▼
@@ -115,21 +115,21 @@ These lists are what the Tencent services answered when every language and pair 
 account, not what the documentation advertises — the two disagree. `npm run probe:languages` runs the same
 check against your own keys and prints tables in this shape.
 
-**Live, in the room — 9 spoken languages, 46 pairs.** 实时语音翻译 refuses anything else at the handshake
-with `6001 参数不合法(not support this lang pair)`, so the app only offers what will connect: choosing a
-spoken language narrows the subtitle language to the column beside it.
+**Live, in the room — 17 spoken languages into 36 subtitle languages.** The spoken language picks a
+recognition engine; the subtitles are whatever 混元翻译 accepts, so any of the 36 can follow any of the 17.
 
-| Spoken | Subtitles can be |
+| | |
 |---|---|
-| 粤语 Cantonese | Mandarin · English · Japanese · Korean · Cantonese |
-| 日本語 Japanese | Mandarin · English · Japanese · Korean · Cantonese |
-| 한국어 Korean | Mandarin · English · Japanese · Korean · Cantonese |
-| 普通话 Mandarin | the five above · Indonesian · Thai |
-| English | the five above · Indonesian · Thai |
-| 中英混合 Mandarin + English | the seven above · itself (each language becomes the other) |
-| Bahasa Indonesia | Mandarin · English · Indonesian |
-| ไทย Thai | Mandarin · English · Thai |
-| Русский Russian | Mandarin · English · Russian |
+| Spoken | 粤语 Cantonese · 普通话 Mandarin · 中英混合 Mandarin + English · English · 日本語 Japanese · 한국어 Korean · Tiếng Việt Vietnamese · Bahasa Melayu Malay · Bahasa Indonesia · Filipino · ไทย Thai · Português Portuguese · Türkçe Turkish · العربية Arabic · Español Spanish · हिन्दी Hindi · Français French · Deutsch German |
+| Subtitles | the 17 above, and Italian · Russian · Polish · Dutch · Czech · Hebrew · Ukrainian · Persian · Urdu · Bengali · Tamil · Telugu · Marathi · Kazakh · Mongolian · Burmese · Khmer · Tibetan · Uyghur |
+
+There is no Traditional Chinese, Nordic, Greek, Romanian, Hungarian or Bulgarian: 混元翻译 refuses them.
+Russian and Italian are subtitle languages only — their recognition engines are not open to this account.
+
+The older pipeline, Tencent's 实时语音翻译, is still there as a setting: one stream that recognises and
+translates, with 9 spoken languages and 46 pairs. It settles each line about a third of a second later and
+rewrites what is already on screen about twice as often — the measurements are in
+[docs/LIVE-PIPELINE-MEASUREMENTS.md](docs/LIVE-PIPELINE-MEASUREMENTS.md).
 
 **Uploaded files — 17 spoken languages into 31 subtitle languages.** Recognition uses 录音文件识别, so the
 list is different: Cantonese, Mandarin (plus a large model covering Mandarin, Cantonese, English and 28

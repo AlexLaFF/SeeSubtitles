@@ -8,10 +8,16 @@
 
   const DEFAULT_FONT = '"PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif';
 
-  // Languages of 实时语音翻译. LIVE_PAIRS is not the documentation's list: it is what the API answered when
-  // every combination was actually opened against this account (server/probe-languages.js --live --pairs,
-  // last run 2026-09-10). Anything missing here is refused at the handshake with
-  // `6001 参数不合法(not support this lang pair: X to Y)`, so offering it would only produce a dead stream.
+  // Two live pipelines, two language lists.
+  //
+  // `combined` is 实时语音翻译, one Tencent stream that recognises and translates. COMBINED_PAIRS is not the
+  // documentation's list: it is what the API answered when every combination was actually opened against this
+  // account (server/probe-languages.js --live --pairs, 2026-09-10). Anything missing is refused at the
+  // handshake with `6001 参数不合法(not support this lang pair: X to Y)`.
+  //
+  // `split` is 实时语音识别 plus our own 混元翻译 call (core/split-stream.js). Its spoken languages are the
+  // recognition engines this account may open, and its subtitle languages are what hy-mt2 accepts — both
+  // checked against the account on 2026-09-16, and written up in docs/LIVE-PIPELINE-MEASUREMENTS.md.
   const LANG_NAMES = {
     yue: '粤语 Cantonese',
     zh: '普通话 Mandarin',
@@ -22,8 +28,36 @@
     id: 'Bahasa Indonesia',
     th: 'ไทย Thai',
     ru: 'Русский Russian',
+    fr: 'Français French',
+    de: 'Deutsch German',
+    es: 'Español Spanish',
+    pt: 'Português Portuguese',
+    it: 'Italiano Italian',
+    vi: 'Tiếng Việt Vietnamese',
+    ms: 'Bahasa Melayu Malay',
+    fil: 'Filipino',
+    tr: 'Türkçe Turkish',
+    ar: 'العربية Arabic',
+    hi: 'हिन्दी Hindi',
+    pl: 'Polski Polish',
+    nl: 'Nederlands Dutch',
+    cs: 'Čeština Czech',
+    he: 'עברית Hebrew',
+    uk: 'Українська Ukrainian',
+    fa: 'فارسی Persian',
+    ur: 'اردو Urdu',
+    bn: 'বাংলা Bengali',
+    ta: 'தமிழ் Tamil',
+    te: 'తెలుగు Telugu',
+    mr: 'मराठी Marathi',
+    kk: 'Қазақша Kazakh',
+    mn: 'Монгол Mongolian',
+    my: 'မြန်မာ Burmese',
+    km: 'ភាសាខ្មែរ Khmer',
+    bo: 'བོད་སྐད Tibetan',
+    ug: 'ئۇيغۇرچە Uyghur',
   };
-  const LIVE_PAIRS = {
+  const COMBINED_PAIRS = {
     yue: ['zh', 'en', 'ja', 'ko', 'yue'],
     zh: ['zh', 'en', 'ja', 'ko', 'yue', 'id', 'th'],
     zh_en: ['zh_en', 'zh', 'en', 'ja', 'ko', 'yue', 'id', 'th'],
@@ -34,29 +68,74 @@
     th: ['zh', 'en', 'th'],
     ru: ['zh', 'en', 'ru'],
   };
-  const SOURCES = Object.keys(LIVE_PAIRS).map((k) => [k, LANG_NAMES[k]]);
-  const TARGETS = [...new Set(Object.values(LIVE_PAIRS).flat())].map((k) => [k, LANG_NAMES[k]]);
+  // What hy-mt2 translates, in both directions. Everything else it refuses with `语言不支持`; there is no
+  // Traditional Chinese, no Nordic, Greek, Romanian, Hungarian or Bulgarian, and no auto-detect.
+  const SPLIT_TARGETS = ['zh', 'yue', 'en', 'ja', 'ko', 'fr', 'de', 'es', 'pt', 'it', 'ru', 'ar', 'hi', 'th', 'vi',
+    'id', 'ms', 'fil', 'tr', 'pl', 'nl', 'cs', 'he', 'uk', 'fa', 'ur', 'bn', 'ta', 'te', 'mr', 'kk', 'mn', 'my',
+    'km', 'bo', 'ug'];
+  // Spoken languages: a recognition engine this account may open (core/split-stream.js, ENGINE_FOR) that hy-mt2
+  // also takes as a source. Russian and Italian are subtitle languages only — `16k_ru` and `16k_it` are refused.
+  const SPLIT_SOURCES = ['yue', 'zh', 'zh_en', 'en', 'ja', 'ko', 'vi', 'ms', 'id', 'fil', 'th', 'pt', 'tr', 'ar',
+    'es', 'hi', 'fr', 'de'];
+  const SPLIT_PAIRS = Object.fromEntries(SPLIT_SOURCES.map((source) => [
+    source, SPLIT_TARGETS.includes(source) ? SPLIT_TARGETS : [source, ...SPLIT_TARGETS],
+  ]));
+  const PAIRS = { combined: COMBINED_PAIRS, split: SPLIT_PAIRS };
+  const PIPELINES = ['split', 'combined'];
+  const DEFAULT_PIPELINE = 'split';
+  const LIVE_PAIRS = COMBINED_PAIRS; // the old name, for callers that still mean 实时语音翻译
+
+  /** The languages of one pipeline. Unknown names fall back to the one the app ships with. */
+  const pairsFor = (pipeline) => PAIRS[pipeline] || PAIRS[DEFAULT_PIPELINE];
+  const sourcesFor = (pipeline) => Object.keys(pairsFor(pipeline)).map((k) => [k, LANG_NAMES[k]]);
+  const SOURCES = sourcesFor(DEFAULT_PIPELINE);
+  const TARGETS = [...new Set(Object.values(SPLIT_PAIRS).flat())].map((k) => [k, LANG_NAMES[k]]);
   /** Subtitle languages this spoken language can be translated into. Never empty; source === target transcribes. */
-  const targetsFor = (source) => LIVE_PAIRS[source] || LIVE_PAIRS.yue;
-  /** `target` when the API accepts the pair, else the first target it does accept for `source`. */
-  const coerceTarget = (source, target) => (targetsFor(source).includes(target) ? target : targetsFor(source)[0]);
+  const targetsFor = (source, pipeline = DEFAULT_PIPELINE) => {
+    const pairs = pairsFor(pipeline);
+    return pairs[source] || pairs[Object.keys(pairs)[0]];
+  };
+  /** `target` when the pipeline accepts the pair, else the first target it does accept for `source`. */
+  const coerceTarget = (source, target, pipeline = DEFAULT_PIPELINE) =>
+    (targetsFor(source, pipeline).includes(target) ? target : targetsFor(source, pipeline)[0]);
+  /** The spoken language the pipeline accepts, or the one it opens with. */
+  const coerceSource = (source, pipeline = DEFAULT_PIPELINE) =>
+    (pairsFor(pipeline)[source] ? source : Object.keys(pairsFor(pipeline))[0]);
+  // The translation model, which depends on the pipeline: 实时语音翻译 carries Hunyuan's own two, the split
+  // pipeline calls TokenHub. hy-mt2-pro reads best and is what recordings and exports already use; it is
+  // limited to 60 requests a minute on this account, about one live talk, so hy-mt2-plus is the one to pick
+  // when several talks run at once.
+  const TRANS_MODELS = {
+    combined: [['hunyuan-translation-lite', 'hunyuan-translation-lite (fast)'], ['hunyuan-translation', 'hunyuan-translation (quality)']],
+    split: [['hy-mt2-pro', 'hy-mt2-pro (best)'], ['hy-mt2-plus', 'hy-mt2-plus (no rate limit)'], ['hy-mt2-lite', 'hy-mt2-lite (fastest)']],
+  };
+  const modelsFor = (pipeline) => TRANS_MODELS[pipeline] || TRANS_MODELS[DEFAULT_PIPELINE];
+  const DEFAULT_MODEL = { combined: 'hunyuan-translation', split: 'hy-mt2-pro' };
+  /** `model` when the pipeline offers it, else that pipeline's default. */
+  const coerceModel = (pipeline, model) =>
+    (modelsFor(pipeline).some(([k]) => k === model) ? model : DEFAULT_MODEL[pipeline] || DEFAULT_MODEL[DEFAULT_PIPELINE]);
 
   const FIELDS = [
     // input
     { key: 'audioDevice', group: 'input', label: 'Microphone', type: 'device', default: 'default' },
-    { key: 'source', group: 'input', label: 'Spoken language', type: 'select', options: SOURCES, default: 'yue' },
+    { key: 'pipeline', group: 'input', label: 'Live pipeline', type: 'select', default: DEFAULT_PIPELINE,
+      options: [['split', '识别 + 翻译 recognise, then translate'], ['combined', '实时语音翻译 one Tencent stream']],
+      hint: 'The split pipeline settles a line sooner, survives a network stall and offers more languages; the combined one is Tencent\'s own.' },
+    { key: 'source', group: 'input', label: 'Spoken language', type: 'select', options: SOURCES, default: 'yue',
+      optionsFor: (s) => sourcesFor(s.pipeline).map(([k]) => k) },
     { key: 'target', group: 'input', label: 'Subtitle language', type: 'select', options: TARGETS, default: 'zh',
-      optionsFor: (s) => targetsFor(s.source) },
-    { key: 'transModel', group: 'input', label: 'Model', type: 'select', default: 'hunyuan-translation-lite',
-      options: [['hunyuan-translation-lite', 'hunyuan-translation-lite (fast)'], ['hunyuan-translation', 'hunyuan-translation (quality)']] },
+      optionsFor: (s) => targetsFor(s.source, s.pipeline) },
+    { key: 'transModel', group: 'input', label: 'Translation model', type: 'select', default: DEFAULT_MODEL[DEFAULT_PIPELINE],
+      options: [...TRANS_MODELS.split, ...TRANS_MODELS.combined],
+      optionsFor: (s) => modelsFor(s.pipeline).map(([k]) => k) },
     { key: 'streaming', group: 'input', label: 'Streaming on', type: 'bool', default: true, persist: false },
     // recognition tuning (Tencent request parameters; applied at the next connection)
     { key: 'hotwords', group: 'input', label: 'Hotwords', type: 'textarea', default: '', placeholder: '每行一个：词|权重（1–11，或 100 强制）\n张培光|10\n安利|8',
       hint: 'Names, brands and terms the recognizer should prefer. One per line as 词|权重. Up to 128.' },
-    { key: 'vadSilenceTime', group: 'input', label: 'Pause that ends a sentence', type: 'range', min: 500, max: 2000, step: 50, unit: 'ms', default: 1000,
-      hint: 'Shorter = sentences finalize sooner after the speaker pauses; longer = fewer, longer sentences.' },
-    { key: 'maxSpeakTime', group: 'input', label: 'Force a split after', type: 'range', min: 5, max: 90, step: 1, unit: 's', default: 10,
-      hint: 'Continuous speech is cut into a sentence after this long.' },
+    { key: 'vadSilenceTime', group: 'input', label: 'Pause that ends a sentence', type: 'range', min: 500, max: 2000, step: 50, unit: 'ms', default: 700,
+      hint: 'Shorter = sentences finalize sooner after the speaker pauses; longer = fewer, longer sentences. 700 ms reads best; above 800 the engine behaves as if it were off.' },
+    { key: 'maxSpeakTime', group: 'input', label: 'Force a split after', type: 'range', min: 5, max: 90, step: 1, unit: 's', default: 6,
+      hint: 'Continuous speech is cut into a sentence after this long. Six seconds keeps the wait for a line under about seven.' },
     { key: 'filterModal', group: 'input', label: 'Filter filler words', type: 'select', default: '0',
       options: [['0', 'Keep 啊/啦/呢 (default)'], ['1', 'Filter some'], ['2', 'Filter strictly']],
       hint: 'Drops 语气词 from the recognized text before translation. Cleaner subtitles, slightly less of the speaker\'s tone.' },
@@ -165,5 +244,7 @@
     return out;
   }
 
-  return { FIELDS, GROUPS, PRESETS, byKey, defaults, sanitize, DEFAULT_FONT, LANG_NAMES, LIVE_PAIRS, targetsFor, coerceTarget };
+  return { FIELDS, GROUPS, PRESETS, byKey, defaults, sanitize, DEFAULT_FONT, LANG_NAMES,
+    LIVE_PAIRS, COMBINED_PAIRS, SPLIT_PAIRS, SPLIT_SOURCES, SPLIT_TARGETS, PAIRS, PIPELINES, DEFAULT_PIPELINE,
+    TRANS_MODELS, DEFAULT_MODEL, pairsFor, sourcesFor, modelsFor, targetsFor, coerceTarget, coerceSource, coerceModel };
 });
