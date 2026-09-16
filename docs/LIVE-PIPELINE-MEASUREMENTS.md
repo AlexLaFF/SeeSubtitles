@@ -276,3 +276,32 @@ double the spoken languages and any of 36 subtitle languages from each.
 Untested: every language except Cantonese into Mandarin. Right-to-left scripts (Arabic, Hebrew, Persian, Urdu) and
 Thai, Burmese, Khmer, Tibetan, Uyghur and the Indic scripts need fonts the app does not bundle; the display, poster
 and burned-in video each need checking per script before any of them is offered.
+
+## The shipped pipeline, measured through the relay (16 September, evening)
+
+Everything above was measured with `server/probe-ab.js`, which drives the services directly. This is the same
+four talks streamed through what the app actually uses: a client sending 200 ms frames to
+`server/lib/live-proxy.js`, which runs `core/split-stream.js` — 700 ms pause, 6 s cap, `hy-mt2-pro` with two
+lines of context.
+
+| talk | lines, probe → relay | a line settles | p90 | Cantonese heard | glossary terms heard |
+|---|---|---|---|---|---|
+| 13:47 | 143 → 144 | 805 → 846 ms | 924 → 953 ms | 1888 → 1902 chars | 13/36 → 13/36 |
+| 16:33 | 146 → 145 | 806 → 853 ms | 955 → 965 ms | 1577 → 1583 chars | 14/28 → 14/28 |
+| 19:27 | 143 → 142 | 807 → 843 ms | 940 → 958 ms | 1903 → 1908 chars | 11/23 → 11/23 |
+| 9:32 | 126 → 126 | 790 → 832 ms | 944 → 977 ms | 1918 → 1911 chars | 20/32 → 21/32 |
+
+Recognition is identical within a rounding error, and a line settles about 40 ms later than the probe measured —
+the hop from the app to the relay, which the probe does not have.
+
+**Two differences the check found were ours, and both are fixed.** Pacing the recognition socket the way
+实时语音翻译 must be paced (a chunk per 200 ms tick) put 1099 ms between the speaker and a settled line instead of
+846; 实时语音识别 has no three-to-one rule, so audio now goes out as it arrives. And the rolling draft was being
+translated without the context the final was given, so the wording changed every time a line settled.
+
+**One difference is real but smaller than it looks.** Counting rewrites of text that had been on screen for 1.5 s,
+the relay shows about twice the probe's figure (20 against 10 per 100 lines on the 13:47 talk). The rewrites are
+the same size — both keep 40% of the line — and the relay makes slightly *fewer* revisions in total (412 against
+455). What differs is that the last draft sits about 300 ms longer before the final replaces it, which pushes many
+lines across the 1.5 s line: at a 0.8 s threshold the two are 67 and 62. Rolling faster would close it, but at
+600 ms a talk needs about 70 translations a minute, past `hy-mt2-pro`'s limit of 60.
