@@ -116,7 +116,25 @@ class JobRunner extends EventEmitter {
     } else if (tokenhubKey) {
       this.backend = 'tokenhub';
       this.model = model || tokenhub.DEFAULT_MODEL;
-      this.translate = ({ text, source, target }) => tokenhub.translate(tokenhubKey, { model: this.model, text, source, target });
+      // A model the account may not use is refused on every call; step down once and stay there, so a
+      // file still comes back translated (server/lib/tokenhub.js, NEXT_MODEL).
+      this.translate = async ({ text, source, target }) => {
+        for (;;) {
+          const model = this.model; // cues can be translated side by side; another may step down first
+          try {
+            return await tokenhub.translate(tokenhubKey, { model, text, source, target });
+          } catch (err) {
+            const isRefusal = err instanceof tokenhub.TokenHubError && tokenhub.isRefused(err.status, err.body, err.message);
+            if (!isRefusal) throw err;
+            if (this.model === model) {
+              const next = tokenhub.nextModel(model);
+              if (!next) throw err;
+              this.log('warn', `translation: TokenHub refused ${model} (${String(err.message).slice(0, 120)}) — using ${next} from now on`);
+              this.model = next;
+            }
+          }
+        }
+      };
     } else {
       this.backend = 'hunyuan-legacy';
       this.model = model || LEGACY_MODEL;

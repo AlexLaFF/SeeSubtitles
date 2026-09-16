@@ -25,6 +25,12 @@ const STABLE_MS = 30_000; // a connection this old counts as healthy, so the bac
 const BACKOFF_MS = [500, 1000, 2000, 5000, 10_000];
 const TRANSLATE_URL = 'https://tokenhub.tencentmaas.com/v1/api/translations';
 const TUNING_KEYS = ['hotwords', 'vadSilenceTime', 'maxSpeakTime', 'noiseThreshold', 'filterModal', 'engine'];
+// A model the account may not use (trial quota spent, postpaid billing off) is refused on every call. Step down
+// and stay there: a lesser translation beats a subtitle track with nothing in it. Mirrors server/lib/tokenhub.js.
+const NEXT_MODEL = { 'hy-mt2-pro': 'hy-mt2-plus', 'hy-mt2-plus': 'hy-mt2-lite' };
+const refused = (status, body) => status === 402 || status === 403
+  || /permission_error/.test(String((body && body.error && body.error.type) || ''))
+  || /postpaid billing|free trial quota|not enabled/i.test(String((body && body.error && body.error.message) || ''));
 
 /** The recognition engine for a spoken language, unless one was named. 16k_zh_large also hears Cantonese. */
 const ENGINE_FOR = {
@@ -62,6 +68,7 @@ class SplitStream extends EventEmitter {
     this.retries = 0;
     this.failures = 0;
     this.lastError = null;
+    this.modelFallback = null; // {from, to, reason} once a refused model has been stepped down from
     this.lastSentAt = 0;
     this.mainland = { ip: null, bad: [] };
     this.done = []; // settled sentences, newest last — the context the next translation is given
@@ -75,7 +82,7 @@ class SplitStream extends EventEmitter {
       keyless: !this.creds || !!this.opts.urlFor,
       engine: this._engine(), model: this.opts.model, source: this.opts.source, target: this.opts.target,
       translateCalls: this.calls, translateRetries: this.retries, translateFailures: this.failures,
-      keepalives: this.keepalives, droppedBytes: this.dropped, lastError: this.lastError,
+      keepalives: this.keepalives, droppedBytes: this.dropped, lastError: this.lastError, modelFallback: this.modelFallback,
     };
   }
 
@@ -321,6 +328,7 @@ class SplitStream extends EventEmitter {
     const key = (this.opts.tokenhubKey || '').trim();
     if (!key) return '';
     for (let attempt = 0; attempt <= (final ? 1 : 0); attempt++) {
+      const model = this.opts.model; // what this call asks for — another call may step down meanwhile
       this.calls++;
       if (attempt) this.retries++;
       try {
@@ -328,13 +336,23 @@ class SplitStream extends EventEmitter {
           method: 'POST',
           headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: this.opts.model, text, source: this.opts.source, target: this.opts.target,
+            model, text, source: this.opts.source, target: this.opts.target,
             ...(context ? { context } : {}),
           }),
         });
         const body = await res.json();
         if (res.ok && body && body.choices && body.choices[0]) return (body.choices[0].message.content || '').trim();
         const message = (body && body.error && body.error.message) || `HTTP ${res.status}`;
+        if (refused(res.status, body)) {
+          if (this.opts.model === model && NEXT_MODEL[model]) {
+            this.modelFallback = { from: model, to: NEXT_MODEL[model], reason: message.slice(0, 160) };
+            this.opts.model = NEXT_MODEL[model];
+            this._log(`✖ TokenHub refused ${model} (${message.slice(0, 120)}) — translating with ${this.opts.model} from now on`);
+            this.emit('status', this.status);
+          }
+          // a model that has since been stepped down from is simply asked again on the current one
+          if (this.opts.model !== model) { attempt--; continue; }
+        }
         if (!final || attempt) { this.failures++; this._log(`✖ translation: ${message.slice(0, 120)}`); }
       } catch (err) {
         if (!final || attempt) { this.failures++; this._log(`✖ translation: ${err.message.slice(0, 120)}`); }

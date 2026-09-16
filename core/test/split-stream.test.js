@@ -132,6 +132,31 @@ test('retries a failed final once, and keeps the draft when translation is down'
   });
 });
 
+test('a model the account may not use is stepped down from once, even with drafts in flight', async () => {
+  const m = await mockAsr((ws) => {
+    ws.send(ok());
+    setTimeout(() => ws.send(word(1, '一二三四五')), 40);
+    setTimeout(() => ws.send(word(1, '一二三四五六七')), 120);
+    setTimeout(() => ws.send(word(1, '一二三四五六七八九', { end: true, end_time: 900 })), 220);
+  });
+  // pro answers the way TokenHub did once its free trial ran out; plus translates
+  const t = mockTranslate(async (b) => (b.model === 'hy-mt2-pro'
+    ? { status: 402, error: 'The free trial quota for the service has been exhausted and postpaid billing is not enabled' }
+    : `plus:${b.text}`));
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, rollMs: 50 });
+  const results = [];
+  s.on('result', (r) => results.push(r));
+  await withCleanup(m, s, async () => {
+    s.start();
+    for (let i = 0; i < 6; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(60); }
+    await sleep(300);
+    assert.equal(results.at(-1).targetText, 'plus:一二三四五六七八九', 'the line still came back translated');
+    assert.equal(s.status.model, 'hy-mt2-plus', 'it stepped down one model, not past plus to lite');
+    assert.deepEqual([s.status.modelFallback.from, s.status.modelFallback.to], ['hy-mt2-pro', 'hy-mt2-plus']);
+    assert.ok(!t.calls.some((c) => c.model === 'hy-mt2-lite'), 'lite was never asked');
+  });
+});
+
 test('reports a recognition error and keeps the engine and model in its status', async () => {
   const m = await mockAsr((ws) => { ws.send(JSON.stringify({ code: 4001, message: '参数不合法' })); });
   const t = mockTranslate(async () => 'x');

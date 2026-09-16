@@ -10,6 +10,11 @@ const https = require('node:https');
 
 const DEFAULT_BASE = 'https://tokenhub.tencentmaas.com';
 const DEFAULT_MODEL = 'hy-mt2-pro';
+// When the account may not use a model — its free trial quota is spent and postpaid billing is off, or it was
+// never enabled — every call to it is refused the same way, and no retry will change that. The next model down
+// still translates, less well, which beats a subtitle track with nothing in it. (hy-mt2-pro's trial ran out on
+// 2026-09-17 during testing: `402 401008 The free trial quota for the service has been exhausted`.)
+const NEXT_MODEL = { 'hy-mt2-pro': 'hy-mt2-plus', 'hy-mt2-plus': 'hy-mt2-lite' };
 
 class TokenHubError extends Error {
   constructor(status, message, body) {
@@ -56,4 +61,15 @@ function translate(apiKey, { model = DEFAULT_MODEL, text, source, target, contex
   });
 }
 
-module.exports = { translate, TokenHubError, DEFAULT_MODEL, DEFAULT_BASE };
+/** A refusal that says this account may not use the model at all, as opposed to a slow or busy moment. */
+function isRefused(status, body, message = '') {
+  const err = body && body.error;
+  return status === 402 || status === 403
+    || (err && /permission_error/.test(String(err.type || '')))
+    || /postpaid billing|free trial quota|not enabled/i.test(String((err && err.message) || message));
+}
+
+/** The model to try when `model` is refused, or null when there is nothing below it. */
+const nextModel = (model) => NEXT_MODEL[model] || null;
+
+module.exports = { translate, TokenHubError, DEFAULT_MODEL, DEFAULT_BASE, NEXT_MODEL, isRefused, nextModel };
