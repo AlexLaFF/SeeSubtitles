@@ -206,7 +206,7 @@ function watchScreen(url) {
 }
 
 /** Play one recording through the app as a live talk; optionally record it and share it to a screen. */
-async function talk(server, app, clip, { record = true, share = false } = {}) {
+async function talk(server, app, clip, { record = true, share = false, pipeline = 'split' } = {}) {
   const lines = new Map();
   app.core.emitter.on('event', (ev, d) => { if (ev === 'line' && d && d.id) lines.set(d.id, d); });
   let screen = null;
@@ -214,7 +214,7 @@ async function talk(server, app, clip, { record = true, share = false } = {}) {
     await app.cloud.startSession(`e2e ${clip.key}`);
     screen = watchScreen(`${server.base}/api/d/${app.cloud.session.code}/stream`);
   }
-  app.core.applySettings({ source: clip.source, target: clip.target, hotwords: clip.hotwords || '' }, null);
+  app.core.applySettings({ pipeline, source: clip.source, target: clip.target, hotwords: clip.hotwords || '' }, null);
   app.core.applySettings({ streaming: true }, null);
   const t0 = Date.now();
   await waitFor('the live stream to be ready', () => app.core.status().stream.state === 'ready', 30_000);
@@ -486,11 +486,13 @@ async function main() {
         must(seen >= Math.ceil(t.lines.length / 2), `the shared screen saw ${seen} of ${t.lines.length} subtitles`);
         return `${t.lines.length} subtitles, ${charged} s charged for ${streamed} s, screen saw ${seen}`;
       }),
-      check('live: the owner goes straight to Tencent, holds no key, and the glossary is heard', async () => {
+      // The split pipeline translates with the TokenHub key, which no app holds, so every account is relayed —
+      // the owner included. 实时语音翻译 is the one that still has a route straight to Tencent, checked below.
+      check('live: the owner\'s talk is relayed, holds no key, and the glossary is heard', async () => {
         ownerTalk = await talk(server, owner, clips.glossary, { record: true });
         const t = ownerTalk;
-        must(t.route === 'direct', `it went ${t.route}`);
-        must(t.keyless === true, 'the direct stream holds a key');
+        must(t.route === 'viaServer', `it went ${t.route}`);
+        must(t.keyless === true, 'the stream holds a key');
         must(t.lines.length >= clips.glossary.minLines, `only ${t.lines.length} subtitles for ${clips.glossary.seconds} s of speech`);
         const heard = t.lines.map((l) => l.sourceText).join('');
         const missing = clips.glossary.mustHear.filter((w) => !heard.includes(w));
@@ -500,6 +502,17 @@ async function main() {
         return `${t.lines.length} subtitles, heard ${clips.glossary.mustHear.join(' and ')}`;
       }),
     ]);
+
+    // The other pipeline, which is what runs when TokenHub is unreachable and where the owner's direct route lives.
+    await check('live: on 实时语音翻译 the owner still goes straight to Tencent, holding no key', async () => {
+      const t = await talk(server, owner, clips.glossary, { record: false, pipeline: 'combined' });
+      must(t.route === 'direct', `it went ${t.route}`);
+      must(t.keyless === true, 'the direct stream holds a key');
+      must(t.lines.length >= clips.glossary.minLines, `only ${t.lines.length} subtitles for ${clips.glossary.seconds} s of speech`);
+      const trad = traditionalIn(t.lines.map((l) => l.targetText).join(''));
+      must(!trad.length, `Traditional characters in the subtitles: ${trad.slice(0, 8).join('')}`);
+      return `${t.lines.length} subtitles on the combined pipeline`;
+    });
 
     // ---- what a talk leaves behind -------------------------------------------------------------------------------
     for (const [who, app, t, clip] of [['member', member, memberTalk, clips.baseline], ['owner', owner, ownerTalk, clips.glossary]]) {
