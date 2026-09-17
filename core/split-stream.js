@@ -13,8 +13,9 @@
 // for the draft with a better one for the final doubles how often a line the audience has already read is
 // rewritten.
 const WebSocket = require('ws');
+const dns = require('node:dns').promises;
 const { EventEmitter } = require('node:events');
-const { buildRecognition, resolveMainland, pinnedOptions } = require('./tencent');
+const { buildRecognition, resolveMainland, forgetMainland, pinnedOptions, HOST } = require('./tencent');
 
 const CHUNK_MS = 200;
 const CHUNK_BYTES = 6400;
@@ -32,6 +33,18 @@ const refused = (status, body) => status === 402 || status === 403
   || /permission_error/.test(String((body && body.error && body.error.type) || ''))
   || /postpaid billing|free trial quota|not enabled/i.test(String((body && body.error && body.error.message) || ''));
 
+const EDGE_TRIES = 3; // mainland connections that may fail in a row before one attempt goes the ordinary way
+
+/**
+ * The Guangzhou edge. Outside the mainland, DNS answers with an overseas edge — Singapore, from the Hong Kong
+ * server — and recognition reached there is billed 跨境: ¥11.00 an hour for 16k_zh_large against ¥4.80. The
+ * resolver asks Chinese DNS with a mainland client subnet, and is told to skip whatever ordinary DNS returned.
+ */
+async function mainlandEdge({ force }) {
+  const system = await dns.resolve4(HOST).catch(() => []);
+  return resolveMainland({ force, avoid: system });
+}
+
 /** The recognition engine for a spoken language, unless one was named. 16k_zh_large also hears Cantonese. */
 const ENGINE_FOR = {
   yue: '16k_zh_large', zh: '16k_zh_large', zh_en: '16k_zh_en_2.0', en: '16k_en_large', ja: '16k_ja', ko: '16k_ko',
@@ -45,7 +58,8 @@ class SplitStream extends EventEmitter {
    * @param {{source?:string, target?:string, engine?:string, model?:string, tokenhubKey?:string, rollMs?:number,
    *          contextLines?:number, hotwords?:string, vadSilenceTime?:number, maxSpeakTime?:number,
    *          noiseThreshold?:number, filterModal?:number, edge?:string, wsUrl?:string,
-   *          fetchImpl?:Function, urlFor?:Function}} [opts]
+   *          fetchImpl?:Function, urlFor?:Function, resolveEdge?:Function}} [opts]
+   *   edge: 'cn' reaches Tencent through the Guangzhou edge (billed as mainland use); anything else uses ordinary DNS.
    */
   constructor(creds, opts = {}) {
     super();
@@ -70,7 +84,9 @@ class SplitStream extends EventEmitter {
     this.lastError = null;
     this.modelFallback = null; // {from, to, reason} once a refused model has been stepped down from
     this.lastSentAt = 0;
-    this.mainland = { ip: null, bad: [] };
+    this.resolveEdge = opts.resolveEdge || mainlandEdge;
+    this.mainland = { ip: null, failures: 0 }; // failures: connections through it that failed in a row
+    this.edge = null; // where the current connection went: 'mainland <ip>', 'overseas' or 'system'
     this.done = []; // settled sentences, newest last — the context the next translation is given
     this.rolling = null; // the sentence being spoken right now
   }
@@ -83,6 +99,7 @@ class SplitStream extends EventEmitter {
       engine: this._engine(), model: this.opts.model, source: this.opts.source, target: this.opts.target,
       translateCalls: this.calls, translateRetries: this.retries, translateFailures: this.failures,
       keepalives: this.keepalives, droppedBytes: this.dropped, lastError: this.lastError, modelFallback: this.modelFallback,
+      edge: this.edge,
     };
   }
 
@@ -160,11 +177,10 @@ class SplitStream extends EventEmitter {
       this._log(`✖ could not sign a recognition connection: ${err.message}`);
       return this._retry(err.message);
     }
-    if (this.opts.edge === 'cn' && !this.mainland.ip) {
-      this.mainland.ip = await resolveMainland({ bad: this.mainland.bad }).catch(() => null);
-    }
-    const ws = new WebSocket(url, { handshakeTimeout: 10_000, ...pinnedOptions(this.mainland.ip) });
-    const sock = { ws, voiceId: voiceId || `v${Date.now()}`, openedAt: 0, authenticated: false, streamMs: 0, timeOffset: null, sent: 0 };
+    const ip = await this._edgeIp();
+    if (!this.running) return;
+    const ws = new WebSocket(url, { handshakeTimeout: 10_000, ...pinnedOptions(ip) });
+    const sock = { ws, ip, voiceId: voiceId || `v${Date.now()}`, openedAt: 0, authenticated: false, streamMs: 0, timeOffset: null, sent: 0 };
     this.sock = sock;
     ws.on('open', () => { sock.openedAt = Date.now(); this.connects++; });
     ws.on('unexpected-response', (_req, res) => {
@@ -177,8 +193,33 @@ class SplitStream extends EventEmitter {
       if (this.sock !== sock) return;
       this.sock = null;
       if (!this.running) return;
+      if (sock.ip && !sock.authenticated) this._edgeFailed(sock.ip);
       this._retry(`socket closed ${code}${reason ? ` ${reason}` : ''}`);
     });
+  }
+
+  /** The address to pin this connection to, or null for ordinary DNS. */
+  async _edgeIp() {
+    if (this.opts.edge !== 'cn' || this.opts.wsUrl) { this.edge = 'system'; return null; }
+    const m = this.mainland;
+    // a talk with subtitles billed 跨境 beats a talk without: after EDGE_TRIES failures in a row, one attempt goes overseas
+    if (m.failures && m.failures % EDGE_TRIES === 0) {
+      this._log(`✖ the mainland edge failed ${m.failures} connections in a row — this one goes the ordinary way (billed 跨境)`);
+      this.edge = 'overseas';
+      return null;
+    }
+    if (!m.ip) {
+      m.ip = await this.resolveEdge({ force: m.failures > 0 }).catch((err) => { this._log(`✖ mainland edge: ${err.message}`); return null; });
+      if (m.ip) this._log(`using the mainland edge ${m.ip}`);
+    }
+    this.edge = m.ip ? `mainland ${m.ip}` : 'overseas';
+    return m.ip;
+  }
+
+  /** A connection through the mainland edge closed before it was ready: look the edge up afresh next time. */
+  _edgeFailed(ip) {
+    this.mainland.failures++;
+    if (this.mainland.ip === ip) { this.mainland.ip = null; forgetMainland(); }
   }
 
   _tuning() {
@@ -246,6 +287,7 @@ class SplitStream extends EventEmitter {
     }
     if (!sock.authenticated) {
       sock.authenticated = true;
+      if (sock.ip) this.mainland.failures = 0;
       this.lastError = null;
       this._setState('ready');
       this._log(`✔ recognition ready (${this._engine()} → ${this.opts.model})`);

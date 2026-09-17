@@ -183,3 +183,25 @@ test('drops audio rather than growing a backlog while disconnected', async () =>
     assert.ok(s.status.droppedBytes > 0, 'the audio it could not send was counted');
   });
 });
+
+test('reaches Tencent through the mainland edge, and goes the ordinary way only after it fails three times running', async () => {
+  const asked = [];
+  const s = new SplitStream(creds, { tokenhubKey: 'k', edge: 'cn', resolveEdge: async (o) => { asked.push(o); return '106.55.89.122'; } });
+  const logs = [];
+  s.on('log', (t) => logs.push(t));
+  assert.equal(await s._edgeIp(), '106.55.89.122');
+  assert.equal(s.status.edge, 'mainland 106.55.89.122');
+  assert.equal(await s._edgeIp(), '106.55.89.122');
+  assert.equal(asked.length, 1, 'the edge is looked up once, not per connection');
+
+  for (let i = 0; i < 3; i++) { s._edgeFailed('106.55.89.122'); if (i < 2) assert.equal(await s._edgeIp(), '106.55.89.122'); }
+  assert.ok(asked.slice(1).every((o) => o.force), 'after a failure the edge is looked up afresh');
+  assert.equal(await s._edgeIp(), null, 'the third failure in a row sends one attempt the ordinary way');
+  assert.equal(s.status.edge, 'overseas');
+  assert.ok(logs.some((t) => /跨境/.test(t)), 'and says it will be billed 跨境');
+  s._edgeFailed('106.55.89.122');
+  assert.equal(await s._edgeIp(), '106.55.89.122', 'the attempt after that is mainland again');
+
+  assert.equal(await new SplitStream(creds, { tokenhubKey: 'k', edge: 'auto' })._edgeIp(), null, "'auto' uses ordinary DNS");
+  assert.equal(await new SplitStream(creds, { tokenhubKey: 'k', edge: 'cn', wsUrl: 'ws://127.0.0.1:1' })._edgeIp(), null, 'a stand-in is reached directly');
+});

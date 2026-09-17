@@ -27,6 +27,13 @@ often a line the audience has already read is rewritten. A pause of 700 ms ends 
 Tencent's own 实时语音翻译 is still there as `combined`, and is the fallback if TokenHub is unreachable. Why, with
 numbers: docs/LIVE-PIPELINE-MEASUREMENTS.md. Recordings and exports were already on `hy-mt2-pro`.
 
+**Tencent is reached through its Guangzhou edge** (`TENCENT_EDGE`, default `cn`, server/lib/live-proxy.js). From the Hong
+Kong server ordinary DNS answers with Singapore, and 实时语音识别 reached there is billed 跨境 — ¥11.00 an hour for
+`16k_zh_large` against ¥4.80 (the September bill). Tencent bills 跨境 when the service is for users outside the
+mainland; Alex's talks and users are all in mainland China (2026-09-17), so mainland is the right rate. Should users
+outside the mainland ever sign up, they are 跨境 by Tencent's definition and must not be pinned — record a region at
+sign-up and choose the edge from it. Read the bill with `node deploy/billing.js`.
+
 **TokenHub must be on postpaid billing** (console › 在线推理 › 开启后付费). Its free package is one million tokens per
 model; `hy-mt2-pro`'s ran out on 2026-09-17 and it refused every call until billing was switched on. Translation
 steps down pro → plus → lite when a model is refused, but those share the same free package.

@@ -31,7 +31,7 @@ const secondsOf = (bytes) => bytes / SAMPLE_BYTES;
  * @param {object} o.quotas     Quotas (plans.js): remaining() and add()
  * @param {Function} o.planRow  (user) → the row whose plan applies (a team's owner, usually)
  * @param {Function} o.log
- * @param {object} [o.env]      TENCENT_EDGE, TENCENT_ROTATE_MINUTES
+ * @param {object} [o.env]      TENCENT_EDGE ('cn', the default: the Guangzhou edge; 'auto'; 'system'), TENCENT_ROTATE_MINUTES
  * @param {number} [o.meterMs]  how often streamed audio is charged
  * @param {string} [o.wsUrl]    stand-in for the Tencent endpoint (tests only)
  */
@@ -100,6 +100,10 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
     }
 
     const model = schema.coerceModel(pipeline, url.searchParams.get('transModel'));
+    // Tencent through its Guangzhou edge unless TENCENT_EDGE says otherwise. Everyone using this service is in
+    // mainland China, which Tencent bills as mainland use; from this Hong Kong server ordinary DNS answers with
+    // Singapore, where recognition is billed 跨境 at more than twice the price. A stand-in for Tencent is reached directly.
+    const edge = wsUrl ? 'system' : (env.TENCENT_EDGE || 'cn');
     const stream = pipeline === 'split'
       ? new SplitStream(creds, {
         source,
@@ -110,7 +114,7 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
         vadSilenceTime: Number(url.searchParams.get('vadSilenceTime')) || undefined,
         maxSpeakTime: Number(url.searchParams.get('maxSpeakTime')) || undefined,
         hotwords: url.searchParams.get('hotwords') || undefined,
-        edge: env.TENCENT_EDGE || 'auto',
+        edge,
         ...(wsUrl ? { wsUrl } : {}), // tests point this at a stand-in for Tencent
       })
       : new TranslationStream(creds, {
@@ -118,7 +122,7 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
         target,
         transModel: model,
         rotateMs: (Number(env.TENCENT_ROTATE_MINUTES) || 290) * 60_000,
-        edge: env.TENCENT_EDGE || 'auto',
+        edge,
         ...(wsUrl ? { wsUrl } : {}),
       });
     const s = { ws, user, stream, pipeline, bytes: 0, charged: 0, billed: 0, closed: false, lastFrom: Date.now() };
