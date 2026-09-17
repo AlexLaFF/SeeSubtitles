@@ -339,4 +339,23 @@ Translation now steps down when a model is refused outright — `hy-mt2-pro` to 
 logs why, and stays there (`core/split-stream.js`, `server/lib/tokenhub.js`). That keeps subtitles coming, at
 lower quality, but plus and lite are on the same free package and will run out in turn. **Postpaid billing has to
 be on:** TokenHub console › 在线推理 › 开启后付费, which applies to the whole account. At 0.5 元 in and 2 元 out per
-million tokens, a live hour on pro is about ¥0.30.
+million tokens, a live hour on pro is about ¥0.15 (measured: ~2,700 calls an hour, 75–84 tokens in and 8–15 out each).
+
+### What an hour costs, from the bill (checked 17 Sept 2026)
+
+Tencent's postpaid rates, first tier (under 300 hours a day), confirmed line by line on the September bill:
+
+| Billed as | Engine / model | Mainland | 跨境 (cross-border) |
+|---|---|---|---|
+| 大模型实时语音翻译 | combined pipeline (both translation models cost the same) | ¥5.00/h | no such item; billed ¥5.00 from the Hong Kong server |
+| 实时语音识别 大模型1.0 | `16k_zh_large` (Cantonese, Mandarin) | ¥4.80/h | ¥11.00/h |
+| 实时语音识别 大模型2.0 | `16k_zh_en_2.0` | ¥1.00/h | ¥2.50/h |
+| 实时语音识别 标准版 | `16k_yue` | ¥3.20/h | ¥9.94/h |
+| TokenHub | `hy-mt2-pro` / `-plus` ¥0.5 in, ¥2 out per M tokens; `-lite` ¥0.3 / ¥1.2 | ≈ ¥0.15/h pro | same |
+
+Tencent bills 实时语音识别 as 跨境 when a mainland account serves users outside the mainland (Hong Kong included).
+Recognition from the Hong Kong server reached Tencent's overseas address and was billed 跨境 for most hours, so the
+split pipeline costs about **¥11.15 an hour there against ¥5.00 for the combined one**; billed as mainland it would
+be ¥4.95. Which engines other languages bill under (`16k_en_large`, `16k_ja`, …) has not shown up on a bill yet.
+`node deploy/billing.js` reads the bill with a read-only key; totals come from the line items, because the
+product summary leaves out the most recent day.
