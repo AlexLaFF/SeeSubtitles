@@ -143,4 +143,58 @@ function decompose(cells) {
   });
 }
 
-module.exports = { percentile, median, spread, frameRms, noiseFloor, speechClock, signTest, decompose };
+// --- do two arms even agree where a sentence ends? ----------------------------------------------------
+
+/**
+ * Match sentences between two arms. They were fed the same audio on one clock, so their rows share a
+ * timeline: the same utterance appears in both, at roughly the same place. Only mutual best matches are
+ * kept — where one arm split a sentence the other ran together, both rows point at the same partner and
+ * the pair is dropped rather than compared, because those two are not the same object.
+ */
+function alignRows(aRows, bRows, { minOverlapMs = 200 } = {}) {
+  const usable = (r) => r && Number.isFinite(r.startMs) && Number.isFinite(r.endMs) && r.endMs > r.startMs;
+  const a = aRows.filter(usable);
+  const b = bRows.filter(usable);
+  const overlap = (x, y) => Math.min(x.endMs, y.endMs) - Math.max(x.startMs, y.startMs);
+  const best = (row, from) => {
+    let pick = null;
+    let most = minOverlapMs;
+    for (const other of from) { const o = overlap(row, other); if (o > most) { most = o; pick = other; } }
+    return pick;
+  };
+  // A row the other arm split is not one object but two, and its partner's end is an interior boundary,
+  // not a sentence end. Comparing the two would invent a difference, so such a row is dropped outright —
+  // mutual-best alone does not catch it, since the larger fragment still wins the match.
+  const covers = (row, from) => from.filter((other) => overlap(row, other) > minOverlapMs).length;
+  const pairs = [];
+  for (const x of a) {
+    const y = best(x, b);
+    if (!y || best(y, a) !== x) continue;
+    if (covers(x, b) > 1 || covers(y, a) > 1) continue;
+    pairs.push({ a: x, b: y, overlapMs: overlap(x, y) });
+  }
+  return { pairs, aCount: a.length, bCount: b.length };
+}
+
+/**
+ * What the two services disagree about, in milliseconds, on the same utterance.
+ *
+ * This is the question the homemade speech clock exists to answer, asked without one: nothing here reads
+ * the audio, estimates a noise floor or picks a threshold — it only compares two services' own numbers
+ * against each other. `start` is the control. If both place the beginning of an utterance together and its
+ * end far apart, the difference is endpointing, and it sits inside any 定稿 figure measured from each
+ * service's own end_time before either pipeline has done a thing.
+ */
+function endAgreement(aRows, bRows, opts = {}) {
+  const { pairs, aCount, bCount } = alignRows(aRows, bRows, opts);
+  const stat = (values) => ({ n: values.length, median: median(values), p10: percentile(values, 0.1), p90: percentile(values, 0.9) });
+  return {
+    matched: pairs.length,
+    aCount,
+    bCount,
+    start: stat(pairs.map((p) => p.a.startMs - p.b.startMs)),
+    end: stat(pairs.map((p) => p.a.endMs - p.b.endMs)),
+  };
+}
+
+module.exports = { percentile, median, spread, frameRms, noiseFloor, speechClock, signTest, decompose, alignRows, endAgreement };

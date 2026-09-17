@@ -9,7 +9,8 @@ Sized as a rough day count for one person.
   (`16k_zh_large` + hotwords, then `hy-mt2-lite`, translating while the sentence is spoken) matches the current one
   on recognition. Whether it also settles lines sooner is **not established** — each talk was played once, and both
   arms were timed from their own service's sentence end rather than from the audio, so the table may be comparing
-  the two VADs. Re-run it before deciding anything on speed:
+  the two VADs — `node server/probe-ab.js --compare-ends run1/arms.json` answers that from the runs already on
+  the Mac, in five minutes and no Tencent minutes. Then re-run before deciding anything on speed:
   `npm run probe:ab -- <four talks> --repeat 3 --arms arms.json --out shootout` (about two hours; the report splits
   each arm's spread into run-to-run and talk-to-talk, times both arms off the recording, and records which edge each
   pass landed on). Also open: Alex's verdict from the four side-by-side review videos, and the cost of

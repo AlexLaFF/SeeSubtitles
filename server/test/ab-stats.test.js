@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { percentile, median, spread, frameRms, noiseFloor, speechClock, signTest, decompose } = require('../lib/ab-stats');
+const { percentile, median, spread, frameRms, noiseFloor, speechClock, signTest, decompose, alignRows, endAgreement } = require('../lib/ab-stats');
 
 /** Build 16 kHz mono PCM: `segments` of {ms, amp}, amp 0 being room tone. */
 function pcm(segments, { noise = 60 } = {}) {
@@ -99,4 +99,46 @@ test('ab-stats: within-audio spread is the connection, between-audio spread is t
   assert.equal(a.audios.length, 2);
   assert.equal(a.audios[0].passes, 2);
   assert.equal(decompose([{ arm: 'A', audio: 't1', pass: 1, value: 10 }])[0].within.max, null, 'one pass says nothing');
+});
+
+test('ab-stats: two arms are matched by overlap, and splits are dropped rather than compared', () => {
+  const a = [{ startMs: 0, endMs: 2000 }, { startMs: 3000, endMs: 5000 }];
+  // B hears the same first sentence 400 ms later at the end, and splits the second one in two
+  const b = [{ startMs: 20, endMs: 2400 }, { startMs: 3000, endMs: 3900 }, { startMs: 3950, endMs: 5000 }];
+  const { pairs, aCount, bCount } = alignRows(a, b);
+  assert.equal(aCount, 2);
+  assert.equal(bCount, 3);
+  assert.equal(pairs.length, 1, 'only the sentence both arms ran together is comparable');
+  assert.equal(pairs[0].a.endMs, 2000);
+  assert.equal(pairs[0].b.endMs, 2400);
+
+  assert.equal(alignRows([{ startMs: 0, endMs: 1000 }], [{ startMs: 5000, endMs: 6000 }]).pairs.length, 0, 'no overlap, no pair');
+  assert.equal(alignRows([{ startMs: 0, endMs: null }], [{ startMs: 0, endMs: 1000 }]).pairs.length, 0, 'a row without an end is not a row');
+});
+
+test('ab-stats: agreeing on the start and differing on the end is endpointing, not speed', () => {
+  // the same six utterances: both arms hear them begin together, A ends each one 480 ms later
+  const a = [];
+  const b = [];
+  for (let i = 0; i < 6; i++) {
+    const at = i * 4000;
+    a.push({ startMs: at, endMs: at + 2480 });
+    b.push({ startMs: at + (i % 2 ? 10 : -10), endMs: at + 2000 });
+  }
+  const r = endAgreement(a, b);
+  assert.equal(r.matched, 6);
+  assert.ok(Math.abs(r.start.median) <= 10, `starts agree: ${r.start.median}`);
+  assert.equal(r.end.median, 480);
+  // which is the whole point: 480 ms of the gap was there before either pipeline translated anything
+  assert.ok(r.end.median - Math.abs(r.start.median) > 400);
+});
+
+test('ab-stats: a sentence split near its start is dropped, not scored as a 1.5 s disagreement', () => {
+  // the trap mutual-best matching alone walks into: B's first fragment has the larger overlap, so it wins
+  // the match, and its interior boundary at 3500 would be compared against A's real end at 5000
+  const a = [{ startMs: 0, endMs: 5000 }];
+  const b = [{ startMs: 0, endMs: 3500 }, { startMs: 3600, endMs: 5000 }];
+  assert.equal(alignRows(a, b).pairs.length, 0);
+  assert.equal(endAgreement(a, b).end.median, null, 'no pairs, no claim');
+  assert.equal(endAgreement(a, b).aCount, 1);
 });

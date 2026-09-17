@@ -7,6 +7,7 @@
 //   node server/probe-ab.js talk.wav --arms arms.json --out run1        several pipelines at once
 //   node server/probe-ab.js talk.wav --out run1                         the shipped one against the split one
 //   node server/probe-ab.js a.wav b.wav c.wav --repeat 3 --out shootout  every talk, three times each
+//   node server/probe-ab.js --compare-ends run1/arms.json               did the arms agree where sentences end?
 //   node server/probe-ab.js --check-engines                             which engines 实时语音识别 serves
 //   node server/probe-ab.js --check-params                              which tuning parameters it accepts
 //
@@ -34,7 +35,7 @@ const { spawn } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const WebSocket = require('ws');
 const { loadEnv, getCredentials, TranslationStream, resolveMainland, pinnedOptions, hotwordList } = require('@subs/core');
-const { median, speechClock, signTest, decompose } = require('./lib/ab-stats');
+const { median, speechClock, signTest, decompose, endAgreement } = require('./lib/ab-stats');
 
 const HOST = 'asr.cloud.tencent.com';
 const CHUNK_MS = 200;
@@ -553,6 +554,40 @@ function tryRecognize(creds, opts, ip) {
   });
 }
 
+/**
+ * Do the arms agree where a sentence ends? Reads runs already written, so it costs nothing and needs
+ * neither the audio nor the keys — and it is the first thing to ask of an old run, because it decides
+ * whether 定稿 was ever comparable between two services in the first place.
+ */
+function compareEnds(files) {
+  for (const file of files) {
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const arms = data.arms || [];
+    console.log(`\n▶ ${file} — do the arms agree where a sentence ends?`);
+    for (let i = 0; i < arms.length; i++) {
+      for (let j = i + 1; j < arms.length; j++) {
+        const x = arms[i];
+        const y = arms[j];
+        const r = endAgreement(x.rows || [], y.rows || []);
+        console.log(`\n  ${x.id} vs ${y.id} — ${r.matched} sentences matched of ${r.aCount}/${r.bCount}`);
+        if (!r.matched) { console.log('    nothing comparable: the two segmented this audio differently throughout'); continue; }
+        const line = (name, st) => console.log(`    ${name.padEnd(6)} median ${String(Math.round(st.median)).padStart(6)} ms   (p10 ${Math.round(st.p10)}, p90 ${Math.round(st.p90)})`);
+        line('start', r.start);
+        line('end', r.end);
+        const drift = Math.abs(r.end.median) - Math.abs(r.start.median);
+        if (drift > 150) {
+          console.log(`    → they hear a sentence begin together and place its end ${Math.round(Math.abs(r.end.median))} ms apart.`);
+          console.log(`      ${Math.round(drift)} ms of every 定稿 comparison between these two is that gap, before either has done any work.`);
+        } else if (Math.abs(r.end.median) < 150) {
+          console.log('    → the two agree about sentence ends, so 定稿 was comparable between them after all.');
+        } else {
+          console.log('    → the ends differ, but so do the starts: the arms are not aligned well enough to conclude much.');
+        }
+      }
+    }
+  }
+}
+
 async function main() {
   loadEnv(path.join(__dirname, '..', '.env'));
   const ip = args.includes('--cn') ? await resolveMainland({}) : null;
@@ -569,6 +604,11 @@ async function main() {
       await sleep(200);
     }
     return console.log(`  → ${ok.length} of ${ENGINES.length}: ${ok.join(' ')}`);
+  }
+  if (args.includes('--compare-ends')) {
+    const files = args.filter((a) => !a.startsWith('--'));
+    if (!files.length) throw new Error('usage: node server/probe-ab.js --compare-ends <run>/arms.json …');
+    return compareEnds(files);
   }
   if (args.includes('--check-params')) {
     const creds = getCredentials();

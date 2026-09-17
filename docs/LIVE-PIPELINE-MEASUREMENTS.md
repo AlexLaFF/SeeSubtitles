@@ -37,9 +37,10 @@ cannot be told apart: the pipeline, that talk, and the one connection the arm ha
   and 实时语音翻译 and 实时语音识别 end a sentence by their own VAD. If one stamps the end of speech and the
   other the moment its silence timer fired, the arms differ by that timer before either has translated a
   word. A default `vad_silence_time` is several hundred milliseconds, which is most of the gap being
-  claimed — so the table may be comparing endpointing rather than speed. `probe-ab.js` now also reports
-  「自停顿」, timed from the last frame of the recording louder than the room: one event, the same for every
-  arm. **Until that column exists, "B settles sooner" is not established.**
+  claimed — so the table may be comparing endpointing rather than speed. Whether it did is a five-minute
+  check on the runs already recorded (below), not a matter of opinion; `probe-ab.js` also reports 「自停顿」,
+  timed from the last frame of the recording louder than the room, as a second opinion that belongs to
+  neither service. **Until one of the two has been looked at, "B settles sooner" is not established.**
 - **Nothing recorded which machine answered.** asr.cloud.tencent.com is a load balancer, so "we landed on a
   slower backend" was never testable from this run — no arm wrote down its edge. It is also a poor fit for
   what was seen: B held to 78 ms across the same four sittings while A swung 782. The two arms do reach
@@ -48,6 +49,22 @@ cannot be told apart: the pipeline, that talk, and the one connection the arm ha
   with the talks, not with the clock. The likelier reading is that A's figure follows the speaking in each
   recording — pauses, sentence length, how often it revises — which is deterministic, ours to measure, and
   partly ours to tune through `vad_silence_time` and `max_speak_time`.
+
+### First, five minutes and no re-run
+
+Whether any of this matters is answerable from the September runs already on the Mac, without the audio,
+the keys, or a single Tencent minute:
+
+```sh
+node server/probe-ab.js --compare-ends run1/arms.json
+```
+
+Both arms were fed the same audio on one clock, so their rows share a timeline and the same utterance can
+be matched in both. The check compares the two services' own `end_time` against each other — no waveform,
+no threshold, nothing homemade — and prints the sentence starts as a control. If the arms place a
+sentence's beginning together and its end hundreds of milliseconds apart, that gap is endpointing and it
+is inside every 定稿 figure in the table above. If they agree within a few tens of milliseconds, 定稿 was
+comparable all along, 自停顿 is only a cross-check, and all the timing question needs is repeats.
 
 ### What settles it
 
