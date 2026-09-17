@@ -359,3 +359,28 @@ split pipeline costs about **¥11.15 an hour there against ¥5.00 for the combin
 be ¥4.95. Which engines other languages bill under (`16k_en_large`, `16k_ja`, …) has not shown up on a bill yet.
 `node deploy/billing.js` reads the bill with a read-only key; totals come from the line items, because the
 product summary leaves out the most recent day.
+
+### Through the Guangzhou edge (17 Sept, evening)
+
+From the Hong Kong server, ordinary DNS sends `asr.cloud.tencent.com` to Singapore (43.156.86.206), where
+实时语音识别 is billed 跨境. The relay now pins both pipelines to the Guangzhou edge (106.55.89.122) and uses an
+address only after it has answered the mainland-only 实时语音翻译 path. Before that check, 2 of 20 short sessions
+through the relay were pinned to Singapore while calling it mainland (a fresh process whose mainland-subnet lookups
+failed fell through to plain DNS); after it, 24 of 24 went to Guangzhou, none failed, each ready in 0.5–0.9 s.
+
+The four talks again, both pipelines through the relay at the same moment:
+
+| Talk | Pipeline | Lines | Settle median / p90 (ms) | Rewrites per 100 lines | Glossary terms heard |
+|---|---|---|---|---|---|
+| 13:47 | 实时语音翻译 | 142 | 558 / 736 | 42.3 | 13/36 |
+| 13:47 | split | 143 | 801 / 940 | 28.0 | 12/36 |
+| 16:33 | 实时语音翻译 | 146 | 522 / 671 | 25.3 | 15/28 |
+| 16:33 | split | 145 | 851 / 976 | 13.8 | 14/28 |
+| 19:27 | 实时语音翻译 | 142 | 526 / 663 | 45.1 | 11/23 |
+| 19:27 | split | 142 | 828 / 953 | 17.6 | 11/23 |
+| 9:32 | 实时语音翻译 | 132 | 1215 / 1935 | 26.5 | 21/32 |
+| 9:32 | split | 126 | 790 / 892 | 28.6 | 21/32 |
+
+The split pipeline settles as it did through Singapore (790–851 ms; 846 before), so the edge costs it nothing.
+Recognition is the same on both. 实时语音翻译 landed on its fast backend for three of the four talks — settling
+about 300 ms sooner than the split pipeline, but rewriting 1.5–2.6 times as often — and on its usual one for 9:32.
