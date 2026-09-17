@@ -6,8 +6,16 @@
 //
 //   node server/probe-ab.js talk.wav --arms arms.json --out run1        several pipelines at once
 //   node server/probe-ab.js talk.wav --out run1                         the shipped one against the split one
+//   node server/probe-ab.js a.wav b.wav c.wav --repeat 3 --out shootout  every talk, three times each
+//   node server/probe-ab.js --compare-ends run1/arms.json               did the arms agree where sentences end?
 //   node server/probe-ab.js --check-engines                             which engines 实时语音识别 serves
 //   node server/probe-ab.js --check-params                              which tuning parameters it accepts
+//
+// --repeat plays each recording that many times, on fresh connections. One pass per talk cannot tell a
+// pipeline apart from the talk or from the connection it happened to get; two passes over identical audio
+// can. The closing report splits each arm's spread into what moved between passes of the same audio and
+// what moved between talks, records which edge every connection landed on, and runs a sign test over the
+// cells — because "B won three of four talks" is, on its own, a coin landing heads three times.
 //
 // An arm is {id, kind, ...}. kind 'translate' is 实时语音翻译 (recognises and translates in one stream);
 // 'recognize' is 实时语音识别 alone, for comparing what engines hear without paying to translate it;
@@ -27,6 +35,7 @@ const { spawn } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const WebSocket = require('ws');
 const { loadEnv, getCredentials, TranslationStream, resolveMainland, pinnedOptions, hotwordList } = require('@subs/core');
+const { median, speechClock, signTest, decompose, endAgreement } = require('./lib/ab-stats');
 
 const HOST = 'asr.cloud.tencent.com';
 const CHUNK_MS = 200;
@@ -92,12 +101,19 @@ class RecognizeStream extends EventEmitter {
     this.ready = false;
     this.sent = 0;
     this.dropped = 0;
+    this.peer = null;
+    this.edgeId = null;
   }
 
   start() {
     const ws = new WebSocket(recognitionUrl(this.creds, recognitionParams(this.creds, this.opts)),
       { handshakeTimeout: 10_000, ...pinnedOptions(this.opts.ip || null) });
     this.ws = ws;
+    // which machine behind the load balancer took this arm, this pass
+    ws.on('upgrade', (res) => {
+      this.peer = (res.socket && res.socket.remoteAddress) || null;
+      this.edgeId = res.headers['x-nws-log-uuid'] || res.headers['x-request-id'] || null;
+    });
     ws.on('unexpected-response', (_req, res) => {
       let body = '';
       res.on('data', (d) => { body += d; });
@@ -174,7 +190,7 @@ function translateStreaming(key, { model, text, source, target }) {
 function createArm(spec, ctx) {
   const rows = [];
   const pending = [];
-  const arm = { id: spec.id, spec, rows, pending, errors: [], calls: 0 };
+  const arm = { id: spec.id, spec, rows, pending, errors: [], calls: 0, peer: null, edgeId: null };
 
   if (spec.kind === 'translate') {
     const stream = new TranslationStream(ctx.creds, {
@@ -185,6 +201,7 @@ function createArm(spec, ctx) {
       edge: ctx.ip ? 'cn' : 'auto',
     });
     const byId = new Map();
+    stream.on('connected', (c) => { if (!arm.peer) { arm.peer = c.peer; arm.edgeId = c.edgeId; } });
     stream.on('server-error', (m) => arm.errors.push(`${m.code}: ${m.message}`));
     stream.on('result', (r) => {
       const id = r.sentenceId || `${r.voiceId}:${r.startTime}`;
@@ -259,7 +276,7 @@ function createArm(spec, ctx) {
 
   arm.ready = new Promise((res, rej) => {
     const t = setTimeout(() => rej(new Error(`${spec.id}: never became ready`)), 12_000);
-    stream.on('ready', () => { clearTimeout(t); res(); });
+    stream.on('ready', () => { clearTimeout(t); arm.peer = stream.peer; arm.edgeId = stream.edgeId; res(); });
   });
   arm.start = () => stream.start();
   arm.push = (chunk) => stream.push(chunk);
@@ -274,15 +291,36 @@ function createArm(spec, ctx) {
   return arm;
 }
 
-/** What one arm's rows say about it. */
-function statsOf(arm) {
+/**
+ * What one arm's rows say about it.
+ *
+ * Two clocks, deliberately. `finalMs` is measured from the sentence end the arm's own service reported,
+ * which is what the first comparison used — but the two services run their own VAD, so if one stamps the
+ * end of speech and the other the moment its silence timer fired, that difference lands in the result
+ * before either has done any work. `trueFinalMs` is measured from the last frame of the recording that is
+ * louder than the room, which is the same event for every arm. `endShiftMs` is the gap between the two:
+ * how much of an arm's reported figure was its own endpointing rather than its speed.
+ */
+function statsOf(arm, ctx = {}) {
   const rows = arm.rows.filter((r) => r.endMs != null && r.wallEnd != null && r.endMs >= 0);
   const spans = rows.map((r) => r.endMs - r.startMs).filter((x) => x >= 0);
   const first = rows.map((r) => (r.firstTargetAt ? r.firstTargetAt - r.wallEnd : null));
   const final = rows.map((r) => (r.finalAt ? r.finalAt - r.wallEnd : null));
+  const clock = ctx.clock || null;
+  const trueFinal = [];
+  const shifts = [];
+  for (const r of clock ? rows : []) {
+    const e = clock.endOf(r.endMs);
+    r.speechEndMs = e.found ? e.ms : null;
+    r.endShiftMs = e.shiftMs;
+    if (e.shiftMs != null) shifts.push(e.shiftMs);
+    if (e.found && r.finalAt) trueFinal.push(r.finalAt - (ctx.audioStart + e.ms));
+  }
   return {
     id: arm.id, kind: arm.spec.kind, engine: arm.spec.engine || null, model: arm.spec.model || arm.spec.transModel || null,
     hotwords: !!arm.spec.hotwords, rollMs: arm.spec.rollMs || null,
+    peer: arm.peer || null, edgeId: arm.edgeId || null,
+    trueFinalMs: med(trueFinal), trueFinalP90: at(trueFinal, 0.9), endShiftMs: med(shifts), endShiftScored: trueFinal.length,
     lines: rows.length,
     chars: rows.reduce((n, r) => n + String(r.source || '').replace(/[，。！？、\s]/g, '').length, 0),
     firstMs: med(first), finalMs: med(final), finalP90: at(final, 0.9),
@@ -346,12 +384,14 @@ async function run(file, opts) {
   const ip = opts.cn ? await resolveMainland({}) : null;
   if (ip) console.log(`# mainland edge ${ip}`);
 
-  const pcm = await decode(file, opts.seconds);
+  const pcm = opts.pcm || await decode(file, opts.seconds);
   const totalMs = (pcm.length / (16000 * 2)) * 1000;
-  console.log(`# ${path.basename(file)} — ${(totalMs / 60000).toFixed(1)} min, ${specs.length} arms`);
+  console.log(`# ${path.basename(file)}${opts.pass ? ` pass ${opts.pass}` : ''} — ${(totalMs / 60000).toFixed(1)} min, ${specs.length} arms`);
   for (const s of specs) console.log(`#   ${s.id.padEnd(16)} ${s.kind.padEnd(10)} ${s.engine || s.transModel || ''} ${s.hotwords ? '+hotwords' : ''} ${s.rollMs ? `roll ${s.rollMs}ms` : ''}`);
 
-  const ctx = { creds, key, ip, source: opts.source, target: opts.target, audioStart: 0 };
+  // the same recording, so the same clock: both arms are scored against where the speaker really stopped
+  const clock = opts.clock || speechClock(pcm);
+  const ctx = { creds, key, ip, source: opts.source, target: opts.target, audioStart: 0, clock };
   const arms = specs.map((s) => createArm(s, ctx));
   for (const a of arms) a.start();
 
@@ -393,7 +433,11 @@ async function run(file, opts) {
   for (const a of live) a.settle(a.warm || 0);
 
   fs.mkdirSync(opts.out, { recursive: true });
-  const summary = { file: path.basename(file), minutes: +(totalMs / 60000).toFixed(1), at: new Date().toISOString(), source: opts.source, target: opts.target, arms: live.map(statsOf) };
+  const summary = {
+    file: path.basename(file), pass: opts.pass || 1, minutes: +(totalMs / 60000).toFixed(1),
+    at: new Date().toISOString(), source: opts.source, target: opts.target, edge: ip || 'system dns',
+    arms: live.map((a) => statsOf(a, ctx)),
+  };
   fs.writeFileSync(path.join(opts.out, 'arms.json'), JSON.stringify({ summary, arms: live.map((a) => ({ id: a.id, spec: a.spec, rows: a.rows })) }, null, 2));
   for (const a of live) {
     fs.writeFileSync(path.join(opts.out, `${a.id}.${opts.source}.srt`), srt(a.rows, 'source'));
@@ -401,12 +445,98 @@ async function run(file, opts) {
   }
 
   const ms = (v) => (v == null ? '     —' : `${String(Math.round(v)).padStart(5)}`);
-  console.log('\n  arm              lines  chars   首字 ms   定稿 ms    p90   每句 s  >10s  改写次  保留%  调用');
+  console.log('\n  arm              lines  chars   首字 ms   定稿 ms    p90   自停顿 ms    p90   端点差  每句 s  >10s  改写次  保留%  调用');
   for (const s of summary.arms) {
-    console.log(`  ${s.id.padEnd(16)} ${String(s.lines).padStart(5)} ${String(s.chars).padStart(6)}  ${ms(s.firstMs)}   ${ms(s.finalMs)}  ${ms(s.finalP90)}   ${((s.spanMed || 0) / 1000).toFixed(1)}/${((s.spanMax || 0) / 1000).toFixed(0)}  ${String(s.longLines).padStart(4)}  ${String(s.revisions ?? '—').padStart(5)}  ${String(s.keptPrefix ?? '—').padStart(5)}  ${String(s.translateCalls).padStart(4)}${s.audio ? `  ${Math.round(s.audio.sent / 32000)}s sent${s.audio.dropped ? ` ${Math.round(s.audio.dropped / 32000)}s DROPPED` : ''}` : ''}${s.errors.length ? `   ✖ ${s.errors[0]}` : ''}`);
+    console.log(`  ${s.id.padEnd(16)} ${String(s.lines).padStart(5)} ${String(s.chars).padStart(6)}  ${ms(s.firstMs)}   ${ms(s.finalMs)}  ${ms(s.finalP90)}    ${ms(s.trueFinalMs)}  ${ms(s.trueFinalP90)}  ${ms(s.endShiftMs)}   ${((s.spanMed || 0) / 1000).toFixed(1)}/${((s.spanMax || 0) / 1000).toFixed(0)}  ${String(s.longLines).padStart(4)}  ${String(s.revisions ?? '—').padStart(5)}  ${String(s.keptPrefix ?? '—').padStart(5)}  ${String(s.translateCalls).padStart(4)}${s.audio ? `  ${Math.round(s.audio.sent / 32000)}s sent${s.audio.dropped ? ` ${Math.round(s.audio.dropped / 32000)}s DROPPED` : ''}` : ''}${s.errors.length ? `   ✖ ${s.errors[0]}` : ''}`);
   }
+  console.log(`  ${'edge'.padEnd(16)} ${summary.arms.map((s) => `${s.id} ${s.peer || '?'}`).join('   ')}`);
+  console.log('  定稿 counts from each service\'s own sentence end; 自停顿 from the last loud frame of the recording, the same event for every arm.');
   console.log(`\n  wrote ${opts.out}/`);
   return summary;
+}
+
+// --------------------------------------------------------------------------- the report
+
+const METRICS = [
+  { key: 'finalMs', name: '定稿', note: "from each service's own sentence end" },
+  { key: 'trueFinalMs', name: '自停顿', note: 'from the last loud frame of the recording' },
+];
+
+/**
+ * What a whole shootout says, once the same audio has been played more than once.
+ *
+ * The question this answers is not "which arm won" — one pass per talk already produces a winner, and that
+ * is the problem. It is "would the same arm win again on the same audio", and if the numbers move anyway,
+ * whether they move with the talk or with the connection.
+ */
+function report(summaries, opts) {
+  const ids = [...new Set(summaries.flatMap((s) => s.arms.map((a) => a.id)))];
+  const files = [...new Set(summaries.map((s) => s.file))];
+  const cellsFor = (key) => summaries.flatMap((s) => s.arms.map((a) => ({ arm: a.id, audio: s.file, pass: s.pass, value: a[key] })));
+  const out = { at: new Date().toISOString(), passes: summaries.length, files, arms: ids, metrics: {}, edges: {}, cells: {} };
+  const ms = (v) => (v == null ? '    —' : String(Math.round(v)).padStart(5));
+
+  for (const m of METRICS) {
+    const cells = cellsFor(m.key);
+    out.cells[m.key] = cells;
+    console.log(`\n▶ ${m.name} — ${m.note}`);
+    console.log(`  arm              talk                       passes   中位   同段波动`);
+    for (const d of decompose(cells)) {
+      for (const a of d.audios) {
+        console.log(`  ${d.arm.padEnd(16)} ${a.audio.slice(0, 24).padEnd(24)} ${String(a.passes).padStart(6)}  ${ms(a.median)}  ${ms(a.range)}`);
+      }
+    }
+    console.log(`\n  arm              同一段音频重放   不同讲座之间   所以是`);
+    const summary = [];
+    for (const d of decompose(cells)) {
+      // the whole point: if replaying identical audio moves an arm as much as changing the talk does, the
+      // number belongs to the run — the connection, the backend, the minute — and not to the pipeline.
+      // Both spreads have to be worth caring about first: an arm that lands within 50 ms of itself every
+      // time is steady, and calling that "the run" because the other spread is smaller still would be silly.
+      const floor = Math.max(50, 0.1 * (d.level || 0));
+      const verdict = d.within.max == null ? 'one pass: nothing to say'
+        : d.within.max < floor && (d.between == null || d.between < floor) ? '稳定 — neither moves it'
+          : d.between == null ? '一场讲座: nothing to compare across talks'
+            : d.within.max >= d.between ? '运气 — the run, not the talk'
+              : d.between > 3 * d.within.max ? '讲座 — the audio decides' : '两者都有';
+      console.log(`  ${d.arm.padEnd(16)} ${ms(d.within.max)}          ${ms(d.between)}        ${verdict}`);
+      summary.push({ arm: d.arm, within: d.within, between: d.between, audios: d.audios, verdict });
+    }
+    out.metrics[m.key] = summary;
+
+    // paired against the first arm, one diff per (talk, pass): positive means the other arm was quicker
+    const base = ids[0];
+    for (const id of ids.slice(1)) {
+      const diffs = summaries.map((s) => {
+        const x = s.arms.find((a) => a.id === base);
+        const y = s.arms.find((a) => a.id === id);
+        return x && y && x[m.key] != null && y[m.key] != null ? x[m.key] - y[m.key] : null;
+      });
+      const t = signTest(diffs);
+      const gap = median(diffs.filter((d) => d != null));
+      const gapText = gap == null ? 'no cells' : `${Math.abs(Math.round(gap))} ms ${gap >= 0 ? 'quicker' : 'slower'} at the median`;
+      console.log(`  ${id} against ${base}: quicker in ${t.wins} of ${t.n} cells, ${gapText}${t.p == null ? '' : `, p = ${t.p.toFixed(3)}`}${t.n && t.n < 8 ? ' — too few cells to mean much' : ''}`);
+      out.metrics[m.key].push({ arm: id, against: base, ...t, medianGap: gap });
+    }
+  }
+
+  // which machine each pass landed on, and whether it made any difference
+  console.log('\n▶ edges');
+  for (const id of ids) {
+    const seen = summaries.map((s) => ({ peer: (s.arms.find((a) => a.id === id) || {}).peer || '?', value: (s.arms.find((a) => a.id === id) || {}).finalMs }));
+    const peers = [...new Set(seen.map((x) => x.peer))];
+    out.edges[id] = peers.map((peer) => ({ peer, passes: seen.filter((x) => x.peer === peer).length, finalMs: median(seen.filter((x) => x.peer === peer).map((x) => x.value)) }));
+    const per = out.edges[id].map((e) => `${e.peer} ×${e.passes} ${ms(e.finalMs)} ms`).join('   ');
+    console.log(`  ${id.padEnd(16)} ${per}`);
+  }
+  if (Object.values(out.edges).every((e) => e.length === 1)) {
+    console.log('  every pass landed on the same edge, so this run says nothing about different edges being different speeds.');
+  }
+
+  fs.mkdirSync(opts.out, { recursive: true });
+  fs.writeFileSync(path.join(opts.out, 'compare.json'), JSON.stringify({ report: out, passes: summaries }, null, 2));
+  console.log(`\n  wrote ${opts.out}/compare.json`);
+  return out;
 }
 
 // --------------------------------------------------------------------------- checks
@@ -422,6 +552,40 @@ function tryRecognize(creds, opts, ip) {
     s.on('close', () => finish({ ok: false, why: 'closed before any frame' }));
     s.start();
   });
+}
+
+/**
+ * Do the arms agree where a sentence ends? Reads runs already written, so it costs nothing and needs
+ * neither the audio nor the keys — and it is the first thing to ask of an old run, because it decides
+ * whether 定稿 was ever comparable between two services in the first place.
+ */
+function compareEnds(files) {
+  for (const file of files) {
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const arms = data.arms || [];
+    console.log(`\n▶ ${file} — do the arms agree where a sentence ends?`);
+    for (let i = 0; i < arms.length; i++) {
+      for (let j = i + 1; j < arms.length; j++) {
+        const x = arms[i];
+        const y = arms[j];
+        const r = endAgreement(x.rows || [], y.rows || []);
+        console.log(`\n  ${x.id} vs ${y.id} — ${r.matched} sentences matched of ${r.aCount}/${r.bCount}`);
+        if (!r.matched) { console.log('    nothing comparable: the two segmented this audio differently throughout'); continue; }
+        const line = (name, st) => console.log(`    ${name.padEnd(6)} median ${String(Math.round(st.median)).padStart(6)} ms   (p10 ${Math.round(st.p10)}, p90 ${Math.round(st.p90)})`);
+        line('start', r.start);
+        line('end', r.end);
+        const drift = Math.abs(r.end.median) - Math.abs(r.start.median);
+        if (drift > 150) {
+          console.log(`    → they hear a sentence begin together and place its end ${Math.round(Math.abs(r.end.median))} ms apart.`);
+          console.log(`      ${Math.round(drift)} ms of every 定稿 comparison between these two is that gap, before either has done any work.`);
+        } else if (Math.abs(r.end.median) < 150) {
+          console.log('    → the two agree about sentence ends, so 定稿 was comparable between them after all.');
+        } else {
+          console.log('    → the ends differ, but so do the starts: the arms are not aligned well enough to conclude much.');
+        }
+      }
+    }
+  }
 }
 
 async function main() {
@@ -441,6 +605,11 @@ async function main() {
     }
     return console.log(`  → ${ok.length} of ${ENGINES.length}: ${ok.join(' ')}`);
   }
+  if (args.includes('--compare-ends')) {
+    const files = args.filter((a) => !a.startsWith('--'));
+    if (!files.length) throw new Error('usage: node server/probe-ab.js --compare-ends <run>/arms.json …');
+    return compareEnds(files);
+  }
   if (args.includes('--check-params')) {
     const creds = getCredentials();
     console.log('\n▶ 实时语音识别 — which tuning parameters it accepts');
@@ -459,22 +628,37 @@ async function main() {
     return;
   }
 
-  const takesValue = new Set(['--arms', '--source', '--target', '--seconds', '--out']);
-  let file = null;
+  const takesValue = new Set(['--arms', '--source', '--target', '--seconds', '--out', '--repeat']);
+  const files = [];
   for (let i = 0; i < args.length; i++) {
     if (args[i].startsWith('--')) { if (takesValue.has(args[i])) i++; continue; }
-    file = args[i];
-    break;
+    files.push(args[i]);
   }
-  if (!file) throw new Error('usage: node server/probe-ab.js <audio file> [--arms arms.json] [--seconds 600] [--out run1]');
-  await run(file, {
-    armsFile: flag('arms', null),
-    source: flag('source', 'yue'),
-    target: flag('target', 'zh'),
-    seconds: Number(flag('seconds', 0)) || 0,
-    out: flag('out', 'ab'),
-    cn: args.includes('--cn'),
-  });
+  if (!files.length) throw new Error('usage: node server/probe-ab.js <audio file…> [--arms arms.json] [--repeat 3] [--seconds 600] [--out run1]');
+  const repeat = Math.max(1, Number(flag('repeat', 1)) || 1);
+  const out = flag('out', 'ab');
+  const seconds = Number(flag('seconds', 0)) || 0;
+  const opts = { armsFile: flag('arms', null), source: flag('source', 'yue'), target: flag('target', 'zh'), seconds, out, cn: args.includes('--cn') };
+  const single = files.length === 1 && repeat === 1;
+  if (!single) {
+    const each = (seconds || 600) / 60;
+    console.log(`# ${files.length} recording(s) × ${repeat} pass(es) = ${files.length * repeat} passes, about ${Math.round(files.length * repeat * (each + 0.5))} minutes of wall time`);
+  }
+
+  const summaries = [];
+  for (const file of files) {
+    // decode and measure the recording once; every pass over it is then the same audio and the same clock
+    const pcm = await decode(file, seconds);
+    const clock = speechClock(pcm);
+    for (let pass = 1; pass <= repeat; pass++) {
+      const stem = path.basename(file).replace(/\.[^.]+$/, '');
+      const dir = single ? out : path.join(out, `${stem}-pass${pass}`);
+      summaries.push(await run(file, { ...opts, out: dir, pcm, clock, pass }));
+      // fresh connections next pass, and a moment so a pass is not measuring the last one's teardown
+      if (pass < repeat || file !== files[files.length - 1]) await sleep(5000);
+    }
+  }
+  if (!single) report(summaries, { out });
 }
 
 main().catch((err) => { console.error(`✖ ${err.message}`); process.exit(1); });

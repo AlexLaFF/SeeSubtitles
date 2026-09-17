@@ -13,7 +13,8 @@ Two pipelines are compared.
 
 ## Timing
 
-「定稿」is when a line stops changing, measured from the moment the speaker stopped. Milliseconds.
+「定稿」is when a line stops changing, measured from the sentence end **the arm's own service reported**.
+Milliseconds.
 
 | talk | A + hotwords | B · 16k_zh_large | A p90 | B p90 |
 |---|---|---|---|---|
@@ -24,6 +25,64 @@ Two pipelines are compared.
 
 A varies by 782 ms across the four talks; B by 78. B wins p90 in all four. Both pipelines rewrite a line
 three or four times before it settles, and B keeps slightly more of what the audience has already read.
+
+### What this table cannot say yet
+
+Treat it as recorded, not as settled. Each talk was played once, so three things arrive in one column and
+cannot be told apart: the pipeline, that talk, and the one connection the arm happened to get.
+
+- **B winning three of four talks is a coin.** As a paired sign test that is p = 0.625; even a clean sweep
+  of four would be p = 0.125. The four numbers are the right shape but there are not enough of them.
+- **The two arms are not timed from the same event.** Each is measured from its own service's `end_time`,
+  and 实时语音翻译 and 实时语音识别 end a sentence by their own VAD. If one stamps the end of speech and the
+  other the moment its silence timer fired, the arms differ by that timer before either has translated a
+  word. A default `vad_silence_time` is several hundred milliseconds, which is most of the gap being
+  claimed — so the table may be comparing endpointing rather than speed. Whether it did is a five-minute
+  check on the runs already recorded (below), not a matter of opinion; `probe-ab.js` also reports 「自停顿」,
+  timed from the last frame of the recording louder than the room, as a second opinion that belongs to
+  neither service. **Until one of the two has been looked at, "B settles sooner" is not established.**
+- **Nothing recorded which machine answered.** asr.cloud.tencent.com is a load balancer, so "we landed on a
+  slower backend" was never testable from this run — no arm wrote down its edge. It is also a poor fit for
+  what was seen: B held to 78 ms across the same four sittings while A swung 782. The two arms do reach
+  different backend pools (`/asr/speech_translate` against `/asr/v2/`), so that is evidence rather than
+  proof — but a lottery that only ever draws for one arm is a strange lottery, and A's own numbers line up
+  with the talks, not with the clock. The likelier reading is that A's figure follows the speaking in each
+  recording — pauses, sentence length, how often it revises — which is deterministic, ours to measure, and
+  partly ours to tune through `vad_silence_time` and `max_speak_time`.
+
+### First, five minutes and no re-run
+
+Whether any of this matters is answerable from the September runs already on the Mac, without the audio,
+the keys, or a single Tencent minute:
+
+```sh
+node server/probe-ab.js --compare-ends run1/arms.json
+```
+
+Both arms were fed the same audio on one clock, so their rows share a timeline and the same utterance can
+be matched in both. The check compares the two services' own `end_time` against each other — no waveform,
+no threshold, nothing homemade — and prints the sentence starts as a control. If the arms place a
+sentence's beginning together and its end hundreds of milliseconds apart, that gap is endpointing and it
+is inside every 定稿 figure in the table above. If they agree within a few tens of milliseconds, 定稿 was
+comparable all along, 自停顿 is only a cross-check, and all the timing question needs is repeats.
+
+### What settles it
+
+One sitting, on the machine that holds the recordings and the keys:
+
+```sh
+npm run probe:ab -- talk1.wav talk2.wav talk3.wav talk4.wav --repeat 3 --arms arms.json --out shootout
+```
+
+Twelve passes, about two hours of wall time and the same again in Tencent minutes per arm. Playing
+identical audio more than once is what separates the three explanations: whatever still moves between two
+passes of one recording is the run (the connection, the backend, the minute); whatever only moves between
+recordings is the talk. The closing report prints both spreads per arm, the sign test over all twelve
+cells, both clocks side by side, and which edge every pass landed on.
+
+Read it in this order: if 自停顿 disagrees with 定稿, the first table was measuring VAD. If an arm's
+same-audio spread is as large as its between-talk spread, the run is deciding and a pipeline cannot be
+chosen on speed at all. Only if B is still ahead on 自停顿, across most of twelve cells, is it quicker.
 
 ## Engines
 

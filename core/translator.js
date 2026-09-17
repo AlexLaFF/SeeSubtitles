@@ -216,7 +216,7 @@ class TranslationStream extends EventEmitter {
         return null;
       }
     }
-    const sock = { id: ++this.seq, role, ws: null, voiceId: conn.voiceId, open: false, authenticated: false, openedAt: null, ended: false, sent: 0, streamMs: 0, timeOffset: null };
+    const sock = { id: ++this.seq, role, ws: null, voiceId: conn.voiceId, open: false, authenticated: false, openedAt: null, ended: false, sent: 0, streamMs: 0, timeOffset: null, peer: null, edgeId: null };
     this.connects++;
     // opts.wsUrl lets tests point at a local mock server instead of Tencent
     const url = this.opts.wsUrl ? `${this.opts.wsUrl}${this.opts.wsUrl.includes('?') ? '&' : '?'}voice_id=${conn.voiceId}` : conn.url;
@@ -256,6 +256,13 @@ class TranslationStream extends EventEmitter {
         // never emits 'close' on its own — terminate so the normal close → reconnect path runs
         ws.terminate();
       });
+    });
+    // Which machine answered. asr.cloud.tencent.com is a load balancer, so two connections a minute apart
+    // need not be the same backend; when a run is being timed, the edge it landed on belongs in the record.
+    ws.on('upgrade', (res) => {
+      sock.peer = (res.socket && res.socket.remoteAddress) || null;
+      sock.edgeId = res.headers['x-nws-log-uuid'] || res.headers['x-request-id'] || null;
+      this.emit('connected', { id: sock.id, role: sock.role, voiceId: sock.voiceId, peer: sock.peer, edgeId: sock.edgeId });
     });
     ws.on('open', () => {
       sock.open = true;
