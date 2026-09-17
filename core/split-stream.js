@@ -15,7 +15,7 @@
 const WebSocket = require('ws');
 const dns = require('node:dns').promises;
 const { EventEmitter } = require('node:events');
-const { buildRecognition, resolveMainland, forgetMainland, pinnedOptions, HOST } = require('./tencent');
+const { buildRecognition, resolveMainland, forgetMainland, isMainlandEdge, pinnedOptions, HOST } = require('./tencent');
 
 const CHUNK_MS = 200;
 const CHUNK_BYTES = 6400;
@@ -38,11 +38,18 @@ const EDGE_TRIES = 3; // mainland connections that may fail in a row before one 
 /**
  * The Guangzhou edge. Outside the mainland, DNS answers with an overseas edge — Singapore, from the Hong Kong
  * server — and recognition reached there is billed 跨境: ¥11.00 an hour for 16k_zh_large against ¥4.80. The
- * resolver asks Chinese DNS with a mainland client subnet, and is told to skip whatever ordinary DNS returned.
+ * resolver asks Chinese DNS with a mainland client subnet and skips whatever ordinary DNS returned; an answer is
+ * used only once the edge has shown it is a mainland one, because a lookup that fails falls through to plain DNS.
  */
 async function mainlandEdge({ force }) {
-  const system = await dns.resolve4(HOST).catch(() => []);
-  return resolveMainland({ force, avoid: system });
+  const avoid = await dns.resolve4(HOST).catch(() => []);
+  for (let tries = 0; tries < 3; tries++) {
+    const ip = await resolveMainland({ force: force || tries > 0, avoid });
+    if (await isMainlandEdge(ip)) return ip;
+    avoid.push(ip);
+    forgetMainland();
+  }
+  throw new Error(`no edge that serves the mainland (tried ${avoid.join(', ')})`);
 }
 
 /** The recognition engine for a spoken language, unless one was named. 16k_zh_large also hears Cantonese. */

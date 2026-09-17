@@ -176,6 +176,27 @@ async function resolveMainland({ ttlMs = 10 * 60_000, force = false, avoid = [] 
 
 function forgetMainland() { mainlandCache = { ip: null, at: 0 }; }
 
+/**
+ * Whether `ip` really is a mainland edge. A resolver can hand back an overseas one — every lookup above falls
+ * through to plain DNS when the mainland-subnet ones fail, and from Hong Kong plain DNS answers with Singapore —
+ * and recognition reached there is billed 跨境. Only the mainland serves 实时语音翻译: an overseas edge answers its
+ * path with HTTP 404, a mainland one opens the socket and complains about the missing parameters. Nothing is
+ * signed and no audio is sent, so nothing is billed.
+ */
+function isMainlandEdge(ip, { timeoutMs = 5000 } = {}) {
+  const WebSocket = require('ws');
+  return new Promise((resolve) => {
+    let ws = null;
+    const done = (yes) => { clearTimeout(timer); try { ws.terminate(); } catch { /* gone */ } resolve(yes); };
+    const timer = setTimeout(() => done(false), timeoutMs);
+    ws = new WebSocket(`wss://${HOST}${PATH_PREFIX}0?voice_id=edge-check`, { handshakeTimeout: timeoutMs, ...pinnedOptions(ip) });
+    ws.on('unexpected-response', () => done(false));
+    ws.on('message', () => done(true));
+    ws.on('error', () => done(false));
+    ws.on('close', () => done(false));
+  });
+}
+
 /** hotwords text (one "词|权重" per line, or comma separated) → API hotword_list value, or '' if none. */
 function hotwordList(text) {
   const items = [];
@@ -221,6 +242,7 @@ module.exports = {
   maskSecret,
   resolveMainland,
   forgetMainland,
+  isMainlandEdge,
   pinnedOptions,
   hotwordList,
 };
