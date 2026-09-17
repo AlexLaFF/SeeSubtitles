@@ -472,7 +472,7 @@ therefore starts about 700 ms after the speaker stopped.
   over minutes to days, which nothing we send chooses.
 - 实时语音识别 never did it: 38–130 ms from audio to result on every connection, and the split pipeline's 定稿 moved
   at most 68 ms between passes of the same audio. On a fast connection A settles about 250 ms before B (≈ 500 against
-  750 ms); on a slow one 0.5–1.7 s after it.
+  750 ms); on a slow one 0.4–1.7 s after it.
 
 ### Where the split pipeline's time goes
 
