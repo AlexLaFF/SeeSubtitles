@@ -8,10 +8,10 @@ Sized as a rough day count for one person.
 - **Which live pipeline.** Decided: the split pipeline (0.8.0 on `live-split-pipeline`, not yet deployed); the
   findings are in `docs/LIVE-PIPELINE-MEASUREMENTS.md`. Tuned the same way (pause 700 ms, cap 6 s) both pipelines
   hear the same words and break lines at the same moments; with `hy-mt2-pro` and context the split one was preferred
-  in blind judging and rewrites less of what the audience has read. **Speed is not settled:** every 定稿 figure so
-  far is timed from each service's own sentence end, and the two services end sentences by their own VAD —
-  `probe-ab.js` now also times from the recording (「自停顿」), `--compare-ends` checks existing runs, and `--repeat`
-  separates the run from the talk. Also open: pro is limited to 60 requests a minute (about one talk); the bill for
+  in blind judging and rewrites less of what the audience has read. **Speed, settled 18 September:** both services report the
+  same sentence ends; 实时语音翻译's speed swings with Tencent's load (fast connections settle about 250 ms before the
+  split pipeline, slow ones 0.5–1.7 s after), while the split pipeline's ~750 ms is pro's own translation time, with
+  no free way to shorten it (see the measurements doc). Also open: pro is limited to 60 requests a minute (about one talk); the bill for
   18 September shows whether the Guangzhou edge bills as mainland use; a region at sign-up before anyone outside
   the mainland is let in. The raw data, clips and scripts are kept privately on Alex's Mac (they include talk
   audio). *Deploy and release, then several days.*

@@ -443,3 +443,52 @@ The four talks again, both pipelines through the relay at the same moment:
 The split pipeline settles as it did through Singapore (790–851 ms; 846 before), so the edge costs it nothing.
 Recognition is the same on both. 实时语音翻译 landed on its fast backend for three of the four talks — settling
 about 300 ms sooner than the split pipeline, but rewriting 1.5–2.6 times as often — and on its usual one for 9:32.
+
+## Why 实时语音翻译's timing moves, and where the split pipeline's time goes (18 September, night)
+
+Three probes on the server, every arm fed the same audio in one process: 12 passes of 90 s (the four talks three
+times), 16 passes of 60 s recording every chunk sent and every message received, and 4 passes of 180 s with three
+pauses. About ¥10 of speech time, all of the split pipeline's through the Guangzhou edge.
+
+### Both pipelines put a sentence's end in the same place
+
+On 219 sentences matched between the two, 实时语音翻译 and 实时语音识别 report the same start and the same end
+(median difference 0 ms). They share a recogniser and its endpointing, so 定稿 measured from each service's own end
+compares the same event — the concern in "What this table cannot say yet" does not hold. But that end is **when the
+silence timer fired, not when the speaker stopped**: for the same sentence, a 500 ms pause moves it 200 ms earlier
+than a 700 ms one, and the recognition final arrives at it (median 6 ms later). Every 定稿 figure in this document
+therefore starts about 700 ms after the speaker stopped.
+
+### 实时语音翻译's speed is Tencent's, connection by connection
+
+- **Not the talk.** The same 90 s of 13:47 settled at 1,360, 480 and 467 ms on three passes; 9:32 at 1,151, 518 and
+  550. Between passes of one recording A moved by up to 893 ms; between talks, by 124.
+- **Not our side.** On fast and slow connections alike A's audio left 160–290 ms after it was captured. What differs
+  is Tencent: partial results came back 100–200 ms after the audio on a fast connection and 750–2,100 ms on a slow
+  one, for the whole connection.
+- **Not the edge.** Slow: 4 of 8 connections pinned to Guangzhou, 3 of 8 that tried Singapore first.
+- **Not a coin per connection either.** Slow connections came in stretches — four in a row at 01:08–01:11, fast
+  either side; every one of 84 on 16 September; 9 of 28 tonight. It follows load or capacity on Tencent's side,
+  over minutes to days, which nothing we send chooses.
+- 实时语音识别 never did it: 38–130 ms from audio to result on every connection, and the split pipeline's 定稿 moved
+  at most 68 ms between passes of the same audio. On a fast connection A settles about 250 ms before B (≈ 500 against
+  750 ms); on a slow one 0.5–1.7 s after it.
+
+### Where the split pipeline's time goes
+
+After the speaker stops: the 700 ms pause, then the recognition final (on the timer, give or take 100 ms), then
+translating that final with `hy-mt2-pro` — 690–720 ms, of which the network is 30 ms (TokenHub answers from
+Guangdong; TCP 26 ms, TLS 33 ms). About 1.45 s in all; 750 ms of it after the reported end.
+
+| What could be shortened | Saves (median) | What it costs |
+|---|---|---|
+| Pause 500 ms | 169 ms | 25% of sentences cut in two or more; lines 16 → 12 characters |
+| Pause 600 ms | 38 ms | the same 25% cut — all of 500's splitting for a quarter of its speed |
+| `hy-mt2-lite` | ≈ 230 ms (494 against 722) | lost 183–67 to pro in blind judging |
+| `hy-mt2-plus` | 0 (690 ms, like pro) | — |
+| Streaming the translation | 0 (691 ms; first bytes at 484) | — |
+| No context | 0 (694 against 697 ms) | worse wording |
+| Reuse a finished draft of the same words | 22 ms (mean 949 → 827) | about a fifth of lines qualify; the draft has no closing punctuation |
+| Translate once the words stop changing | 90 ms | 62 more calls a minute, past pro's 60; the final changes words on 60% of lines |
+
+Nothing large is free: the floor is the model's own ~700 ms. The shipped settings (pause 700, pro, context) stay.
