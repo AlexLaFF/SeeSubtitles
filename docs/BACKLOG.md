@@ -7,10 +7,15 @@ Sized as a rough day count for one person.
 
 - **Which live pipeline.** The findings are in `docs/LIVE-PIPELINE-MEASUREMENTS.md`: the split pipeline
   (`16k_zh_large` + hotwords, then `hy-mt2-lite`, translating while the sentence is spoken) matches the current one
-  on recognition and settles lines sooner and more predictably. Open: Alex's verdict from the four side-by-side
-  review videos, and the cost of `16k_zh_large` — the daily settlement for 10–11 September says whether it bills as a
-  大模型 SKU. The raw data, clips and scripts are kept privately on Alex's Mac (not in this repository, since they
-  include talk audio). Once decided: build the split pipeline for the languages 实时语音翻译 refuses first, and for
+  on recognition. Whether it also settles lines sooner is **not established** — each talk was played once, and both
+  arms were timed from their own service's sentence end rather than from the audio, so the table may be comparing
+  the two VADs. Re-run it before deciding anything on speed:
+  `npm run probe:ab -- <four talks> --repeat 3 --arms arms.json --out shootout` (about two hours; the report splits
+  each arm's spread into run-to-run and talk-to-talk, times both arms off the recording, and records which edge each
+  pass landed on). Also open: Alex's verdict from the four side-by-side review videos, and the cost of
+  `16k_zh_large` — the daily settlement for 10–11 September says whether it bills as a 大模型 SKU. The raw data,
+  clips and scripts are kept privately on Alex's Mac (not in this repository, since they include talk audio).
+  Once decided: build the split pipeline for the languages 实时语音翻译 refuses first, and for
   Cantonese → Mandarin only if the verdict and the cost say so. *A decision, then several days.*
 
 ## Before many outside users
