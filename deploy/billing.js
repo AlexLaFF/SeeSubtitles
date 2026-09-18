@@ -89,7 +89,7 @@ async function main() {
     try { lines = await detailLines(cred, month); } catch (err) { console.log(`  detail unavailable: ${err.message}`); continue; }
     dump[month] = lines;
     // Totals come from the detail lines, not DescribeBillSummaryByProduct: the summary leaves out the day that settled
-    // most recently (on 17 Sept it showed ¥122.51 while the lines already held ¥395.49).
+    // most recently, which can be most of what is owed while a heavy day is being settled.
     const cost = (l) => (l.ComponentSet || []).reduce((a, c) => a + yuan(c.RealCost), 0);
     const byProduct = new Map();
     for (const l of lines) byProduct.set(l.BusinessCodeName, (byProduct.get(l.BusinessCodeName) || 0) + cost(l));
