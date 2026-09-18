@@ -205,3 +205,46 @@ test('reaches Tencent through the mainland edge, and goes the ordinary way only 
   assert.equal(await new SplitStream(creds, { tokenhubKey: 'k', edge: 'auto' })._edgeIp(), null, "'auto' uses ordinary DNS");
   assert.equal(await new SplitStream(creds, { tokenhubKey: 'k', edge: 'cn', wsUrl: 'ws://127.0.0.1:1' })._edgeIp(), null, 'a stand-in is reached directly');
 });
+
+test("a line that meets pro's per-minute limit is translated by plus at once, and pro is asked again later", async () => {
+  const m = await mockAsr((ws) => {
+    ws.send(ok());
+    setTimeout(() => ws.send(word(1, '第一句', { end: true })), 40);
+    setTimeout(() => ws.send(word(2, '第二句', { end: true, start_time: 1600, end_time: 2000 })), 200);
+    setTimeout(() => ws.send(word(3, '第三句', { end: true, start_time: 2600, end_time: 3000 })), 500);
+  });
+  let limit = 1;
+  const t = mockTranslate(async (b) => {
+    if (b.model === 'hy-mt2-pro' && limit > 0) { limit--; return { status: 429, error: 'The request rate exceeds the current model RPM limit 60' }; }
+    return `${b.model}:${b.text}`;
+  });
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, rateCooldownMs: 250 });
+  const finals = [];
+  s.on('result', (r) => { if (r.sentenceEnd) finals.push(r.targetText); });
+  await withCleanup(m, s, async () => {
+    s.start();
+    for (let i = 0; i < 10; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(60); }
+    await sleep(300);
+    assert.deepEqual(finals, ['hy-mt2-plus:第一句', 'hy-mt2-plus:第二句', 'hy-mt2-pro:第三句'],
+      'the limited line and the one inside the cooldown go to plus; after it, pro again');
+    assert.equal(s.status.model, 'hy-mt2-pro', 'pro is not stepped down from');
+    assert.equal(s.status.translateFailures, 0);
+    assert.equal(s.status.rateFallbacks, 2);
+  });
+});
+
+test('if plus is refused while pro is at its limit, the line fails rather than looping', async () => {
+  const m = await mockAsr((ws) => { ws.send(ok()); setTimeout(() => ws.send(word(1, '一句', { end: true })), 40); });
+  const t = mockTranslate(async (b) => (b.model === 'hy-mt2-pro'
+    ? { status: 429, error: 'The request rate exceeds the current model RPM limit 60' }
+    : { status: 402, error: 'The free trial quota for the service has been exhausted and postpaid billing is not enabled' }));
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, rateCooldownMs: 0 });
+  await withCleanup(m, s, async () => {
+    s.start();
+    for (let i = 0; i < 4; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(50); }
+    await sleep(300);
+    assert.ok(t.calls.length <= 4, `a bounded number of calls, not a loop (${t.calls.length})`);
+    assert.equal(s.status.model, 'hy-mt2-pro', 'a refused stand-in does not step pro down');
+    assert.equal(s.status.translateFailures, 1);
+  });
+});

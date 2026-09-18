@@ -24,7 +24,10 @@ language) with the talk's hotwords, and our own 混元翻译 call — `hy-mt2-pr
 for both the rolling draft and the final line. One model for both: mixing a fast draft with a better final doubles how
 often a line the audience has already read is rewritten. A pause of 700 ms ends a line and nothing runs past 6 s.
 `core/split-stream.js`, chosen by the `pipeline` setting (`split` | `combined`), which the relay also honours.
-Tencent's own 实时语音翻译 is still there as `combined`, and is the fallback if TokenHub is unreachable. Why, with
+Tencent's own 实时语音翻译 is still there as `combined`, and the relay uses it when the server has no TokenHub key;
+a TokenHub outage during a talk does not switch to it — lines keep their draft, or show the words alone.
+`hy-mt2-pro` takes 60 requests a minute on the account and one talk makes about 45: when TokenHub answers 429, that
+line and every call for the next 20 s go to `hy-mt2-plus`, then pro again (live and file jobs alike). Why, with
 numbers: docs/LIVE-PIPELINE-MEASUREMENTS.md. Recordings and exports were already on `hy-mt2-pro`.
 
 **Tencent is reached through its Guangzhou edge** (`TENCENT_EDGE`, default `cn`, server/lib/live-proxy.js). From the Hong

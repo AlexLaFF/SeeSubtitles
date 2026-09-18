@@ -117,16 +117,27 @@ class JobRunner extends EventEmitter {
       this.backend = 'tokenhub';
       this.model = model || tokenhub.DEFAULT_MODEL;
       // A model the account may not use is refused on every call; step down once and stay there, so a
-      // file still comes back translated (server/lib/tokenhub.js, NEXT_MODEL).
+      // file still comes back translated (server/lib/tokenhub.js, NEXT_MODEL). A model at its per-minute limit
+      // hands its calls to the next one for a while instead, and leaves the limit to a live talk (RATE_FALLBACK).
+      this.rateLimitedUntil = 0;
       this.translate = async ({ text, source, target }) => {
+        let limited = false; // this call met the limit itself
         for (;;) {
-          const model = this.model; // cues can be translated side by side; another may step down first
+          const base = this.model; // cues can be translated side by side; another may step down first
+          const model = ((limited || Date.now() < this.rateLimitedUntil) && tokenhub.rateFallback(base)) || base;
           try {
             return await tokenhub.translate(tokenhubKey, { model, text, source, target });
           } catch (err) {
-            const isRefusal = err instanceof tokenhub.TokenHubError && tokenhub.isRefused(err.status, err.body, err.message);
-            if (!isRefusal) throw err;
-            if (this.model === model) {
+            const fromHub = err instanceof tokenhub.TokenHubError;
+            if (fromHub && model === base && tokenhub.rateFallback(base) && tokenhub.isRateLimited(err.status, err.body, err.message)) {
+              if (Date.now() >= this.rateLimitedUntil) this.log('info', `translation: ${base} is at its rate limit — ${tokenhub.rateFallback(base)} for the next ${tokenhub.RATE_COOLDOWN_MS / 1000} s`);
+              this.rateLimitedUntil = Date.now() + tokenhub.RATE_COOLDOWN_MS;
+              limited = true;
+              continue;
+            }
+            const isRefusal = fromHub && tokenhub.isRefused(err.status, err.body, err.message);
+            if (!isRefusal || model !== base) throw err; // the stand-in failing is an ordinary failure
+            if (this.model === base) {
               const next = tokenhub.nextModel(model);
               if (!next) throw err;
               this.log('warn', `translation: TokenHub refused ${model} (${String(err.message).slice(0, 120)}) — using ${next} from now on`);

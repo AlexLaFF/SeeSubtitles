@@ -32,6 +32,12 @@ const NEXT_MODEL = { 'hy-mt2-pro': 'hy-mt2-plus', 'hy-mt2-plus': 'hy-mt2-lite' }
 const refused = (status, body) => status === 402 || status === 403
   || /permission_error/.test(String((body && body.error && body.error.type) || ''))
   || /postpaid billing|free trial quota|not enabled/i.test(String((body && body.error && body.error.message) || ''));
+// pro takes 60 requests a minute on the account and one talk makes about 45, so a second talk meets its limit
+// (429). That minute passes: the line goes to plus at once, and so does everything for the next rateCooldownMs —
+// draft and final on one model — before pro is asked again. Mirrors RATE_FALLBACK in server/lib/tokenhub.js.
+const RATE_FALLBACK = { 'hy-mt2-pro': 'hy-mt2-plus' };
+const rateLimited = (status, body) => status === 429
+  || /RPM limit|request rate exceeds/i.test(String((body && body.error && body.error.message) || ''));
 
 const EDGE_TRIES = 3; // mainland connections that may fail in a row before one attempt goes the ordinary way
 
@@ -73,7 +79,7 @@ class SplitStream extends EventEmitter {
     this.creds = creds;
     this.opts = {
       source: 'yue', target: 'zh', model: 'hy-mt2-pro', rollMs: 900, contextLines: 2,
-      vadSilenceTime: 700, maxSpeakTime: 6, edge: 'auto', ...opts,
+      vadSilenceTime: 700, maxSpeakTime: 6, edge: 'auto', rateCooldownMs: 20_000, ...opts,
     };
     this.fetch = opts.fetchImpl || ((...a) => fetch(...a));
     this.queue = [];
@@ -90,6 +96,8 @@ class SplitStream extends EventEmitter {
     this.failures = 0;
     this.lastError = null;
     this.modelFallback = null; // {from, to, reason} once a refused model has been stepped down from
+    this.rateLimitedUntil = 0; // until then, calls go to RATE_FALLBACK[model]
+    this.rateFallbacks = 0; // calls sent to the stand-in because the model was at its limit
     this.lastSentAt = 0;
     this.resolveEdge = opts.resolveEdge || mainlandEdge;
     this.mainland = { ip: null, failures: 0 }; // failures: connections through it that failed in a row
@@ -106,6 +114,7 @@ class SplitStream extends EventEmitter {
       engine: this._engine(), model: this.opts.model, source: this.opts.source, target: this.opts.target,
       translateCalls: this.calls, translateRetries: this.retries, translateFailures: this.failures,
       keepalives: this.keepalives, droppedBytes: this.dropped, lastError: this.lastError, modelFallback: this.modelFallback,
+      rateLimited: Date.now() < this.rateLimitedUntil, rateFallbacks: this.rateFallbacks,
       edge: this.edge,
     };
   }
@@ -376,8 +385,12 @@ class SplitStream extends EventEmitter {
   async _translate(text, { final = false, context = '' } = {}) {
     const key = (this.opts.tokenhubKey || '').trim();
     if (!key) return '';
+    let limited = false; // this call has met the limit itself, so it stays on the stand-in whatever the clock says
     for (let attempt = 0; attempt <= (final ? 1 : 0); attempt++) {
-      const model = this.opts.model; // what this call asks for — another call may step down meanwhile
+      const base = this.opts.model; // what this call is for — another call may step down meanwhile
+      const busy = (limited || Date.now() < this.rateLimitedUntil) && RATE_FALLBACK[base];
+      const model = busy || base;
+      if (busy) this.rateFallbacks++;
       this.calls++;
       if (attempt) this.retries++;
       try {
@@ -392,7 +405,14 @@ class SplitStream extends EventEmitter {
         const body = await res.json();
         if (res.ok && body && body.choices && body.choices[0]) return (body.choices[0].message.content || '').trim();
         const message = (body && body.error && body.error.message) || `HTTP ${res.status}`;
-        if (refused(res.status, body)) {
+        if (model === base && RATE_FALLBACK[base] && rateLimited(res.status, body)) {
+          if (Date.now() >= this.rateLimitedUntil) this._log(`${base} is at its rate limit — ${RATE_FALLBACK[base]} for the next ${Math.round(this.opts.rateCooldownMs / 1000)} s`);
+          this.rateLimitedUntil = Date.now() + this.opts.rateCooldownMs;
+          limited = true;
+          attempt--; // the same line again, on the stand-in, at once
+          continue;
+        }
+        if (refused(res.status, body) && model === base) {
           if (this.opts.model === model && NEXT_MODEL[model]) {
             this.modelFallback = { from: model, to: NEXT_MODEL[model], reason: message.slice(0, 160) };
             this.opts.model = NEXT_MODEL[model];

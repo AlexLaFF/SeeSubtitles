@@ -20,3 +20,42 @@ test('pro steps down to plus, plus to lite, and lite has nowhere to go', () => {
   assert.equal(tokenhub.nextModel('hy-mt2-lite'), null);
   assert.equal(tokenhub.nextModel('something-else'), null);
 });
+
+test("pro's per-minute limit is a busy moment with a stand-in, not a refusal", () => {
+  assert.equal(tokenhub.isRateLimited(429, null), true);
+  assert.equal(tokenhub.isRateLimited(400, { error: { message: 'The request rate exceeds the current model RPM limit 60' } }), true);
+  assert.equal(tokenhub.isRateLimited(402, { error: { message: 'free trial quota' } }), false);
+  assert.equal(tokenhub.rateFallback('hy-mt2-pro'), 'hy-mt2-plus');
+  assert.equal(tokenhub.rateFallback('hy-mt2-plus'), null, 'plus has no limit worth stepping around');
+});
+
+test('a file translating while pro is at its limit goes to plus for a while, then back to pro', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { JobRunner } = require('../lib/jobs');
+  const real = tokenhub.translate;
+  const asked = [];
+  let limitHits = 1;
+  tokenhub.translate = async (_key, { model, text }) => {
+    asked.push(model);
+    if (model === 'hy-mt2-pro' && limitHits > 0) {
+      limitHits--;
+      throw new tokenhub.TokenHubError(429, 'The request rate exceeds the current model RPM limit 60', { error: { message: 'The request rate exceeds the current model RPM limit 60' } });
+    }
+    return `${model}:${text}`;
+  };
+  const logs = [];
+  try {
+    const jobs = new JobRunner({ db: null, dir: fs.mkdtempSync(path.join(os.tmpdir(), 'rate-')), creds: null, tokenhubKey: 'k', log: (lvl, t) => logs.push(t) });
+    assert.equal(await jobs.translate({ text: '一', source: 'yue', target: 'zh' }), 'hy-mt2-plus:一', 'the line that met the limit is translated by plus');
+    assert.equal(await jobs.translate({ text: '二', source: 'yue', target: 'zh' }), 'hy-mt2-plus:二', 'and so is the next, without asking pro');
+    assert.deepEqual(asked, ['hy-mt2-pro', 'hy-mt2-plus', 'hy-mt2-plus']);
+    assert.equal(jobs.model, 'hy-mt2-pro', 'pro is not stepped down from');
+    assert.equal(logs.filter((t) => /rate limit/.test(t)).length, 1);
+    jobs.rateLimitedUntil = 0; // the cooldown has passed
+    assert.equal(await jobs.translate({ text: '三', source: 'yue', target: 'zh' }), 'hy-mt2-pro:三');
+  } finally {
+    tokenhub.translate = real;
+  }
+});

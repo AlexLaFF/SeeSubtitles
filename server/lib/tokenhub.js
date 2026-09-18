@@ -15,6 +15,12 @@ const DEFAULT_MODEL = 'hy-mt2-pro';
 // still translates, less well, which beats a subtitle track with nothing in it. (hy-mt2-pro's trial ran out on
 // 2026-09-17 during testing: `402 401008 The free trial quota for the service has been exhausted`.)
 const NEXT_MODEL = { 'hy-mt2-pro': 'hy-mt2-plus', 'hy-mt2-plus': 'hy-mt2-lite' };
+// hy-mt2-pro takes 60 requests a minute on the account and one live talk makes about 45, so a second talk — or a
+// file translating while one runs — meets `429 The request rate exceeds the current model RPM limit 60`. That is a
+// busy minute, not a refusal: the call goes to plus, which took 500+ a minute, and so does every call for the next
+// RATE_COOLDOWN_MS, keeping a line's draft and its final on one model; then pro is asked again.
+const RATE_FALLBACK = { 'hy-mt2-pro': 'hy-mt2-plus' };
+const RATE_COOLDOWN_MS = 20_000;
 
 class TokenHubError extends Error {
   constructor(status, message, body) {
@@ -72,4 +78,14 @@ function isRefused(status, body, message = '') {
 /** The model to try when `model` is refused, or null when there is nothing below it. */
 const nextModel = (model) => NEXT_MODEL[model] || null;
 
-module.exports = { translate, TokenHubError, DEFAULT_MODEL, DEFAULT_BASE, NEXT_MODEL, isRefused, nextModel };
+/** A model's per-minute limit, which clears by itself. */
+function isRateLimited(status, body, message = '') {
+  const err = body && body.error;
+  return status === 429 || /RPM limit|request rate exceeds/i.test(String((err && err.message) || message));
+}
+
+/** The model to use while `model` is at its rate limit, or null when there is none. */
+const rateFallback = (model) => RATE_FALLBACK[model] || null;
+
+module.exports = { translate, TokenHubError, DEFAULT_MODEL, DEFAULT_BASE, NEXT_MODEL, RATE_FALLBACK, RATE_COOLDOWN_MS,
+  isRefused, nextModel, isRateLimited, rateFallback };
