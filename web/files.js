@@ -299,10 +299,14 @@
     $('btnShift').addEventListener('click', async () => { const v = await askText(t('files.shiftPrompt'), '0'); const ms = Number(v); if (!v || !Number.isFinite(ms) || !ms) return; for (const c of cues) { c.start = Math.max(0, c.start + ms); c.end = Math.max(c.start + 200, c.end + ms); } markDirty(); renderCues(); });
     $('tabSubs').addEventListener('click', () => { $('tabSubs').classList.add('on'); $('tabSum').classList.remove('on'); $('cues').hidden = false; $('cueBar').hidden = false; $('sumBox').hidden = true; $('dHint').hidden = false; });
     $('tabSum').addEventListener('click', () => { $('tabSum').classList.add('on'); $('tabSubs').classList.remove('on'); $('cues').hidden = true; $('cueBar').hidden = true; $('sumBox').hidden = false; $('dHint').hidden = true; renderSummary(); });
+    /** This recording's summary is being written, or waits its turn: the page says so rather than inviting a second one. */
+    const summarising = () => { const sm = (Sub.status && Sub.status.summary) || {}; return !!(sm.current && sm.current.base === base) || (sm.queue || []).includes(base); };
     function renderSummary() {
       const box = $('sumBox'); box.innerHTML = '';
       const rr = recordings.find((x) => x.base === base) || r;
-      if (rr.summary) { const f = el('iframe', { src: `/summary?rec=${encodeURIComponent(base)}`, style: 'width:100%;height:100%;border:0;border-radius:8px;background:var(--surface-2)' }); box.appendChild(f); }
+      const sm = (Sub.status && Sub.status.summary) || {};
+      if (summarising()) box.appendChild(el('div', { class: 'empty' }, t('files.summaryWriting', { stage: sm.current && sm.current.base === base ? stageName(sm.current.stage) : t('files.summaryQueued') })));
+      else if (rr.summary) { const f = el('iframe', { src: `/summary?rec=${encodeURIComponent(base)}`, style: 'width:100%;height:100%;border:0;border-radius:8px;background:var(--surface-2)' }); box.appendChild(f); }
       else box.appendChild(el('div', { class: 'empty' }, t('files.noSummary')));
     }
     const rec = () => recordings.find((x) => x.base === base) || r;
@@ -318,13 +322,14 @@
       const rs = s.resubtitle || {}; const mp = s.mp4 || {}; const sm = s.summary || {};
       const key = JSON.stringify([rs.current && rs.current.base === base ? rs.current : null, rs.last && rs.last.base === base ? rs.last.at : null, mp.current && mp.current.base === base ? mp.current.percent : null, sm.current && sm.current.base === base ? sm.current.stage : null]);
       const busy = (rs.current && rs.current.base === base) ? t('files.chip.busyResub', { stage: stageName(rs.current.stage), pct: rs.current.percent }) : (mp.current && mp.current.base === base) ? t('files.chip.busyMp4', { stage: stageName(mp.current.stage), pct: mp.current.percent }) : (sm.current && sm.current.base === base) ? t('files.chip.busySummary', { stage: stageName(sm.current.stage) }) : '';
-      $('btnSummary').disabled = !!(sm.current && sm.current.base === base) || !cues.length;
+      $('btnSummary').disabled = summarising() || !cues.length;
       $('btnSummary').hidden = !canSummarise();
-      $('btnSummary').textContent = rec().summary ? t('files.regenSummary') : t('files.aiSummary');
+      $('btnSummary').textContent = summarising() ? t('files.summaryBusy') : rec().summary ? t('files.regenSummary') : t('files.aiSummary');
       if (key === view.detailKey && $('dChip').dataset.done) return;
       const changed = view.detailKey && key !== view.detailKey && !busy; // something finished: reload files/cues
       view.detailKey = key;
       if (changed) { await loadRecordings(); const rr = recordings.find((x) => x.base === base); if (rr) { const d2 = await fetch(`/api/recordings/cues?base=${encodeURIComponent(base)}`).then((x) => x.json()).catch(() => null); if (d2 && !dirty) { cues = d2.cues || []; renderCues(); sync(true); } } }
+      if (!$('sumBox').hidden) renderSummary(); // started, moved a stage, or finished: the open Summary tab keeps up
       const rr = recordings.find((x) => x.base === base) || r;
       const chip = $('dChip'); chip.className = `chip ${busy ? 'warn' : rr.resubtitled ? 'ok' : ''}`;
       chip.innerHTML = ''; chip.append(el('span', { class: 'dot' }), cap(busy || (rr.resubtitled ? t('files.chip.complete') : (rr.srtTarget || rr.srtSource) ? t('files.chip.live') : t('files.chip.none')) + (rr.durationMs ? ` · ${Sub.fmtClock(rr.durationMs)}` : '')));
