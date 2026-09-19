@@ -9,11 +9,17 @@ const { EventEmitter } = require('node:events');
 const { buildHelper } = require('./helpers');
 const names = require('@subs/core/names');
 
-function probeDuration(file) {
+/**
+ * A recording's length in seconds, read by ffmpeg — which prints the container's duration when it opens a file and
+ * then stops, having been given nothing to write. The app used to ask ffprobe, but the only ffprobe npm offers for
+ * macOS is an Intel build, even in its arm64 folder: on a Mac without Rosetta it cannot start at all (error -86).
+ */
+function probeDuration(file, ffmpeg = 'ffmpeg') {
   return new Promise((resolve, reject) => {
-    execFile('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], (err, out) => {
-      const d = Number(String(out).trim());
-      if (err || !Number.isFinite(d) || d <= 0) return reject(new Error(`ffprobe: ${err ? err.message : 'no duration'}`));
+    execFile(ffmpeg, ['-hide_banner', '-i', file], (err, _out, errOut) => {
+      const m = /Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/.exec(String(errOut));
+      const d = m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : NaN;
+      if (!Number.isFinite(d) || d <= 0) return reject(new Error(`duration of ${path.basename(file)}: ${err && !m ? err.message.split('\n')[0] : 'not found'}`));
       resolve(d);
     });
   });
@@ -84,7 +90,7 @@ class Mp4Queue extends EventEmitter {
     const hasTarget = fs.existsSync(targetSrt);
     const hasSource = !!sourceSrt && fs.existsSync(sourceSrt);
     if (!hasTarget && !hasSource) throw new Error(`${base} has no subtitle files`);
-    const duration = await probeDuration(mp3);
+    const duration = await probeDuration(mp3, this.ffmpeg);
     const helper = await buildHelper('render-subs', (t) => this.emit('log', t));
     if (!helper) throw new Error('subtitle renderer unavailable (needs Xcode command line tools)');
 

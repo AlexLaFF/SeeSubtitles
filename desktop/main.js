@@ -36,7 +36,7 @@ const CONFIG_FILE = path.join(USER_DATA, 'config.json');
 const TOKEN = crypto.randomBytes(16).toString('hex');
 
 helpers.configure({ binDir: BIN_DIR, packaged: PACKAGED });
-// bundled ffmpeg/ffprobe first; Homebrew paths as a fallback during development
+// bundled ffmpeg first; Homebrew paths as a fallback during development
 process.env.PATH = [BIN_DIR, process.env.PATH || '', '/opt/homebrew/bin', '/usr/local/bin'].filter(Boolean).join(':');
 
 // ------------------------------------------------------------------ config
