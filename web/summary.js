@@ -1,10 +1,13 @@
-// Renders <base>.summary.md; timestamps like [12:34] link to that moment in the playback page.
+// Renders <base>.summary.md; timestamps like [12:34] link to that moment in the playback page — in the app. The PDF
+// (?print) keeps them as plain text: a link there would point at this Mac's own server, on a port that changes with
+// every launch and behind the app's session key, so it opened "unauthorized" and meant nothing to anyone sent it.
 (function () {
   'use strict';
   const params = new URLSearchParams(location.search);
   const rec = params.get('rec');
   const doc = document.getElementById('doc');
-  if (params.has('print')) document.body.classList.add('print');
+  const printing = params.has('print');
+  if (printing) document.body.classList.add('print');
   if (!rec) { doc.textContent = 'missing ?rec=<recording>'; return; }
   document.getElementById('playLink').href = `/playback?rec=${encodeURIComponent(rec)}`;
 
@@ -14,7 +17,8 @@
     return esc(s)
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
-      .replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g, (m, ts) => `<a class="ts" href="/playback?rec=${encodeURIComponent(rec)}&ts=${toSec(ts)}" target="playback">[${ts}]</a>`);
+      .replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g, (m, ts) => (printing ? `<span class="ts">[${ts}]</span>`
+        : `<a class="ts" href="/playback?rec=${encodeURIComponent(rec)}&ts=${toSec(ts)}" target="playback">[${ts}]</a>`));
   }
   function render(md) {
     const lines = md.replace(/<!--[\s\S]*?-->/g, '').split('\n');
