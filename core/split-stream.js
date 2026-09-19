@@ -15,7 +15,7 @@
 const WebSocket = require('ws');
 const dns = require('node:dns').promises;
 const { EventEmitter } = require('node:events');
-const { buildRecognition, resolveMainland, forgetMainland, isMainlandEdge, pinnedOptions, HOST } = require('./tencent');
+const { buildRecognition, resolveMainland, forgetMainland, isMainlandEdge, pinnedOptions, hotwordList, HOST } = require('./tencent');
 
 const CHUNK_MS = 200;
 const CHUNK_BYTES = 6400;
@@ -25,7 +25,6 @@ const KEEPALIVE_MS = 5000; // 实时语音识别 hangs up after 15 s without aud
 const STABLE_MS = 30_000; // a connection this old counts as healthy, so the backoff starts over
 const BACKOFF_MS = [500, 1000, 2000, 5000, 10_000];
 const TRANSLATE_URL = 'https://tokenhub.tencentmaas.com/v1/api/translations';
-const TUNING_KEYS = ['hotwords', 'vadSilenceTime', 'maxSpeakTime', 'noiseThreshold', 'filterModal', 'engine'];
 // A model the account may not use (trial quota spent, postpaid billing off) is refused on every call. Step down
 // and stay there: a lesser translation beats a subtitle track with nothing in it. Mirrors server/lib/tokenhub.js.
 const NEXT_MODEL = { 'hy-mt2-pro': 'hy-mt2-plus', 'hy-mt2-plus': 'hy-mt2-lite' };
@@ -99,6 +98,7 @@ class SplitStream extends EventEmitter {
     this.rateLimitedUntil = 0; // until then, calls go to RATE_FALLBACK[model]
     this.rateFallbacks = 0; // calls sent to the stand-in because the model was at its limit
     this.lastSentAt = 0;
+    this.connectSeq = 0; // the newest connect in progress; an older one that finds itself superseded gives up
     this.resolveEdge = opts.resolveEdge || mainlandEdge;
     this.mainland = { ip: null, failures: 0 }; // failures: connections through it that failed in a row
     this.edge = null; // where the current connection went: 'mainland <ip>', 'overseas' or 'system'
@@ -153,11 +153,21 @@ class SplitStream extends EventEmitter {
 
   /** Change language, model or tuning. Anything the connection carries takes a fresh connection. */
   setOptions(next = {}) {
-    const before = { ...this.opts };
+    const before = this._tuningKey();
     for (const [k, v] of Object.entries(next)) if (v !== undefined) this.opts[k] = v;
-    const reconnect = this.opts.source !== before.source
-      || TUNING_KEYS.some((k) => this.opts[k] !== before[k]);
-    if (this.running && reconnect) this._reconnect('settings changed');
+    if (this.running && this._tuningKey() !== before) this._reconnect('settings changed');
+  }
+
+  /**
+   * What the recognition connection would actually carry, normalised the way buildRecognition sends it. The app
+   * repeats its settings right after the relay's `ready`, with a 0 or '' where an option is unset; compared raw, that
+   * looked like a change, and every talk began by throwing its first connection away.
+   */
+  _tuningKey() {
+    const o = this.opts;
+    const n = (v) => Number(v) || 0;
+    return JSON.stringify([o.source, this._engine(), hotwordList(o.hotwords), Math.round(n(o.vadSilenceTime)),
+      n(o.maxSpeakTime), n(o.noiseThreshold), n(o.filterModal)]);
   }
 
   reconnect(reason = 'manual') { if (this.running) this._reconnect(reason); }
@@ -176,6 +186,11 @@ class SplitStream extends EventEmitter {
 
   async _connect() {
     if (!this.running) return;
+    // A connect waits on signing and on finding the mainland edge; a reconnect asked for meanwhile starts another.
+    // The older one must then give up, or it opens a second connection that receives no audio and is hung up on
+    // fifteen seconds later (4008) — which the relay passes on to the app as an error.
+    const seq = ++this.connectSeq;
+    const superseded = () => !this.running || seq !== this.connectSeq;
     this._setState(this.connects ? 'reconnecting' : 'connecting');
     let url = this.opts.wsUrl || null;
     let voiceId = null;
@@ -190,11 +205,13 @@ class SplitStream extends EventEmitter {
         }
       }
     } catch (err) {
+      if (superseded()) return;
       this._log(`✖ could not sign a recognition connection: ${err.message}`);
       return this._retry(err.message);
     }
+    if (superseded()) return;
     const ip = await this._edgeIp();
-    if (!this.running) return;
+    if (superseded()) return;
     const ws = new WebSocket(url, { handshakeTimeout: 10_000, ...pinnedOptions(ip) });
     const sock = { ws, ip, voiceId: voiceId || `v${Date.now()}`, openedAt: 0, authenticated: false, streamMs: 0, timeOffset: null, sent: 0 };
     this.sock = sock;

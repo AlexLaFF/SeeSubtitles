@@ -248,3 +248,39 @@ test('if plus is refused while pro is at its limit, the line fails rather than l
     assert.equal(s.status.translateFailures, 1);
   });
 });
+
+test('settings repeated after the handshake, with zeros for unset options, do not reconnect', async () => {
+  const m = await mockAsr((ws) => { ws.send(ok()); });
+  const t = mockTranslate(async () => 'x');
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, hotwords: '松果菊|10', vadSilenceTime: 700, maxSpeakTime: 6 });
+  await withCleanup(m, s, async () => {
+    s.start();
+    await sleep(150);
+    // what the app sends right after the relay's `ready`: the same settings, with unset options as 0 or ''
+    s.setOptions({ source: 'yue', target: 'zh', hotwords: '松果菊|10', vadSilenceTime: '700', maxSpeakTime: 6, noiseThreshold: 0, filterModal: 0 });
+    await sleep(150);
+    assert.equal(m.conns.length, 1, 'still the one connection');
+    s.setOptions({ hotwords: '松果菊|10,巨噬细胞|10' });
+    await sleep(150);
+    assert.equal(m.conns.length, 2, 'a real change still reconnects');
+  });
+});
+
+test('a reconnect asked for while the first connection is still being set up leaves one connection, not two', async () => {
+  const m = await mockAsr((ws) => { ws.send(ok()); });
+  const t = mockTranslate(async () => 'x');
+  // signing takes a while, as finding the mainland edge does in production
+  const urlFor = async () => { await sleep(150); return [{ url: m.url, voiceId: `v${Math.random()}` }]; };
+  const s = new SplitStream(null, { urlFor, tokenhubKey: 'k', fetchImpl: t.fetchImpl });
+  const errors = [];
+  s.on('server-error', (e) => errors.push(e));
+  await withCleanup(m, s, async () => {
+    s.start();
+    await sleep(30);
+    s.setOptions({ hotwords: '新词|10' }); // arrives before the first connection exists
+    await sleep(500);
+    assert.equal(m.conns.length, 1, 'the superseded connect gave up instead of opening a second connection');
+    assert.equal(s.status.state, 'ready');
+    assert.deepEqual(errors, []);
+  });
+});
