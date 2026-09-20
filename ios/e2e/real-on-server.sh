@@ -17,7 +17,12 @@ REMOTE_PORT=8099
 LOCAL_PORT=18099
 NAME=seesubtitles-ios-e2e
 cd "$(dirname "$0")/../.."
-ssh() { command ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -o ConnectTimeout=20 "$@"; }
+# One connection, reused by every command below: a link to Hong Kong that resets one connection in five should be
+# asked for as few as possible. Keepalives, so a connection that dies without a word is given up on, not waited for.
+CTL=$(mktemp -d)
+SSHOPTS="-o ControlMaster=auto -o ControlPath=$CTL/%C -o ControlPersist=300 -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -o ConnectTimeout=20"
+ssh() { command ssh $SSHOPTS "$@"; }
+retry() { for attempt in 1 2 3; do "$@" && return 0; echo "  · the connection dropped (attempt $attempt) — trying again" >&2; sleep 5; done; return 1; }
 
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "✖ uncommitted changes: this runs the committed code, so commit first" >&2
@@ -25,6 +30,7 @@ if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
 fi
 echo "▶ iOS end-to-end with real keys, for $(git rev-parse --short HEAD), on $HOST"
 
+retry ssh "$HOST" true
 TALKS=$(ssh "$HOST" 'sh ~/SeeSubtitles/deploy/talks.sh 2>/dev/null' || echo unknown)
 case "${TALKS%% *}" in
   0) ;;
@@ -38,11 +44,13 @@ SOCKET="$LOCAL/tunnel"
 cleanup() {
   command ssh -S "$SOCKET" -O exit "$HOST" 2>/dev/null || true
   ssh "$HOST" "docker rm -f $NAME >/dev/null 2>&1; rm -rf ~/ios-e2e-src" 2>/dev/null || true
-  rm -rf "$LOCAL"
+  command ssh -o ControlPath="$CTL/%C" -O exit "$HOST" 2>/dev/null || true
+  rm -rf "$LOCAL" "$CTL"
 }
 trap cleanup EXIT INT TERM
 
-git archive --format=tar HEAD | ssh "$HOST" 'rm -rf ~/ios-e2e-src && mkdir -p ~/ios-e2e-src && tar -x -C ~/ios-e2e-src'
+ship() { git archive --format=tar HEAD | ssh "$HOST" 'rm -rf ~/ios-e2e-src && mkdir -p ~/ios-e2e-src && tar -x -C ~/ios-e2e-src'; }
+retry ship
 ssh "$HOST" 'cd ~/ios-e2e-src && docker build -q -t seesubtitles-e2e -f e2e/Dockerfile . >/dev/null && echo "  test image built"'
 
 PASSWORD=$(openssl rand -hex 12)
@@ -55,7 +63,7 @@ ssh "$HOST" "docker rm -f $NAME >/dev/null 2>&1; docker run -d --rm --name $NAME
 
 # the recording that stands in for the room: the one the Mac's release test calls its baseline
 CLIP=$(ssh "$HOST" "node -e \"const m=require(process.env.HOME+'/e2e-fixtures/manifest.json'); const c=m.clips.baseline||Object.values(m.clips)[0]; console.log(c.file)\"")
-command scp -q -o ConnectTimeout=20 -o ServerAliveInterval=15 "$HOST:e2e-fixtures/$CLIP" "$LOCAL/room.wav"
+retry command scp -q $SSHOPTS "$HOST:e2e-fixtures/$CLIP" "$LOCAL/room.wav"
 echo "  recording: $CLIP ($(du -h "$LOCAL/room.wav" | cut -f1))"
 
 command ssh -M -S "$SOCKET" -f -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -L "$LOCAL_PORT:127.0.0.1:$REMOTE_PORT" "$HOST"
