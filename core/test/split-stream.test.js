@@ -128,7 +128,7 @@ test('retries a failed final once, and keeps the draft when translation is down'
     await sleep(300);
     assert.equal(t.calls.length, 2, 'the failed final was tried again');
     assert.equal(results.at(-1).targetText, '一句话');
-    assert.equal(s.status.translateRetries, 1);
+    assert.equal(s.status().translateRetries, 1);
   });
 });
 
@@ -151,8 +151,8 @@ test('a model the account may not use is stepped down from once, even with draft
     for (let i = 0; i < 6; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(60); }
     await sleep(300);
     assert.equal(results.at(-1).targetText, 'plus:一二三四五六七八九', 'the line still came back translated');
-    assert.equal(s.status.model, 'hy-mt2-plus', 'it stepped down one model, not past plus to lite');
-    assert.deepEqual([s.status.modelFallback.from, s.status.modelFallback.to], ['hy-mt2-pro', 'hy-mt2-plus']);
+    assert.equal(s.status().model, 'hy-mt2-plus', 'it stepped down one model, not past plus to lite');
+    assert.deepEqual([s.status().modelFallback.from, s.status().modelFallback.to], ['hy-mt2-pro', 'hy-mt2-plus']);
     assert.ok(!t.calls.some((c) => c.model === 'hy-mt2-lite'), 'lite was never asked');
   });
 });
@@ -167,8 +167,8 @@ test('reports a recognition error and keeps the engine and model in its status',
     s.start();
     await sleep(200);
     assert.equal(errors[0].code, 4001);
-    assert.equal(s.status.engine, '16k_ja', 'the engine follows the spoken language');
-    assert.equal(s.status.model, 'hy-mt2-pro');
+    assert.equal(s.status().engine, '16k_ja', 'the engine follows the spoken language');
+    assert.equal(s.status().model, 'hy-mt2-pro');
   });
 });
 
@@ -180,7 +180,7 @@ test('drops audio rather than growing a backlog while disconnected', async () =>
     s.start();
     for (let i = 0; i < 40; i++) s.push(Buffer.alloc(6400), { t0: Date.now() });
     assert.ok(s.queue.length <= 5, `queue stayed short, was ${s.queue.length}`);
-    assert.ok(s.status.droppedBytes > 0, 'the audio it could not send was counted');
+    assert.ok(s.status().droppedBytes > 0, 'the audio it could not send was counted');
   });
 });
 
@@ -190,14 +190,14 @@ test('reaches Tencent through the mainland edge, and goes the ordinary way only 
   const logs = [];
   s.on('log', (t) => logs.push(t));
   assert.equal(await s._edgeIp(), '106.55.89.122');
-  assert.equal(s.status.edge, 'mainland 106.55.89.122');
+  assert.equal(s.status().edge, 'mainland 106.55.89.122');
   assert.equal(await s._edgeIp(), '106.55.89.122');
   assert.equal(asked.length, 1, 'the edge is looked up once, not per connection');
 
   for (let i = 0; i < 3; i++) { s._edgeFailed('106.55.89.122'); if (i < 2) assert.equal(await s._edgeIp(), '106.55.89.122'); }
   assert.ok(asked.slice(1).every((o) => o.force), 'after a failure the edge is looked up afresh');
   assert.equal(await s._edgeIp(), null, 'the third failure in a row sends one attempt the ordinary way');
-  assert.equal(s.status.edge, 'overseas');
+  assert.equal(s.status().edge, 'overseas');
   assert.ok(logs.some((t) => /跨境/.test(t)), 'and says it will be billed 跨境');
   s._edgeFailed('106.55.89.122');
   assert.equal(await s._edgeIp(), '106.55.89.122', 'the attempt after that is mainland again');
@@ -227,9 +227,9 @@ test("a line that meets pro's per-minute limit is translated by plus at once, an
     await sleep(300);
     assert.deepEqual(finals, ['hy-mt2-plus:第一句', 'hy-mt2-plus:第二句', 'hy-mt2-pro:第三句'],
       'the limited line and the one inside the cooldown go to plus; after it, pro again');
-    assert.equal(s.status.model, 'hy-mt2-pro', 'pro is not stepped down from');
-    assert.equal(s.status.translateFailures, 0);
-    assert.equal(s.status.rateFallbacks, 2);
+    assert.equal(s.status().model, 'hy-mt2-pro', 'pro is not stepped down from');
+    assert.equal(s.status().translateFailures, 0);
+    assert.equal(s.status().rateFallbacks, 2);
   });
 });
 
@@ -244,8 +244,8 @@ test('if plus is refused while pro is at its limit, the line fails rather than l
     for (let i = 0; i < 4; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(50); }
     await sleep(300);
     assert.ok(t.calls.length <= 4, `a bounded number of calls, not a loop (${t.calls.length})`);
-    assert.equal(s.status.model, 'hy-mt2-pro', 'a refused stand-in does not step pro down');
-    assert.equal(s.status.translateFailures, 1);
+    assert.equal(s.status().model, 'hy-mt2-pro', 'a refused stand-in does not step pro down');
+    assert.equal(s.status().translateFailures, 1);
   });
 });
 
@@ -280,7 +280,7 @@ test('a reconnect asked for while the first connection is still being set up lea
     s.setOptions({ hotwords: '新词|10' }); // arrives before the first connection exists
     await sleep(500);
     assert.equal(m.conns.length, 1, 'the superseded connect gave up instead of opening a second connection');
-    assert.equal(s.status.state, 'ready');
+    assert.equal(s.status().state, 'ready');
     assert.deepEqual(errors, []);
   });
 });
@@ -300,8 +300,8 @@ test('subtitles in the language being spoken are the words themselves, with noth
     for (let i = 0; i < 8; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(60); }
     await sleep(300);
     assert.equal(t.calls.length, 0, 'the translator was not asked');
-    assert.equal(s.status.translateCalls, 0);
-    assert.equal(s.status.transcribing, true);
+    assert.equal(s.status().translateCalls, 0);
+    assert.equal(s.status().transcribing, true);
     const final = results.at(-1);
     assert.equal(final.sentenceEnd, true);
     assert.equal(final.targetText, '今天讲营养和肝脏', 'the settled line carries the words as its subtitle');

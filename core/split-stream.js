@@ -106,8 +106,9 @@ class SplitStream extends EventEmitter {
     this.rolling = null; // the sentence being spoken right now
   }
 
-  /** What a caller may show about the connection. */
-  get status() {
+  /** What a caller may show about the connection. A method, as TranslationStream's is: the relay, the route and the
+   * app all call `stream.status()`, and a getter here made every one of those throw on a split talk. */
+  status() {
     return {
       state: this.state, connects: this.connects, reconnects: Math.max(0, this.connects - 1),
       keyless: !this.creds || !!this.opts.urlFor,
@@ -189,7 +190,7 @@ class SplitStream extends EventEmitter {
   _setState(state) {
     if (this.state === state) return;
     this.state = state;
-    this.emit('status', this.status);
+    this.emit('status', this.status());
   }
 
   async _connect() {
@@ -444,7 +445,7 @@ class SplitStream extends EventEmitter {
             this.modelFallback = { from: model, to: NEXT_MODEL[model], reason: message.slice(0, 160) };
             this.opts.model = NEXT_MODEL[model];
             this._log(`✖ TokenHub refused ${model} (${message.slice(0, 120)}) — translating with ${this.opts.model} from now on`);
-            this.emit('status', this.status);
+            this.emit('status', this.status());
           }
           // a model that has since been stepped down from is simply asked again on the current one
           if (this.opts.model !== model) { attempt--; continue; }

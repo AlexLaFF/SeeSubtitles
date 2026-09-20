@@ -19,7 +19,7 @@ test('an overseas answer is skipped and the lookup asks again, avoiding it', asy
   asked.length = 0;
   const s = new SplitStream(null, { tokenhubKey: 'k', edge: 'cn' });
   assert.equal(await s._edgeIp(), GUANGZHOU);
-  assert.equal(s.status.edge, `mainland ${GUANGZHOU}`);
+  assert.equal(s.status().edge, `mainland ${GUANGZHOU}`);
   assert.equal(asked.length, 2);
   assert.ok(asked[1].force && asked[1].avoid.includes(SINGAPORE), 'the second lookup is fresh and skips Singapore');
 });
@@ -30,6 +30,6 @@ test('when no answer is a mainland edge, the connection says it goes overseas in
   const logs = [];
   s.on('log', (t) => logs.push(t));
   assert.equal(await s._edgeIp(), null);
-  assert.equal(s.status.edge, 'overseas');
+  assert.equal(s.status().edge, 'overseas');
   assert.ok(logs.some((t) => /no edge that serves the mainland/.test(t)), logs.join(' | '));
 });

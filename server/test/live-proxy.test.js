@@ -36,7 +36,7 @@ function fakeQuotas(seconds) {
   return { used: () => used, add: (_id, kind, s) => { if (kind === 'live') used += s; }, remaining: () => Math.max(0, seconds - used) };
 }
 
-async function harness({ liveSeconds = 3600, meterMs = 100 } = {}) {
+async function harness({ liveSeconds = 3600, meterMs = 100, tokenhubKey = '' } = {}) {
   const tencent = await fakeTencent();
   const quotas = fakeQuotas(liveSeconds);
   const user = { id: 1, email: 'probe@example.com' };
@@ -45,7 +45,7 @@ async function harness({ liveSeconds = 3600, meterMs = 100 } = {}) {
     creds: { appid: '1250000000', secretId: 'AKID', secretKey: 'sk' },
     authenticate: (req) => (/^Bearer good$/.test(req.headers.authorization || '') ? user : null),
     quotas, planRow: (u) => u, log: (level, text) => logs.push(`${level} ${text}`),
-    meterMs, wsUrl: tencent.url,
+    meterMs, wsUrl: tencent.url, tokenhubKey,
   });
   const server = http.createServer((_q, res) => res.end('no'));
   server.on('upgrade', (req, socket, head) => { if (!proxy.upgrade(req, socket, head)) socket.destroy(); });
@@ -130,4 +130,25 @@ test('a language pair the API refuses is refused here, before any connection is 
     assert.ok(errors.some((e) => e.code === 'bad_language'), `got ${JSON.stringify(errors)}`);
     assert.equal(h.tencent.bytes(), 0);
   } finally { stream.stop(); await h.close(); }
+});
+
+test('the relay can say what it is carrying during a split talk — the answer a deploy waits for', async () => {
+  // /internal/talks serves this, deploy/talks.sh reads it, and deploy.sh refuses to restart while it is not 0.
+  // The split stream used to expose its status as a property where every caller calls a method, so this threw and
+  // the deploy went ahead: on 20 September it cut off a talk in progress.
+  const h = await harness({ tokenhubKey: 'k' });
+  // spoken and subtitle language the same, so the words are the subtitle and no translator is involved
+  const stream = new RemoteTranslationStream({ url: h.url, token: 'good' }, { pipeline: 'split', source: 'zh', target: 'zh' });
+  try {
+    stream.start();
+    await sleep(400);
+    assert.equal(stream.status().state, 'ready');
+    const talks = h.proxy.status();
+    assert.equal(talks.length, 1);
+    assert.equal(talks[0].email, 'probe@example.com');
+    assert.equal(talks[0].state, 'ready', 'the relay knows the state of a split talk');
+  } finally {
+    stream.stop();
+    await h.close();
+  }
 });
