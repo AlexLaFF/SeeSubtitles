@@ -98,49 +98,25 @@ final class RecordingModel {
 
   // ---------------------------------------------------------------- cloud re-subtitling
 
-  /// The upload pipeline's name for a live language, where it has one (desktop/local-server.js, the same table).
-  static let jobSource = ["yue": "yue", "zh": "zh", "zh_en": "mixed", "en": "en", "ja": "ja", "ko": "ko"]
-  static let jobTarget = ["zh": "zh", "en": "en", "ja": "ja", "ko": "ko"]
-  var canResubtitle: Bool { recording.audio != nil && Self.jobSource[recording.manifest.source] != nil && app?.isSignedIn == true }
+  var canResubtitle: Bool { Resubtitler.canResubtitle(recording) && app?.isSignedIn == true }
 
+  /// The work itself is the core's (Resubtitler); this shows it, and says what went wrong in the person's language.
   func resubtitle() {
-    guard let app, let audio = recording.audio, let sourceLang = Self.jobSource[recording.manifest.source] else { return }
-    let manifest = recording.manifest
-    let targetLang = manifest.source == manifest.target ? "none" : (Self.jobTarget[manifest.target] ?? "none")
-    let folder = recording.folder
+    guard let app, canResubtitle else { return }
+    let recording = self.recording
     resubtitleWork = .running(stage: "uploading", progress: nil)
     Task {
       do {
-        let size = ((try? FileManager.default.attributesOfItem(atPath: audio.path)[.size]) as? Int) ?? 0
-        var job = try await app.api.createJob(filename: audio.lastPathComponent, size: size, sourceLanguage: sourceLang, targetLanguage: targetLang)
-        job = try await app.api.upload(audio, to: job)
-        while !job.isDone {
-          if job.isFailed { throw APIError(status: 500, code: "job_failed", message: job.error ?? "the cloud job failed") }
-          resubtitleWork = .running(stage: job.status, progress: (job.progress ?? 0) / 100)
-          try await Task.sleep(for: .seconds(3))
-          job = try await app.api.job(job.id)
+        try await Resubtitler(api: app.api).run(recording) { stage in
+          Task { @MainActor [weak self] in
+            guard let self, case .running = self.resubtitleWork else { return }
+            switch stage {
+            case .uploading: self.resubtitleWork = .running(stage: "uploading", progress: nil)
+            case .working(let status, let progress): self.resubtitleWork = .running(stage: status, progress: progress)
+            case .downloading: self.resubtitleWork = .running(stage: "downloading", progress: 1)
+            }
+          }
         }
-        resubtitleWork = .running(stage: "downloading", progress: 1)
-        var wanted = [(sourceLang, manifest.source)]
-        if targetLang != "none" { wanted.append((targetLang, manifest.target)) }
-        for (remoteLang, localLang) in wanted {
-          guard let remote = job.files?.first(where: { $0.hasSuffix(".\(remoteLang).srt") }) else { continue }
-          let dest = folder.appendingPathComponent(RecordingNames.srtName(manifest.base, language: localLang))
-          let backup = folder.appendingPathComponent(RecordingNames.liveName(dest.lastPathComponent))
-          // what the talk itself produced is kept, once, beside what replaces it
-          if FileManager.default.fileExists(atPath: dest.path), !FileManager.default.fileExists(atPath: backup.path) { try FileManager.default.moveItem(at: dest, to: backup) }
-          try await app.api.download(remote, of: job, to: dest)
-        }
-        // the transcript is rebuilt from the new subtitles; what the reader typed during the talk goes back in where it was said
-        let kept = folder.appendingPathComponent(RecordingNames.fileName(manifest.base, .transcript))
-        let replies = lines.filter { $0.kind == .reply }
-        try? FileManager.default.removeItem(at: kept)
-        if !replies.isEmpty, let fresh = app.library.recording(id: recording.id) {
-          var merged = (fresh.transcript().lines + replies).sorted { ($0.wallStart ?? 0) < ($1.wallStart ?? 0) }
-          for i in merged.indices { merged[i].seq = i + 1 }
-          try? JSONEncoder().encode(merged).write(to: kept, options: .atomic)
-        }
-        try? await app.api.deleteJob(job.id) // the server keeps the audio only as long as the job
         resubtitleWork = .idle
         reload(); app.refreshLibrary()
         await app.refreshAccount()

@@ -12,6 +12,13 @@
 	<string>See Subtitles listens to the microphone while a talk is running, to turn speech into subtitles and keep the recording on this device.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>See Subtitles uses the camera to scan the code of a talk you want to join.</string>
+	<!-- A server on this machine or this network over plain http: development, and the release test's own server
+	     (ios/e2e). Everything else still needs https. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIFileSharingEnabled</key>

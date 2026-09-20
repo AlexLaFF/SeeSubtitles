@@ -168,7 +168,44 @@ PDF, the QR code, a real microphone — to walk before publishing.
 
 ## The iOS app
 
-`ios/` is built with Xcode, not npm: see [IOS.md](IOS.md) §6 for the build, the launch arguments (demo mode, a local
-server, a file as the microphone) and `swift test`. `npm test` still guards it: core/test/ios-sync.test.js fails when
-a file the phone mirrors has changed, when its languages are out of date, or when it names a string the catalogue
-lacks. CLAUDE.md says what to do about each.
+`ios/` is built with Xcode, not npm: see [IOS.md](IOS.md) §6 for the build and the launch arguments. `npm test` still
+guards it: core/test/ios-sync.test.js fails when a file the phone mirrors has changed, when its languages are out of
+date, or when it names a string the catalogue lacks. CLAUDE.md says what to do about each.
+
+### The iOS release test
+
+`npm run e2e:ios` runs `ios/e2e/run.mjs`: everything about the phone app that can be checked without a person
+holding one. Three stages, about five minutes, **no keys and no cost** — nothing in it reaches Tencent or TokenHub.
+
+1. **Unit** — `swift test` in ios/Packages/SubtitlesCore. The relay client against a scripted socket; the recorder,
+   silence padding and crash recovery; the MP4 export (tracks, duration, a rendered frame, and a minute of talk in
+   seconds, which is what catches a writer stall); re-subtitling against a stub server, failures included; the
+   speech queue replaying the decisions web/speak.js made; the decimator giving core/decimator.js's samples.
+2. **Core end to end** — EndToEndTests.swift: the phone's real networking code (APIClient, RelayClient, TalkSession,
+   Recorder, URLSession) against **the real server**. `ios/e2e/harness.mjs` starts server/server.js on this Mac with a
+   throwaway database and stand-ins for Tencent's recogniser and TokenHub (`TENCENT_WS_URL`, `TOKENHUB_BASE_URL` —
+   the server warns loudly when either is set), so the relay, accounts, plans, metering, the summaries endpoint and
+   share sessions are the code that ships. Accounts, two-factor, devices and signing one out, the glossary across
+   devices, what each plan refuses (`plan_summaries`, `plan_quota`, `plan_talks`), a whole talk through the relay with
+   a file as the microphone and what it leaves on disk, that the server charged about as many seconds as the talk
+   lasted, a summary asked with the shared prompt and the server's own key, joining a talk a Mac is hosting, and
+   that no key value appears in anything the phone received or wrote.
+3. **UI** — SeeSubtitlesUITests, the built app driven in the Simulator. In demo mode: the login card, first run, a
+   talk, Text, Listen, Reply, the ended card, the recording's three tabs, a summary, an MP4 made on the device,
+   rename, delete, Settings, and the interface in Chinese. Signed in to the harness's server: a wrong password,
+   login, a talk through the relay, the account and its devices, joining a hosted talk, logging out.
+
+Each stage gets a server of its own, because the server allows twenty sign-ins a quarter of an hour from one address
+and a test run should not need that loosened. `node ios/e2e/run.mjs core` or `ui` runs one half.
+
+**With real keys.** `node ios/e2e/run.mjs --real` points stage 2 at a server that is already running — the hosted
+one — with real recognition and translation, as `npm run e2e` does for the Mac and at about the same ¥0.3. It needs
+`E2E_SERVER`, `E2E_PASSWORD`, `E2E_BUSINESS` (a Business test account) and `E2E_AUDIO` (a real recording, never
+committed). The Mac's `npm run e2e` also checks `/api/summaries` with the real TokenHub.
+
+**What it cannot see**, printed as a checklist at the end of a passing run: a real microphone in a real room,
+AirPods, a phone call arriving mid-talk, the camera reading a QR code, a real lock screen, iPad, and how the voice
+sounds.
+
+**When a UI test fails**, Xcode keeps a screen recording of it: `xcrun xcresulttool export attachments --path
+ios/build/Logs/Test/<newest>.xcresult --output-path <dir>`, then look at the last seconds of the `.mp4`.

@@ -5,7 +5,7 @@ import SwiftUI
 /// The app's one model: who is signed in, what they have chosen, what is on the phone, and the talk that is running.
 @MainActor @Observable
 final class AppModel {
-  let prefs = Preferences()
+  let prefs: Preferences
   let server: URL
   let library = RecordingLibrary.standard()
 
@@ -19,6 +19,14 @@ final class AppModel {
   var joinCode: String?
 
   init() {
+    // UI tests begin from a phone nobody has used: -ResetForTests YES forgets the login, the settings and the
+    // recordings before anything reads them. (A simulator's keychain outlives the app being deleted.)
+    if UserDefaults.standard.bool(forKey: "ResetForTests") {
+      Keychain.write(nil, for: "token")
+      try? FileManager.default.removeItem(at: RecordingLibrary.standard().root)
+      if let domain = Bundle.main.bundleIdentifier { UserDefaults.standard.removePersistentDomain(forName: domain) }
+    }
+    prefs = Preferences() // after the reset above, so a test's clean slate is what it reads
     // Tests and development point the app at another server: -SubtitlesServer http://127.0.0.1:8080
     server = UserDefaults.standard.string(forKey: "SubtitlesServer").flatMap(URL.init(string:)) ?? APIClient.production
     token = Keychain.read("token")

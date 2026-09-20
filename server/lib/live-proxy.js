@@ -34,8 +34,9 @@ const secondsOf = (bytes) => bytes / SAMPLE_BYTES;
  * @param {object} [o.env]      TENCENT_EDGE ('cn', the default: the Guangzhou edge; 'auto'; 'system'), TENCENT_ROTATE_MINUTES
  * @param {number} [o.meterMs]  how often streamed audio is charged
  * @param {string} [o.wsUrl]    stand-in for the Tencent endpoint (tests only)
+ * @param {string} [o.translateUrl]  stand-in for TokenHub's translations endpoint (tests only)
  */
-function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = process.env, meterMs = METER_MS, wsUrl = null,
+function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = process.env, meterMs = METER_MS, wsUrl = null, translateUrl = null,
   tokenhubKey = (env.TOKENHUB_API_KEY || '').trim() }) {
   const wss = new WebSocketServer({ noServer: true });
   const live = new Map(); // ws → session, for status and shutdown
@@ -116,6 +117,7 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
         hotwords: url.searchParams.get('hotwords') || undefined,
         edge,
         ...(wsUrl ? { wsUrl } : {}), // tests point this at a stand-in for Tencent
+        ...(translateUrl ? { translateUrl } : {}),
       })
       : new TranslationStream(creds, {
         source,

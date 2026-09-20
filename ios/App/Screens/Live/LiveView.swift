@@ -184,7 +184,13 @@ struct LiveView: View {
         }
         Button { sheet = .text } label: { Image(systemName: "textformat.size") }.buttonStyle(SquareButtonStyle()).accessibilityLabel(L("ios.text.title"))
       }
-      if !running { Text(footnote).font(.mqHint).foregroundStyle(Color.mqText3) }
+      if !running {
+        HStack(spacing: 10) {
+          Text(footnote).font(.mqHint).foregroundStyle(Color.mqText3)
+          // While a finished talk is still on screen the idle view — and its Join link — is not: keep the way in.
+          if live != nil { Button { sheet = .join } label: { Label(L("ios.join.title"), systemImage: "qrcode.viewfinder") }.font(.footnote.weight(.medium)) }
+        }
+      }
     }
     .padding(.horizontal, 18).padding(.top, 12).padding(.bottom, 8)
     .background(Color.mqBackground)

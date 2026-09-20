@@ -55,7 +55,7 @@ actor TalkLog {
     let info = try #require(await session.stop())
     #expect(info.id == id && info.cues == 1)
     #expect(abs(info.durationMs - 2000) < 50, "both seconds were recorded, the one without a connection too: \(info.durationMs)")
-    #expect(await log.phases.last == .ended)
+    #expect(await eventually { await log.phases.last == .ended }, "the last event is delivered after stop() returns, not before")
     let recording = try #require(RecordingLibrary(root: root).recording(id: id))
     #expect(abs(try audioSeconds(recording.audio!) - 2.0) < 0.1)
     #expect(recording.cues().target.map(\.text) == ["大家好"])

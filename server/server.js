@@ -4,6 +4,7 @@
 //   PORT (8080) HOST (0.0.0.0) DATA_DIR (../data) BASE_URL (public https URL, needed for long uploads)
 //   TENCENT_APPID / TENCENT_SECRET_ID / TENCENT_SECRET_KEY   TOKENHUB_API_KEY + TRANSLATION_MODEL (hy-mt2-pro)   FFMPEG / FFPROBE (binaries; MP4 burn-in needs libass)
 //   SUMMARY_MODEL (deepseek-v4-flash) SUMMARY_EFFORT (high): the model behind /api/summaries   IOS_APP_IDS: apps that may open this server's links
+//   TENCENT_WS_URL / TOKENHUB_BASE_URL / LIVE_METER_MS: stand-ins and a faster meter, for tests only (ios/e2e)
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -479,8 +480,15 @@ const server = http.createServer(async (req, res) => {
 // else — so a token here is a promise with no one behind it. Measured cost of the extra hop from the box in
 // Hong Kong to the Guangzhou edge: 34 ms round trip, against a pipeline that waits a second of silence to
 // end a sentence.
+// TENCENT_WS_URL and TOKENHUB_BASE_URL point the live pipeline and the summaries at stand-ins. They exist for the
+// iOS app's end-to-end tests (ios/e2e), which run this very server on a Mac with no keys; a server carrying real
+// talks never sets them, and says so loudly if it does.
+const STANDINS = { wsUrl: (process.env.TENCENT_WS_URL || '').trim() || null, tokenhub: (process.env.TOKENHUB_BASE_URL || '').trim() || null };
+if (STANDINS.wsUrl || STANDINS.tokenhub) log('warn', `STAND-INS IN USE — recognition: ${STANDINS.wsUrl || 'Tencent'}, TokenHub: ${STANDINS.tokenhub || 'TokenHub'}. This is a test server.`);
 const liveProxy = createLiveProxy({ creds, authenticate: (req) => auth.authenticate(req), quotas, planRow, log, env: process.env,
-  tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim() });
+  tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), wsUrl: STANDINS.wsUrl,
+  translateUrl: STANDINS.tokenhub ? new URL('/v1/api/translations', STANDINS.tokenhub).href : null,
+  ...(Number(process.env.LIVE_METER_MS) > 0 ? { meterMs: Number(process.env.LIVE_METER_MS) } : {}) });
 server.on('upgrade', (req, socket, head) => {
   if (liveProxy.upgrade(req, socket, head)) return;
   socket.destroy();

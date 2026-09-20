@@ -320,9 +320,9 @@ Sized for one person with Claude; each phase leaves something that runs. State o
 | 2 | **Design** | done: 29 screens and states in design/canvas/ios-screens.mjs, plus three tentative ones (§8). Not yet on the published canvas — the canvas tool is Alex's to run. |
 | 3 | **Core package** | done: 35 tests. The decimator matches the Mac's sample for sample; a recording survives the app dying mid-talk. |
 | 4 | **Live** | done and run in the simulator: login, first run, every Live state, recording, Text, Reply, held up, the Live Activity with Stop on the lock screen. |
-| 5 | **Library and Recording** | done and run: Library, player, transcript, summary with PDF, files, MP4 made on the device, Save to Files. Re-subtitling is written and untested against the real server. iCloud Drive is not done. |
-| 6 | **Join and Settings** | written: scan, typed code, the joined-talk reader, every Settings group, demo mode. Scanning needs a real camera; joining and the account screens need the real server. |
-| 7 | **Release** | not started: UI tests, a talk against the real server (costs Tencent time — quote first), iPad on a simulator or device, TestFlight, App Review. |
+| 5 | **Library and Recording** | done and run: Library, player, transcript, summary with PDF, files, MP4 made on the device, Save to Files. Re-subtitling is tested against a stub of the server's job API, not yet against real recognition. iCloud Drive is not done. |
+| 6 | **Join and Settings** | done and tested against the real server: typed code, the joined-talk reader, the account and its devices, every Settings group, demo mode. Scanning a code needs a real camera. |
+| 7 | **Release** | the release test is done (`npm run e2e:ios`: unit, the core against the real server, the app in the Simulator — docs/DEVELOPMENT.md). Not started: a talk against the hosted server with real keys (costs Tencent time — quote first), iPad, TestFlight, App Review. |
 
 To build and run: `xcodebuild -project ios/SeeSubtitles.xcodeproj -scheme SeeSubtitles -destination 'platform=iOS
 Simulator,name=iPhone 17 Pro' build`, or open the project in Xcode. `-demo YES -firstRunDone YES` as launch

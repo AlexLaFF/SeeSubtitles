@@ -564,6 +564,30 @@ async function main() {
       return `${text.length} characters`;
     });
 
+    // The iOS app holds no key and no prompt: it sends a recording's cues and the server writes the summary itself.
+    await check('summary: the server writes one itself from a recording\'s cues, for a client that holds no key (/api/summaries)', async () => {
+      must(memberTalk && memberTalk.recording, 'no recording to summarise');
+      const base = memberTalk.recording.base;
+      const { parseSrt } = require('../desktop/lib/summary');
+      const { source, target } = names.languagesOf(member.rec, base);
+      const cues = (lang) => { const f = names.srtPath(member.rec, base, lang); return fs.existsSync(f) ? parseSrt(fs.readFileSync(f, 'utf8')) : []; };
+      const res = await fetch(`${server.base}/api/summaries`, { method: 'POST', headers: { authorization: `Bearer ${tokens.member}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: base, language: 'zh', target: cues(target), source: source === target ? [] : cues(source) }) });
+      must(res.status === 200, `the server refused: ${res.status} ${(await res.text()).slice(0, 160)}`);
+      const events = (await res.text()).split('\n\n').map((b) => { const e = /^event: (.+)$/m.exec(b); const d = /^data: (.+)$/m.exec(b); return e && d ? { event: e[1], data: JSON.parse(d[1]) } : null; }).filter(Boolean);
+      const failed = events.find((e) => e.event === 'error');
+      must(!failed, failed && `${failed.data.code}: ${failed.data.message}`);
+      const done = events.find((e) => e.event === 'done');
+      must(done, `no finished summary among ${events.length} events`);
+      must(events.some((e) => e.event === 'delta'), 'the summary did not stream');
+      const text = done.data.markdown;
+      must(text.length > 200 && /^#/m.test(text), `the summary is ${text.length} characters with no heading`);
+      must(/\[\d{1,2}:\d{2}\]/.test(text), 'no timestamps in the summary');
+      const trad = traditionalIn(text);
+      must(!trad.length, `Traditional characters in the summary: ${trad.slice(0, 8).join('')}`);
+      return `${text.length} characters, ${done.data.meta.usage.input}+${done.data.meta.usage.output} tokens, ${done.data.meta.seconds} s`;
+    });
+
     await check('import: a finished upload becomes a recording on the Mac', async () => {
       must(job, 'no finished upload to import');
       let map = {};

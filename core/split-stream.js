@@ -422,7 +422,7 @@ class SplitStream extends EventEmitter {
       this.calls++;
       if (attempt) this.retries++;
       try {
-        const res = await this.fetch(TRANSLATE_URL, {
+        const res = await this.fetch(this.opts.translateUrl || TRANSLATE_URL, { // translateUrl: a stand-in for TokenHub (tests only)
           method: 'POST',
           headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
