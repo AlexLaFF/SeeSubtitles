@@ -3,6 +3,7 @@
 // Hosted server: login, live-session mirror (remote displays at /d/<code>), upload → subtitles jobs.
 //   PORT (8080) HOST (0.0.0.0) DATA_DIR (../data) BASE_URL (public https URL, needed for long uploads)
 //   TENCENT_APPID / TENCENT_SECRET_ID / TENCENT_SECRET_KEY   TOKENHUB_API_KEY + TRANSLATION_MODEL (hy-mt2-pro)   FFMPEG / FFPROBE (binaries; MP4 burn-in needs libass)
+//   SUMMARY_MODEL (deepseek-v4-flash) SUMMARY_EFFORT (high): the model behind /api/summaries   IOS_APP_IDS: apps that may open this server's links
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -18,6 +19,7 @@ const { createAccount } = require('./lib/account');
 const { PLANS, Quotas } = require('./lib/plans');
 const { createLiveProxy } = require('./lib/live-proxy');
 const mail = require('./lib/mail');
+const summaries = require('./lib/summaries');
 
 loadEnv(path.join(__dirname, '..', '.env'));
 const PORT = Number(process.env.PORT) || 8080;
@@ -316,6 +318,37 @@ async function api(req, res, url, user) {
     Readable.fromWeb(upstream.body).pipe(res);
     return;
   }
+  // A learning summary made here: the iOS app sends a recording's cues and reads the Markdown as it is written.
+  // The prompt is core/summary.js, the same one the Mac uses; the key never leaves this process.
+  if (p === '/api/summaries' && req.method === 'POST') {
+    if (!entitlements(user).limits.summaries) return fail(res, 403, 'AI summaries are not in this plan', { code: 'plan_summaries' });
+    const key = (process.env.TOKENHUB_API_KEY || '').trim();
+    if (!key) return fail(res, 503, 'the server has no TokenHub key configured', { code: 'no_key' });
+    const body = await readJson(req, 1e7);
+    const abort = new AbortController();
+    res.on('close', () => { if (!res.writableEnded) abort.abort(); }); // the client gave up: stop paying for the answer
+    sse(res);
+    const event = (name, data) => { try { res.write(`event: ${name}\ndata: ${JSON.stringify(data)}\n\n`); } catch { /* going away */ } };
+    const beat = setInterval(() => { try { res.write(':\n\n'); } catch { /* going away */ } }, 15_000); // a thinking model is silent for a while
+    try {
+      const out = await summaries.summarise(body, {
+        key, signal: abort.signal,
+        baseUrl: process.env.TOKENHUB_BASE_URL || undefined,
+        model: process.env.SUMMARY_MODEL || undefined,
+        effort: process.env.SUMMARY_EFFORT || undefined,
+        onStage: (stage) => event('stage', { stage }),
+        onDelta: (text) => event('delta', { text }),
+      });
+      log('info', `summary for ${user.email}: ${out.meta.cues} cues → ${out.meta.chars} chars, ${out.meta.usage.input}+${out.meta.usage.output} tokens, ${out.meta.seconds} s`);
+      event('done', out);
+    } catch (err) {
+      if (!abort.signal.aborted) { log('warn', `summary for ${user.email} failed: ${err.message}`); event('error', { code: err.code || 'summary_failed', message: err.message }); }
+    } finally {
+      clearInterval(beat);
+      res.end();
+    }
+    return;
+  }
   if (p === '/api/logout' && req.method === 'POST') { auth.revoke(user.token); return send(res, 200, { ok: true }, undefined, { 'set-cookie': auth.clearCookie() }); }
 
   // live sessions
@@ -407,6 +440,12 @@ const server = http.createServer(async (req, res) => {
     if (p === '/poster') return page(res, 'poster.html');
     if (/^\/reset\/[A-Za-z0-9_-]+$/.test(p)) return page(res, 'reset.html');
     if (p === '/healthz') return send(res, 200, 'ok', MIME['.txt']);
+    // Universal links: lets the iOS app open /d/<code> share links itself, so the Camera's scan of a talk's QR
+    // code lands in the app's reader. Apple fetches this file when the app is installed; it grants nothing else.
+    if (p === '/.well-known/apple-app-site-association') {
+      const appIDs = (process.env.IOS_APP_IDS || '6DZ5Z54SPQ.com.alexlaff.subtitles.ios').split(',').map((v) => v.trim()).filter(Boolean);
+      return send(res, 200, { applinks: { details: [{ appIDs, components: [{ '/': '/d/*', comment: 'a talk\'s share link' }] }] } });
+    }
     // pages that need a login; the front page is the website for everyone else
     const user = auth.authenticate(req);
     if (p === '/' && !user) return page(res, 'site.html');

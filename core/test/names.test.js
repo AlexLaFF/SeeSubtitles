@@ -18,3 +18,10 @@ test('Chinese naming preserves complete sets, legacy discovery and same-minute u
  assert.equal(names.legacyToCn(legacy),'9月5号14点33分');
  assert.equal(names.parse('.hidden.mp3'),null); assert.equal(names.parse(base+'录音.mp3.part'),null);
 });
+
+test('a recording made on the phone keeps the same base with m4a audio', () => {
+  assert.equal(names.fileName('9月5号14点33分', 'm4a'), '9月5号14点33分录音.m4a');
+  assert.deepEqual(names.parse('9月5号14点33分录音.m4a'), { base: '9月5号14点33分', kind: 'm4a', style: 'cn' });
+  assert.deepEqual(names.parse('2026-09-05_14-33-05.m4a'), { base: '2026-09-05_14-33-05', kind: 'm4a', style: 'legacy' });
+  assert.deepEqual(names.parse('9月5号14点33分录音.mp3'), { base: '9月5号14点33分', kind: 'mp3', style: 'cn' });
+});

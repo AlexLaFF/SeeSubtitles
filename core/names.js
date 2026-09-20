@@ -6,6 +6,8 @@ const path = require('node:path');
 
 const SUFFIX = {
   mp3: ['录音.mp3', '.mp3'],
+  // The iOS app's audio: AAC, because iOS has no MP3 encoder. Same base, same siblings; the upload pipeline reads either.
+  m4a: ['录音.m4a', '.m4a'],
   mp4: ['录音＋字幕.mp4', '.mp4'],
   summary: ['AI总结.md', '.summary.md'],
   pdf: ['AI总结.pdf', '.summary.pdf'],
@@ -75,7 +77,7 @@ function parse(name) {
       const suf = SUFFIX[kind][style];
       if (name.length > suf.length && name.endsWith(suf)) {
         // legacy ".mp4"/".mp3" must not swallow the Chinese forms (already excluded by order) or summary files
-        if (style === 1 && kind === 'mp3' && name.endsWith('录音.mp3')) continue;
+        if (style === 1 && (kind === 'mp3' || kind === 'm4a') && name.endsWith(`录音.${kind}`)) continue;
         return { base: name.slice(0, -suf.length), kind, style: style === 0 ? 'cn' : 'legacy' };
       }
     }
