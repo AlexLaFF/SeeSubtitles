@@ -9,6 +9,10 @@
       "name": "Web"
     },
     {
+      "id": "ios",
+      "name": "iOS"
+    },
+    {
       "id": "brand",
       "name": "Brand"
     },
@@ -234,6 +238,294 @@
       "w": 390,
       "h": 844,
       "page": "web"
+    },
+    {
+      "file": "IosLogin.dc.html",
+      "title": "Logged out · the login card",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosFirstMic.dc.html",
+      "title": "First run · microphone",
+      "x": 470,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosFirstLang.dc.html",
+      "title": "First run · languages",
+      "x": 940,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosLiveIdle.dc.html",
+      "title": "Live · idle",
+      "x": 0,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosLiveListening.dc.html",
+      "title": "Live · listening and recording",
+      "x": 470,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosLiveBack.dc.html",
+      "title": "Live · looking back",
+      "x": 940,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosTextSheet.dc.html",
+      "title": "Live · Text sheet",
+      "x": 1410,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosReply.dc.html",
+      "title": "Live · Reply",
+      "x": 1880,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosReplyShown.dc.html",
+      "title": "Live · a reply shown large",
+      "x": 2350,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosLandscape.dc.html",
+      "title": "Live · held up (landscape)",
+      "x": 2820,
+      "y": 964,
+      "w": 844,
+      "h": 390,
+      "page": "ios"
+    },
+    {
+      "file": "IosLock.dc.html",
+      "title": "Lock screen · Live Activity and Dynamic Island",
+      "x": 3744,
+      "y": 964,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosReconnecting.dc.html",
+      "title": "State · reconnecting",
+      "x": 0,
+      "y": 1928,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosInterrupted.dc.html",
+      "title": "State · interrupted by a call",
+      "x": 470,
+      "y": 1928,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosRefused.dc.html",
+      "title": "State · refused by the plan",
+      "x": 940,
+      "y": 1928,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosEnded.dc.html",
+      "title": "State · ended",
+      "x": 1410,
+      "y": 1928,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosJoinScan.dc.html",
+      "title": "Join · scan",
+      "x": 0,
+      "y": 2892,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosJoined.dc.html",
+      "title": "Join · following a talk",
+      "x": 470,
+      "y": 2892,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosJoinedEnded.dc.html",
+      "title": "Join · the talk ended",
+      "x": 940,
+      "y": 2892,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosLibrary.dc.html",
+      "title": "Library",
+      "x": 0,
+      "y": 3856,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosLibraryEmpty.dc.html",
+      "title": "Library · empty",
+      "x": 470,
+      "y": 3856,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosRecTranscript.dc.html",
+      "title": "Recording · Transcript",
+      "x": 940,
+      "y": 3856,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosRecSummary.dc.html",
+      "title": "Recording · Summary",
+      "x": 1410,
+      "y": 3856,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosRecSummaryWriting.dc.html",
+      "title": "Recording · the summary being written",
+      "x": 1880,
+      "y": 3856,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosRecFiles.dc.html",
+      "title": "Recording · Files",
+      "x": 2350,
+      "y": 3856,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosSettings.dc.html",
+      "title": "Settings",
+      "x": 0,
+      "y": 4820,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosGlossary.dc.html",
+      "title": "Settings · Glossary",
+      "x": 470,
+      "y": 4820,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosLiveLight.dc.html",
+      "title": "Light appearance · Live",
+      "x": 0,
+      "y": 5784,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosLibraryLight.dc.html",
+      "title": "Light appearance · Library",
+      "x": 470,
+      "y": 5784,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosPad.dc.html",
+      "title": "iPad · Library beside a recording",
+      "x": 940,
+      "y": 5784,
+      "w": 1180,
+      "h": 820,
+      "page": "ios"
+    },
+    {
+      "file": "IosSpoken.dc.html",
+      "title": "Tentative · the translation spoken in headphones",
+      "x": 0,
+      "y": 6748,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosSpokenSheet.dc.html",
+      "title": "Tentative · Listen sheet",
+      "x": 470,
+      "y": 6748,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
+    },
+    {
+      "file": "IosSpokenJoin.dc.html",
+      "title": "Tentative · a joined talk, heard in your own language",
+      "x": 940,
+      "y": 6748,
+      "w": 390,
+      "h": 844,
+      "page": "ios"
     },
     {
       "file": "MarqueeBrand.dc.html",

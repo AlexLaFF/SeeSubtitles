@@ -7,6 +7,7 @@ import { primaryTokens, liveScreen, phoneScreen, brandBoard, principles, current
 import * as A from './app-screens.mjs';
 import * as W from './web-screens.mjs';
 import * as B from './boards.mjs';
+import * as IOS from './ios-screens.mjs';
 
 const OUT = path.resolve('out');
 fs.rmSync(OUT, { recursive: true, force: true });
@@ -41,6 +42,8 @@ const boards = {
   'MarqueePhone.dc.html': phoneScreen(MQ),
   'WebPhoneMenu.dc.html': W.phoneMenu(),
   'WebPhoneEnded.dc.html': W.phoneEnded(),
+  // page: ios (docs/IOS.md)
+  ...Object.fromEntries(IOS.SCREENS.map(([key, , , , fragment]) => [`${key}.dc.html`, IOS.artboard(fragment)])),
   // page: brand
   'MarqueeBrand.dc.html': brandBoard(MQ),
   'Icons.dc.html': B.finalIcon(),
@@ -99,6 +102,15 @@ art.push(ab('WebSummary.dc.html', 'Learning summary · exists today', ex, 0, 144
 art.push(ab('MarqueePhone.dc.html', 'Attendee page · exists today', ex, 1100 + GY, 390, 844, 'web'));
 art.push(ab('WebPhoneMenu.dc.html', 'Attendee controls · new', ex + 390 + GX, 1100 + GY, 390, 844, 'web'));
 art.push(ab('WebPhoneEnded.dc.html', 'Talk ended · new', ex + 2 * (390 + GX), 1100 + GY, 390, 844, 'web'));
+// --- ios page: one row per group of docs/IOS.md, screens left to right
+{
+  let iy = 0; let ix = 0; let rowH = 0; let group = null;
+  for (const [key, title, w, h, , g] of IOS.SCREENS) {
+    if (g !== group) { iy += rowH ? rowH + GY : 0; ix = 0; rowH = 0; group = g; }
+    art.push(ab(`${key}.dc.html`, title, ix, iy, w, h, 'ios'));
+    ix += w + GX; rowH = Math.max(rowH, h);
+  }
+}
 // --- brand page
 art.push(ab('MarqueeBrand.dc.html', 'A · Marquee · brand', 0, 0, 1200, H('MarqueeBrand', 2040), 'brand'));
 art.push(ab('Icons.dc.html', 'App icon · final', 1280, 0, 1200, H('Icons', 1300), 'brand'));
@@ -115,7 +127,7 @@ for (const d of [DIRECTIONS.daylight, DIRECTIONS.signal]) {
   cy += bh + GY;
 }
 const canvas = {
-  pages: [{ id: 'app', name: 'App' }, { id: 'web', name: 'Web' }, { id: 'brand', name: 'Brand' }, { id: 'considered', name: 'Considered' }],
+  pages: [{ id: 'app', name: 'App' }, { id: 'web', name: 'Web' }, { id: 'ios', name: 'iOS' }, { id: 'brand', name: 'Brand' }, { id: 'considered', name: 'Considered' }],
   artboards: art,
   annotations: [
     { id: 'note-app', page: 'app', x: 0, y: mainH + 24, w: 460, text: 'Titles say whether a screen exists today or is new. The Live screen at the top right is the one from round one, now with the on-air dot in the mark.' },

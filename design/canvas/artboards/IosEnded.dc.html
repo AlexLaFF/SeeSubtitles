@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+  <style>
+body{margin:0}
+
+.ios,.ios *{box-sizing:border-box}
+.ios{--bg:#191816;--side:#131210;--surface:#21201d;--surface-2:#2b2926;--line:#35322d;--line-strong:#4a463f;--fg:#f1ece2;--fg-2:#aca496;--fg-3:#7d766c;--accent:#f5c518;--accent-fg:#1a1500;--accent-soft:rgba(245,197,24,.14);--accent-text:#f5c518;--ok:#3ec26a;--warn:#ff8f1f;--bad:#ff5a5a;--rec:#ff453a;--stage:#000000;--ui:-apple-system, "SF Pro Text", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"PingFang SC", "Noto Sans SC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:"Instrument Serif", "PingFang SC", "Noto Sans SC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;position:relative;width:390px;height:844px;background:var(--bg);color:var(--fg);font:17px/1.35 var(--ui),var(--cjk),sans-serif;display:flex;flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased}
+.ios.light{--bg:#f5f2eb;--side:#ede9e0;--surface:#fffdf7;--surface-2:#f2eee5;--line:#e0dbcf;--line-strong:#c4bdae;--fg:#1c1a16;--fg-2:#6a6458;--fg-3:#948d80;--accent:#f5c518;--accent-fg:#1a1500;--accent-soft:rgba(245,197,24,.22);--accent-text:#8f6a00;--ok:#1f9a4a;--warn:#c76a00;--bad:#c62828;--rec:#d3232a;--stage:#000000;--ui:-apple-system, "SF Pro Text", -apple-system, system-ui, "PingFang SC", "Noto Sans SC", "PingFang TC", "PingFang SC", sans-serif;--cjk:"PingFang SC", "Noto Sans SC", "PingFang TC", "PingFang SC", "Noto Sans CJK TC", sans-serif;--display:"Instrument Serif", "PingFang SC", "Noto Sans SC", serif;--mono:ui-monospace, "SF Mono", Menlo, monospace;}
+.ios.land{width:844px;height:390px}
+.ios.pad{width:1180px;height:820px}
+.ios .ic{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ios .ic.s{width:17px;height:17px} .ios .ic.l{width:28px;height:28px}
+.ios .sb{height:54px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 30px 8px;font:600 16px var(--ui);position:relative}
+.ios .sb::before{content:"";position:absolute;left:50%;top:11px;width:124px;height:36px;margin-left:-62px;border-radius:20px;background:#000}
+.ios .sb .r{display:flex;gap:5px;align-items:center;font-size:12px}
+.ios .sb .bat{width:25px;height:12px;border-radius:3.5px;border:1px solid currentColor;opacity:.9;position:relative}
+.ios .sb .bat::after{content:"";position:absolute;inset:1.5px;right:5px;border-radius:2px;background:currentColor}
+.ios .home{height:34px;flex:none;position:relative} .ios .home::after{content:"";position:absolute;left:50%;bottom:8px;width:136px;height:5px;margin-left:-68px;border-radius:3px;background:var(--fg);opacity:.85}
+.ios .tabs{flex:none;display:flex;border-top:1px solid var(--line);background:var(--side);padding:7px 0 0}
+.ios .tabs span{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font:500 10.5px var(--ui);color:var(--fg-3)} .ios .tabs .on{color:var(--accent-text)}
+.ios .tabs+.home{background:var(--side)}
+.ios h1{margin:0;font:700 30px/1.15 var(--ui),var(--cjk)} .ios h2{margin:0;font:600 17px/1.3 var(--ui),var(--cjk)}
+.ios .top{flex:none;display:flex;align-items:center;gap:10px;padding:6px 18px 10px;min-height:44px}
+.ios .top .grow{flex:1;min-width:0} .ios .top .act{color:var(--accent-text);font-weight:500}
+.ios .pair{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:18px;background:var(--surface);border:1px solid var(--line);font:500 15px var(--ui),var(--cjk)}
+.ios .pair b{color:var(--fg-3);font-weight:400}
+.ios .st{display:inline-flex;align-items:center;gap:7px;font:15px var(--ui),var(--cjk);color:var(--fg-2)}
+.ios .st i{width:8px;height:8px;border-radius:50%;background:var(--fg-3);flex:none} .ios .st.ok i{background:var(--ok)} .ios .st.warn i{background:var(--warn)} .ios .st.bad i{background:var(--bad)} .ios .st.rec i{background:var(--rec);box-shadow:0 0 0 4px rgba(255,69,58,.18)}
+.ios .st .t{font-family:var(--mono);font-size:14px;color:var(--fg)}
+.ios .reader{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:20px;padding:0 22px 18px;overflow:hidden;position:relative}
+.ios .reader.fade::before{content:"";position:absolute;left:0;right:0;top:0;height:90px;background:linear-gradient(var(--bg),transparent);z-index:1}
+.ios .line .tr{font:600 25px/1.34 var(--cjk),var(--ui)} .ios .line .or{margin-top:5px;font:400 16px/1.4 var(--cjk),var(--ui);color:var(--fg-3)}
+.ios .line.old .tr{color:var(--fg-2)} .ios .line.draft .tr{color:var(--fg-2)} .ios .line.draft .tr::after{content:"";display:inline-block;width:9px;height:9px;margin-left:8px;border-radius:50%;background:var(--accent);vertical-align:middle}
+.ios .line .ts{font:12px var(--mono);color:var(--fg-3);margin-bottom:3px}
+.ios .line.mine{align-self:flex-end;max-width:82%;padding:10px 14px;border-radius:16px 16px 4px 16px;background:var(--accent-soft);border:1px solid var(--line)} .ios .line.mine .tr{font-size:19px;color:var(--fg)} .ios .line.mine .ts{color:var(--accent-text)}
+.ios .bar{flex:none;display:flex;align-items:center;gap:12px;padding:12px 18px 6px;border-top:1px solid var(--line);background:var(--bg)}
+.ios .btn{height:50px;padding:0 20px;border-radius:14px;border:1px solid var(--line-strong);background:var(--surface);color:var(--fg);font:600 17px var(--ui),var(--cjk);display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap}
+.ios .btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent} .ios .btn.wide{flex:1} .ios .btn.sq{width:50px;padding:0} .ios .btn.stop{background:var(--surface);color:var(--fg)} .ios .btn.stop::before{content:"";width:14px;height:14px;border-radius:3px;background:var(--rec)}
+.ios .btn.quiet{border-color:transparent;background:transparent;color:var(--accent-text);font-weight:500} .ios .btn.on{border-color:var(--rec);color:var(--fg)} .ios .btn.sm{height:38px;border-radius:10px;font-size:15px;padding:0 14px}
+.ios .hint{font:13px/1.45 var(--ui),var(--cjk);color:var(--fg-3)} .ios .sec{font:15px/1.4 var(--ui),var(--cjk);color:var(--fg-2)}
+.ios .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:0 36px}
+.ios .empty .big{font:400 italic 34px/1.1 "Instrument Serif",serif;color:var(--fg)}
+.ios .pill{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:2;display:flex;align-items:center;gap:6px;height:38px;padding:0 16px;border-radius:19px;background:var(--accent);color:var(--accent-fg);font:600 15px var(--ui);box-shadow:0 6px 20px rgba(0,0,0,.4);white-space:nowrap}
+.ios .scrim{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+.ios .sheet{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:22px 22px 0 0;padding:10px 20px 40px;display:flex;flex-direction:column;gap:16px;box-shadow:0 -10px 40px rgba(0,0,0,.35)}
+.ios .sheet .grab{align-self:center;width:38px;height:5px;border-radius:3px;background:var(--line-strong)}
+.ios .seg{display:flex;padding:3px;border-radius:11px;background:var(--surface-2);font:500 14px var(--ui),var(--cjk)} .ios .seg span{flex:1;text-align:center;padding:8px 4px;border-radius:9px;color:var(--fg-2)} .ios .seg .on{background:var(--bg);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.ios .slider{display:flex;align-items:center;gap:12px} .ios .slider .trk{flex:1;height:5px;border-radius:3px;background:var(--surface-2);position:relative} .ios .slider .trk i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--accent)} .ios .slider .trk b{position:absolute;top:-11px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.ios .tog{width:51px;height:31px;border-radius:16px;background:var(--surface-2);position:relative;flex:none} .ios .tog::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.3)} .ios .tog.on{background:var(--ok)} .ios .tog.on::after{left:22px}
+.ios .list{margin:0 16px;border-radius:14px;background:var(--surface);overflow:hidden} .ios .grp{padding:18px 32px 7px;font:13px var(--ui);color:var(--fg-3);text-transform:uppercase;letter-spacing:.04em}
+.ios .row{display:flex;align-items:center;gap:12px;min-height:50px;padding:9px 16px;position:relative} .ios .row+.row::before{content:"";position:absolute;left:16px;right:0;top:0;height:1px;background:var(--line)}
+.ios .row .grow{flex:1;min-width:0} .ios .row .v{color:var(--fg-3);font-size:16px;white-space:nowrap} .ios .row .ic.c{color:var(--fg-3);width:16px;height:16px} .ios .row.act{color:var(--accent-text)} .ios .row.del{color:var(--bad)}
+.ios .stack .a{font:500 17px/1.3 var(--ui),var(--cjk);white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .ios .stack .b{margin-top:2px;font:14px/1.35 var(--ui),var(--cjk);color:var(--fg-3);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ios .bdg{font:600 10.5px var(--ui);letter-spacing:.03em;padding:2px 6px;border-radius:5px;background:var(--accent-soft);color:var(--accent-text)} .ios .bdg.n{background:var(--surface-2);color:var(--fg-2)}
+.ios .field{height:50px;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface);display:flex;align-items:center;padding:0 14px;color:var(--fg)} .ios .field.ph{color:var(--fg-3)} .ios .field.focus{border-color:var(--accent)}
+.ios .searchf{margin:0 16px 10px;height:38px;border-radius:11px;background:var(--surface-2);display:flex;align-items:center;gap:7px;padding:0 10px;color:var(--fg-3);font-size:16px;flex:none}
+.ios .scroll{flex:1;min-height:0;overflow:hidden}
+.ios .card{margin:0 16px;padding:18px;border-radius:16px;background:var(--surface);border:1px solid var(--line);display:flex;flex-direction:column;gap:12px}
+.ios .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px} .ios .tile{padding:12px 14px;border-radius:12px;background:var(--surface-2)} .ios .tile .n{font:600 22px var(--ui);font-variant-numeric:tabular-nums} .ios .tile .n small{font:400 14px var(--ui);color:var(--fg-3)} .ios .tile .m{height:4px;border-radius:2px;background:var(--line);margin-top:8px;overflow:hidden} .ios .tile .m i{display:block;height:100%;background:var(--accent)}
+.ios .player{flex:none;padding:4px 20px 14px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line)}
+.ios .scrub{height:5px;border-radius:3px;background:var(--surface-2);position:relative} .ios .scrub i{position:absolute;left:0;top:0;bottom:0;width:34%;border-radius:3px;background:var(--fg-2)} .ios .scrub b{position:absolute;left:34%;top:-5px;width:15px;height:15px;margin-left:-7px;border-radius:50%;background:var(--fg)}
+.ios .times{display:flex;justify-content:space-between;font:12px var(--mono);color:var(--fg-3)}
+.ios .ctl{display:flex;align-items:center;justify-content:center;gap:34px} .ios .ctl .pp{width:56px;height:56px;border-radius:50%;background:var(--fg);color:var(--bg);display:flex;align-items:center;justify-content:center} .ios .ctl .sk{font:600 13px var(--ui);color:var(--fg-2);width:44px;text-align:center} .ios .ctl .sp{font:600 14px var(--ui);color:var(--fg-2)}
+.ios .tline{display:grid;grid-template-columns:48px 1fr;gap:10px;padding:10px 20px} .ios .tline .ts{font:12.5px var(--mono);color:var(--fg-3);padding-top:4px} .ios .tline .tr{font:500 18px/1.4 var(--cjk),var(--ui)} .ios .tline .or{font:15px/1.4 var(--cjk);color:var(--fg-3);margin-top:3px} .ios .tline.now{background:var(--accent-soft)} .ios .tline.now .ts{color:var(--accent-text)}
+.ios .md{padding:4px 22px;font:16px/1.55 var(--cjk),var(--ui)} .ios .md h3{margin:18px 0 6px;font:600 19px/1.3 var(--cjk),var(--ui)} .ios .md h4{margin:16px 0 6px;font:600 16px/1.35 var(--cjk);color:var(--fg)} .ios .md p{margin:0 0 10px;color:var(--fg-2)} .ios .md ul{margin:0;padding-left:20px;color:var(--fg-2)} .ios .md li{margin-bottom:7px} .ios .md b{color:var(--fg)} .ios .md .tsl{font:12.5px var(--mono);color:var(--accent-text);white-space:nowrap}
+.ios .prog{height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden} .ios .prog i{display:block;height:100%;background:var(--accent)}
+.ios .cam{flex:1;background:#0b0b0a;position:relative;display:flex;align-items:center;justify-content:center;color:#fff} .ios .cam .frame{width:230px;height:230px;border-radius:26px;box-shadow:0 0 0 2000px rgba(0,0,0,.55);border:3px solid var(--accent)}
+.ios .lockscr{flex:1;display:flex;flex-direction:column;align-items:center;background:linear-gradient(160deg,#2b2926,#0e0d0c 70%);color:#fff;padding-top:18px}
+.ios .lockscr .clock{font:600 86px/1 var(--ui);letter-spacing:-.02em;margin-top:6px} .ios .lockscr .date{font:500 20px var(--ui);opacity:.85}
+.ios .la{width:358px;margin-top:auto;margin-bottom:96px;border-radius:24px;background:rgba(33,32,29,.92);padding:14px 16px;display:grid;gap:8px;color:#f1ece2} .ios .la .hd{display:flex;align-items:center;gap:8px;font:600 14px var(--ui)} .ios .la .hd svg{width:20px;height:20px;border-radius:5px} .ios .la .tx{font:600 18px/1.35 var(--cjk)} .ios .la .ft{display:flex;align-items:center;justify-content:space-between}
+.ios .island{position:absolute;left:50%;top:11px;width:250px;height:37px;margin-left:-125px;border-radius:20px;background:#000;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font:600 14px var(--mono);color:#fff;z-index:3} .ios .island .d{width:9px;height:9px;border-radius:50%;background:#ff453a}
+.ios .shown{flex:1;display:flex;align-items:center;justify-content:center;padding:26px;background:#000;color:#fff;font:700 64px/1.2 var(--cjk);text-align:center}
+.ios .split{flex:1;min-height:0;display:grid;grid-template-columns:360px 1fr} .ios .split>div{min-height:0;display:flex;flex-direction:column;overflow:hidden} .ios .split .side{background:var(--side);border-right:1px solid var(--line)}
+
+  </style>
+</helmet>
+<div class="ios "><div class="sb"><span>9:41</span><span class="r">5G<span class="bat"></span></span></div><div class="top"><div class="grow"><span class="pair">粤语 <b>→</b> 普通话 <svg viewBox="0 0 24 24" class="ic s"><path d="m9 6 6 6-6 6"/></svg></span></div><span class="st"><i></i>ended</span></div><div class="reader fade"><div class="line old"><div class="tr">首先是现场的观众，他们可以用手机扫二维码。</div><div class="or">首先系现场嘅观众，佢哋可以用手机扫二维码。</div></div><div class="line old"><div class="tr">今天我们会讲一下如何用字幕帮助更多人参与会议。</div><div class="or">今日我哋会讲吓点样用字幕帮助更多人参与会议。</div></div><div class="card" style="margin:0"><div class="stack"><div class="a">9月20号14点02分</div><div class="b">47:12 · 1,284 sentences · 粤语 → 普通话</div></div><div style="display:flex;gap:8px"><span class="btn primary wide sm">Open recording</span><span class="btn wide sm"><svg viewBox="0 0 24 24" class="ic s"><path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg> Summarise</span></div></div></div><div class="bar"><span class="btn sq on"><i style="width:16px;height:16px;border-radius:50%;background:var(--rec)"></i></span><span class="btn primary wide">Start</span><span class="btn sq"><svg viewBox="0 0 24 24" class="ic "><path d="M3 18 8 6l5 12M5 14h6M15 18l3-7 3 7M16 16h4"/></svg></span></div><div class="tabs"><span class="on"><svg viewBox="0 0 24 24" class="ic "><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Live</span><span class=""><svg viewBox="0 0 24 24" class="ic "><path d="M4 5h16M4 12h16M4 19h10"/></svg>Library</span><span class=""><svg viewBox="0 0 24 24" class="ic "><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Settings</span></div><div class="home"></div></div>
+</x-dc>
+</body>
+</html>

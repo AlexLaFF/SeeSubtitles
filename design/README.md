@@ -2,7 +2,7 @@
 
 **Decision: A · Marquee**, with the red on-air dot in the corner of the mark. The other two directions are kept
 below for reference. The visual version is the design canvas at
-https://claude.ai/code/artifact/8cbcf5be-eb16-4d47-b1d0-fcdbc17ca31a (four pages: App, Web, Brand, Considered); this folder
+https://claude.ai/code/artifact/8cbcf5be-eb16-4d47-b1d0-fcdbc17ca31a (four pages: App, Web, Brand, Considered; the iOS page is in the generator and not yet on the published canvas); this folder
 holds the same content in a form the code can use: token stylesheets, icon SVGs, the rendered artboards, and
 the generator that produces the canvas.
 
@@ -23,6 +23,13 @@ paused, demo, empty, update) · Printable QR poster (A4).
 **Web (seesubtitles.com, Marquee).** Home for desktop and phone · Log in (exists) · Create account · Password
 reset (three steps) · Overview (today's dashboard, with usage) · Job editor (exists) · Learning summary (exists)
 · Account and team (new) · Attendee page (exists) with its controls sheet and ended state (new).
+
+**iOS (iPhone and iPad, Marquee).** All new, from docs/IOS.md: the login card and first run · Live in every state
+(idle, listening and recording, looking back, Text sheet, Reply and a reply shown large, held up in landscape,
+reconnecting, interrupted, refused, ended) · the Live Activity on the lock screen · Join a talk · Library and a
+recording's Transcript, Summary and Files · Settings and the Glossary · the light appearance · iPad. Drawn by
+`ios-screens.mjs`; `node build-ios-review.mjs out.html` lays them all out on one page for a browser. Type on iOS is
+the system's, so Dynamic Type and VoiceOver behave, and Instrument Serif is kept for the wordmark.
 
 **Brand.** Marquee brand board · final app icon at every size · principles · gap analysis against Wordly,
 Interprefy, Otter and Ava.
