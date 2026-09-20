@@ -1,0 +1,13 @@
+{
+  "core/decimator.js": "a629b40fac74dafb",
+  "core/names.js": "cf8b0da25110d6e4",
+  "core/plain-text.js": "c0cda0570f68d0c7",
+  "core/recorder.js": "d84a82d9bcd8c789",
+  "core/remote-stream.js": "07e22832e1b3100c",
+  "core/transcript.js": "b127f584c211a84b",
+  "design/tokens/marquee.css": "d5f7834667764e4a",
+  "desktop/helpers/render-subs.swift": "6341393697e20108",
+  "server/lib/live-proxy.js": "a5666da47eafae20",
+  "server/lib/live.js": "d585c3ae648a261a",
+  "server/lib/summaries.js": "fd3f034eae121866"
+}

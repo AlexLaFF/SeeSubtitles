@@ -91,6 +91,7 @@ npm start -w desktop
 | `server/` | The hosted side: accounts, the live mirror, upload jobs, the cue editor |
 | `web/` | Every page, shared by both — app shell, display, attendee view, account, website |
 | `deploy/` | docker-compose and Caddy |
+| `ios/` | The iPhone and iPad app, in progress: a live transcript reader and lecture recorder on the same account and server — [docs/IOS.md](docs/IOS.md) |
 | `design/` | Design tokens, icons and the canvas sources behind the interface |
 
 ## Status and limits

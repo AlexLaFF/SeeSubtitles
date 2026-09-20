@@ -1,0 +1,464 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		5E0000000000000000000A01 /* SubtitlesCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5E0000000000000000000B01 /* SubtitlesCore */; };
+		5E0000000000000000000A02 /* SubtitlesDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 5E0000000000000000000B02 /* SubtitlesDesign */; };
+		5E0000000000000000000A03 /* SubtitlesDesign in Frameworks */ = {isa = PBXBuildFile; productRef = 5E0000000000000000000B03 /* SubtitlesDesign */; };
+		5E0000000000000000000A04 /* SeeSubtitlesWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5E0000000000000000000104 /* SeeSubtitlesWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		5E0000000000000000000D01 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5E0000000000000000000601 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5E0000000000000000000502;
+			remoteInfo = SeeSubtitlesWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		5E0000000000000000000305 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				5E0000000000000000000A04 /* SeeSubtitlesWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		5E0000000000000000000101 /* See Subtitles.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "See Subtitles.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5E0000000000000000000102 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		5E0000000000000000000103 /* SeeSubtitles.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SeeSubtitles.entitlements; sourceTree = "<group>"; };
+		5E0000000000000000000104 /* SeeSubtitlesWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SeeSubtitlesWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		5E0000000000000000000105 /* Widgets-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Widgets-Info.plist"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		5E0000000000000000000201 /* App */ = {isa = PBXFileSystemSynchronizedRootGroup; path = App; sourceTree = "<group>"; };
+		5E0000000000000000000202 /* Resources */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Resources; sourceTree = "<group>"; };
+		5E0000000000000000000203 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Shared; sourceTree = "<group>"; };
+		5E0000000000000000000204 /* Widgets */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Widgets; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5E0000000000000000000301 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E0000000000000000000A01 /* SubtitlesCore in Frameworks */,
+				5E0000000000000000000A02 /* SubtitlesDesign in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5E0000000000000000000306 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5E0000000000000000000A03 /* SubtitlesDesign in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		5E0000000000000000000401 = {
+			isa = PBXGroup;
+			children = (
+				5E0000000000000000000201 /* App */,
+				5E0000000000000000000202 /* Resources */,
+				5E0000000000000000000203 /* Shared */,
+				5E0000000000000000000204 /* Widgets */,
+				5E0000000000000000000403 /* Config */,
+				5E0000000000000000000402 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5E0000000000000000000402 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5E0000000000000000000101 /* See Subtitles.app */,
+				5E0000000000000000000104 /* SeeSubtitlesWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		5E0000000000000000000403 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				5E0000000000000000000102 /* Info.plist */,
+				5E0000000000000000000103 /* SeeSubtitles.entitlements */,
+				5E0000000000000000000105 /* Widgets-Info.plist */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5E0000000000000000000501 /* SeeSubtitles */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5E0000000000000000000703 /* Build configuration list for PBXNativeTarget "SeeSubtitles" */;
+			buildPhases = (
+				5E0000000000000000000304 /* Export strings */,
+				5E0000000000000000000302 /* Sources */,
+				5E0000000000000000000301 /* Frameworks */,
+				5E0000000000000000000303 /* Resources */,
+				5E0000000000000000000305 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5E0000000000000000000E01 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5E0000000000000000000201 /* App */,
+				5E0000000000000000000202 /* Resources */,
+				5E0000000000000000000203 /* Shared */,
+			);
+			name = SeeSubtitles;
+			packageProductDependencies = (
+				5E0000000000000000000B01 /* SubtitlesCore */,
+				5E0000000000000000000B02 /* SubtitlesDesign */,
+			);
+			productName = SeeSubtitles;
+			productReference = 5E0000000000000000000101 /* See Subtitles.app */;
+			productType = "com.apple.product-type.application";
+		};
+		5E0000000000000000000502 /* SeeSubtitlesWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5E0000000000000000000704 /* Build configuration list for PBXNativeTarget "SeeSubtitlesWidgets" */;
+			buildPhases = (
+				5E0000000000000000000307 /* Sources */,
+				5E0000000000000000000306 /* Frameworks */,
+				5E0000000000000000000308 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5E0000000000000000000203 /* Shared */,
+				5E0000000000000000000204 /* Widgets */,
+			);
+			name = SeeSubtitlesWidgets;
+			packageProductDependencies = (
+				5E0000000000000000000B03 /* SubtitlesDesign */,
+			);
+			productName = SeeSubtitlesWidgets;
+			productReference = 5E0000000000000000000104 /* SeeSubtitlesWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		5E0000000000000000000601 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2600;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					5E0000000000000000000501 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					5E0000000000000000000502 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+				};
+			};
+			buildConfigurationList = 5E0000000000000000000701 /* Build configuration list for PBXProject "SeeSubtitles" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = 5E0000000000000000000401;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5E0000000000000000000C01 /* XCLocalSwiftPackageReference "Packages/SubtitlesCore" */,
+				5E0000000000000000000C02 /* XCLocalSwiftPackageReference "Packages/SubtitlesDesign" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 5E0000000000000000000402 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5E0000000000000000000501 /* SeeSubtitles */,
+				5E0000000000000000000502 /* SeeSubtitlesWidgets */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5E0000000000000000000303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5E0000000000000000000308 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		5E0000000000000000000304 /* Export strings */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Export strings";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Every string is written once, in web/locales.js. This writes the ones the Swift code uses into\n# Resources/*.xcstrings and fails the build for a key the catalogue lacks. The result is checked in,\n# so a machine without Node still builds — with the strings as they were last exported.\nexport PATH=\"$PATH:/opt/homebrew/bin:/usr/local/bin:$(ls -d \"$HOME\"/.nvm/versions/node/*/bin 2>/dev/null | tail -1)\"\nif command -v node >/dev/null 2>&1; then\n  node \"$SRCROOT/scripts/export-strings.mjs\"\nelse\n  echo \"warning: node not found; using the strings as last exported\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5E0000000000000000000302 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5E0000000000000000000307 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5E0000000000000000000E01 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5E0000000000000000000502 /* SeeSubtitlesWidgets */;
+			targetProxy = 5E0000000000000000000D01 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		5E0000000000000000000801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		5E0000000000000000000802 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		5E0000000000000000000803 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/SeeSubtitles.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6DZ5Z54SPQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "See Subtitles";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexlaff.subtitles.ios;
+				PRODUCT_NAME = "See Subtitles";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5E0000000000000000000804 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Config/SeeSubtitles.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6DZ5Z54SPQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "See Subtitles";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexlaff.subtitles.ios;
+				PRODUCT_NAME = "See Subtitles";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		5E0000000000000000000805 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6DZ5Z54SPQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Widgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "See Subtitles";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexlaff.subtitles.ios.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5E0000000000000000000806 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6DZ5Z54SPQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/Widgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "See Subtitles";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.alexlaff.subtitles.ios.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5E0000000000000000000701 /* Build configuration list for PBXProject "SeeSubtitles" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5E0000000000000000000801 /* Debug */,
+				5E0000000000000000000802 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5E0000000000000000000703 /* Build configuration list for PBXNativeTarget "SeeSubtitles" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5E0000000000000000000803 /* Debug */,
+				5E0000000000000000000804 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5E0000000000000000000704 /* Build configuration list for PBXNativeTarget "SeeSubtitlesWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5E0000000000000000000805 /* Debug */,
+				5E0000000000000000000806 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		5E0000000000000000000C01 /* XCLocalSwiftPackageReference "Packages/SubtitlesCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SubtitlesCore;
+		};
+		5E0000000000000000000C02 /* XCLocalSwiftPackageReference "Packages/SubtitlesDesign" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/SubtitlesDesign;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5E0000000000000000000B01 /* SubtitlesCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SubtitlesCore;
+		};
+		5E0000000000000000000B02 /* SubtitlesDesign */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SubtitlesDesign;
+		};
+		5E0000000000000000000B03 /* SubtitlesDesign */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SubtitlesDesign;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 5E0000000000000000000601 /* Project object */;
+}

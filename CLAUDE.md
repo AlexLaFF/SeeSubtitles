@@ -42,6 +42,28 @@ sign-up and choose the edge from it. Read the bill with `node deploy/billing.js`
 model; `hy-mt2-pro`'s ran out on 2026-09-17 and it refused every call until billing was switched on. Translation
 steps down pro → plus → lite when a model is refused, but those share the same free package.
 
+## The iOS app follows the Mac app
+
+`ios/` is See Subtitles for iPhone and iPad (docs/IOS.md): native Swift, the same account, server and relay. **A
+change to the Mac app or the server is not finished until the phone has been considered**, and three checks in
+`npm test` (core/test/ios-sync.test.js) — so in every Mac release — say when it has not been:
+
+- **Ported code.** Some Swift is the same behaviour written again: the relay client, recorder, decimator, names,
+  transcript, the MP4 look, the design tokens. `ios/scripts/ports.mjs` lists each original with what its port must
+  keep true, and fails when an original has changed since. Update the Swift (or decide the change does not concern
+  the phone), run `swift test` in ios/Packages/SubtitlesCore, then `node ios/scripts/ports.mjs --accept`.
+- **Shared by export.** Languages, pipelines, models and tuning ranges come from core/schema.js
+  (`node ios/scripts/export-schema.mjs`); strings from web/locales.js (`ios.*` keys, `L("key")` in Swift,
+  `node ios/scripts/check-strings.mjs`). Never type either out a second time in Swift.
+- **Shared by the server.** Anything both apps need that can live on the server does: summaries are
+  `/api/summaries` with the prompt in core/summary.js, used by the Mac too. Prefer this to a port.
+
+A new Mac feature gets a line in docs/IOS.md saying whether the phone gets it, and why not if not (the Display
+window, the Overlay and hosting a share link are the Mac's alone). The phone is always relayed — it has no direct
+route to Tencent — and it records AAC, written as a raw stream and wrapped into m4a when the talk stops, because a
+plain m4a is unplayable after a crash. Build with `xcodebuild -project ios/SeeSubtitles.xcodeproj -scheme
+SeeSubtitles`; demo mode (`-demo YES`) runs a whole talk with no account or network.
+
 ## Other standing rules
 
 - Simplified Chinese only in every user-facing string; never Traditional.

@@ -165,3 +165,10 @@ PDF, the QR code, a real microphone — to walk before publishing.
 
 **Adding a check.** A `check('area: what must be true', async () => …)` in `e2e/run.js`, using the throwaway server
 (`server.base`), an app instance from `openApp`, and `must(condition, 'what went wrong')`.
+
+## The iOS app
+
+`ios/` is built with Xcode, not npm: see [IOS.md](IOS.md) §6 for the build, the launch arguments (demo mode, a local
+server, a file as the microphone) and `swift test`. `npm test` still guards it: core/test/ios-sync.test.js fails when
+a file the phone mirrors has changed, when its languages are out of date, or when it names a string the catalogue
+lacks. CLAUDE.md says what to do about each.

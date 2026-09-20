@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- What the generated Info.plist cannot say. The permission prompts' words come from the string catalogue
+	     (web/locales.js, ios.plist.*) through Resources/InfoPlist.xcstrings; these are the fallbacks. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>See Subtitles listens to the microphone while a talk is running, to turn speech into subtitles and keep the recording on this device.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>See Subtitles uses the camera to scan the code of a talk you want to join.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

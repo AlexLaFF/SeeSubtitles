@@ -17,3 +17,11 @@ desktop/resources/bin/
 # ~/.config/seesubtitles/, never here.
 *.p8
 AuthKey_*
+
+# Swift Package Manager and Xcode build output
+ios/**/.build/
+ios/**/.swiftpm/
+ios/build/
+ios/DerivedData/
+*.xcuserstate
+xcuserdata/
