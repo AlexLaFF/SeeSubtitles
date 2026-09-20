@@ -27,15 +27,35 @@
     alertBox('');
     try {
       const job = await api('/api/jobs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ filename: file.name, size: file.size, sourceLang: $('sourceLang').value, targetLang: $('targetLang').value }) });
-      await new Promise((resolve, reject) => {
+      // One piece of the file, from `offset` to its end. A connection that breaks is carried on from what the server
+      // has (the job's `received`), not begun again — for as long as this page stays open.
+      const send = (offset) => new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('PUT', `/api/jobs/${job.id}/upload`);
+        xhr.open('PUT', `/api/jobs/${job.id}/upload${offset ? `?offset=${offset}` : ''}`);
         $('uploadBar').hidden = false;
-        xhr.upload.onprogress = (e) => { if (e.lengthComputable) { const p = (e.loaded / e.total) * 100; $('uploadBar').firstElementChild.style.width = `${p}%`; $('uploadText').textContent = t('web.uploading', { done: fmtBytes(e.loaded), total: fmtBytes(e.total) }); } };
-        xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(t('web.uploadFailed', { status: `${xhr.status} ${xhr.responseText.slice(0, 200)}` }))));
-        xhr.onerror = () => reject(new Error(t('web.uploadNet')));
-        xhr.send(file);
+        xhr.upload.onprogress = (e) => { const sent = offset + e.loaded; $('uploadBar').firstElementChild.style.width = `${(sent / file.size) * 100}%`; $('uploadText').textContent = t('web.uploading', { done: fmtBytes(sent), total: fmtBytes(file.size) }); };
+        xhr.onload = () => (xhr.status < 300 ? resolve() : reject(Object.assign(new Error(t('web.uploadFailed', { status: `${xhr.status} ${xhr.responseText.slice(0, 200)}` })), { again: xhr.status === 409 || xhr.status >= 500 })));
+        xhr.onerror = () => reject(Object.assign(new Error(t('web.uploadNet')), { again: true }));
+        xhr.send(offset ? file.slice(offset) : file);
       });
+      for (let offset = 0, nowhere = 0; ;) {
+        try { await send(offset); break; } catch (err) {
+          if (!err.again) throw err;
+          $('uploadText').textContent = t('web.reconnecting');
+          // nothing more is sent until the server has said how much it has: a piece sent from the wrong place is refused, and one sent from 0 begins the file again
+          let now = null;
+          while (!now) {
+            if (nowhere >= 8) throw err;
+            await new Promise((r) => setTimeout(r, Math.min(30_000, 2000 * 2 ** nowhere)));
+            now = await api(`/api/jobs/${job.id}`).catch(() => null);
+            if (!now) nowhere++;
+          }
+          if (now.status === 'failed') throw new Error(now.error || err.message);
+          if (now.status !== 'uploading') break; // it is all there: only the answer to the last piece was lost
+          nowhere = (now.received || 0) > offset ? 0 : nowhere + 1;
+          offset = now.received || 0;
+        }
+      }
       $('uploadText').textContent = t('web.uploaded');
       $('uploadBar').hidden = true;
       file = null;

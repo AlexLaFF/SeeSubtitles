@@ -71,7 +71,21 @@
     const p = await d.chooseFile();
     if (p) addPath(p);
   }
-  function addPath(p) { Sub.post('/api/files/add', { path: p }).then((r) => { if (r && r.error) alert(I18n.err(r)); else loadJobs().then(renderRows); }); }
+  /** A file that is sound already is sent as it is; of anything else the user says how much to send. */
+  const SOUND = /\.(mp3|m4a|aac|wav|flac|ogg|oga|opus|wma|aiff?|amr)$/i;
+  async function addPath(p) {
+    let audioOnly = false;
+    if (!SOUND.test(p) && window.askChoice) {
+      const how = await askChoice(t('files.sendHow', { name: p.split('/').pop() }), [
+        { value: 'audio', label: t('files.sendAudio'), hint: t('files.sendAudioHint') },
+        { value: 'video', label: t('files.sendVideo'), hint: t('files.sendVideoHint') },
+      ]);
+      if (!how) return;
+      audioOnly = how === 'audio';
+    }
+    const r = await Sub.post('/api/files/add', { path: p, audioOnly });
+    if (r && r.error) alert(I18n.err(r)); else loadJobs().then(renderRows);
+  }
 
   function renderRows() {
     const tb = $('rows'); if (!tb) return;
@@ -80,8 +94,9 @@
     const items = [];
     const langName = (code) => (SCHEMA.LANG_NAMES && SCHEMA.LANG_NAMES[code]) || code;
     for (const r of recordings) items.push({ kind: 'rec', name: r.base, sub: t('files.recordingSub', { langs: `${langName(r.source)} → ${langName(r.target)}` }), date: r.mtime, length: r.durationMs, rec: r });
-    for (const j of jobs) { if (j.importedBase) continue; items.push({ kind: 'added', name: j.filename, sub: t('files.addedSub', { langs: `${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}` }), date: j.created_at, length: j.duration ? j.duration * 1000 : null, job: j }); }
-    if (up.current) items.push({ kind: 'added', name: up.current.name, sub: t('files.uploading'), date: up.current.startedAt, upload: up.current });
+    for (const j of jobs) { if (j.importedBase) continue; items.push({ kind: 'added', name: j.filename, sub: t('files.addedSub', { langs: `${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}` }), date: j.created_at, length: j.duration ? j.duration * 1000 : null, job: j, upload: up.current && up.current.jobId === j.id ? up.current : null }); }
+    if (up.current && !jobs.some((j) => j.id === up.current.jobId)) items.push({ kind: 'added', name: up.current.name, sub: t('files.uploading'), date: up.current.startedAt, upload: up.current });
+    if (up.last && !up.last.ok && Date.now() - up.last.at < 600_000 && !jobs.some((j) => j.id === up.last.jobId)) items.push({ kind: 'added', name: up.last.name, sub: t('files.notSent'), date: up.last.at, failed: up.last }); // no job to say it on: said here, for ten minutes
     for (const q of up.queue || []) items.push({ kind: 'added', name: q, sub: t('files.waiting'), date: Date.now(), queued: true });
     const shown = items.filter((it) => (filter === 'all' || it.kind === filter) && (!search || it.name.toLowerCase().includes(search))).sort((a, b) => (b.date || 0) - (a.date || 0));
     renderRows.visible = shown.filter((it) => it.rec).map((it) => it.rec.base);
@@ -126,13 +141,30 @@
       } else if (it.job) {
         const j = it.job;
         if (j.status === 'done') subs.appendChild(el('span', { class: 'tag done' }, t('files.tag.cues', { n: j.cues })));
-        else if (j.status === 'failed') subs.appendChild(el('span', { class: 'tag bad', title: j.error || '' }, t('files.tag.failed')));
+        else if (j.status === 'failed') { subs.appendChild(el('span', { class: 'tag bad', title: j.error || '' }, t('files.tag.failed'))); if (/^upload /.test(j.error || '')) subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px;color:var(--bad)' }, t('files.uploadFailed'))); }
+        else if (j.status === 'uploading') {
+          const here = j.size ? ((j.received || 0) / j.size) * 100 : 0; // how much of it the server has
+          if (it.upload) { subs.appendChild(el('span', { class: 'tag busy' }, t(it.upload.retrying ? 'files.tag.reconnecting' : 'files.tag.uploading', { pct: it.upload.percent }))); subs.appendChild(progress(it.upload.percent)); }
+          else if ((up.queuedJobs || []).includes(j.id)) { subs.appendChild(el('span', { class: 'tag busy' }, t('files.tag.queued'))); subs.appendChild(progress(here)); }
+          else if (j.receiving) { subs.appendChild(el('span', { class: 'tag busy' }, t('files.tag.uploading', { pct: Math.round(here) }))); subs.appendChild(progress(here)); } // another device is sending it
+          else { // nobody is: it carries on when its sender is back, and until then it says so
+            subs.appendChild(el('span', { class: 'tag bad' }, t('files.tag.interrupted', { pct: Math.round(here) })));
+            subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px' }, up.last && !up.last.ok && up.last.jobId === j.id ? up.last.error : t('files.uploadInterrupted')));
+          }
+        }
         else { subs.appendChild(el('span', { class: 'tag busy' }, stageName(j.status))); subs.appendChild(progress(j.progress)); }
         tr.appendChild(el('td', {}, (j.files || []).some((f) => f.endsWith('.mp4')) ? '✓' : '—'));
-        const act = tr.appendChild(el('td')); act.appendChild(el('button', { class: 'small' }, t('files.openWeb')));
+        const act = tr.appendChild(el('td'));
+        const acts = act.appendChild(el('div', { class: 'btns', style: 'margin:0;flex-wrap:nowrap;justify-content:flex-end' }));
+        acts.appendChild(el('button', { class: 'small' }, t('files.openWeb')));
+        const del = acts.appendChild(el('button', { class: 'small' }, t('files.deleteOne')));
+        del.addEventListener('click', async (e) => { e.stopPropagation(); if (!confirm(t('files.deleteJobConfirm', { name: j.filename }))) return; const r = await post('/api/cloud/jobs/delete', { id: j.id }); if (r && !r.error) { await loadJobs(); renderRows(); } });
         tr.addEventListener('click', () => { const c = Sub.status.cloud; if (c && c.url) App.openExternal(`${c.url}/jobs/${j.id}`); });
       } else {
-        subs.appendChild(el('span', { class: 'tag busy' }, it.queued ? t('files.tag.queued') : t('files.tag.uploading', { pct: it.upload.percent })));
+        if (it.failed) { subs.appendChild(el('span', { class: 'tag bad' }, t('files.tag.failed'))); subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px;color:var(--bad)' }, it.failed.error)); }
+        else if (it.queued) subs.appendChild(el('span', { class: 'tag busy' }, t('files.tag.queued')));
+        else if (it.upload.stage === 'extracting') subs.appendChild(el('span', { class: 'tag busy' }, stageName('extracting')));
+        else subs.appendChild(el('span', { class: 'tag busy' }, t('files.tag.uploading', { pct: it.upload.percent })));
         tr.appendChild(el('td', {}, '—')); tr.appendChild(el('td'));
       }
       tb.appendChild(tr);

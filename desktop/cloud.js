@@ -93,7 +93,7 @@ class CloudLink {
       const text = await res.text();
       let json = null;
       try { json = text ? JSON.parse(text) : null; } catch { /* non-JSON */ }
-      if (!res.ok) { const err = new Error((json && json.error) || `${res.status} ${res.statusText}`); if (json && json.code) err.code = json.code; throw err; }
+      if (!res.ok) { const err = new Error((json && json.error) || `${res.status} ${res.statusText}`); err.status = res.status; if (json && json.code) err.code = json.code; throw err; }
       return json;
     } finally { clearTimeout(t); }
   }
@@ -105,24 +105,31 @@ class CloudLink {
   getJob(id) {
     return this._fetch(`/api/jobs/${id}`, null, { method: 'GET' });
   }
-  /** Stream a file into a job (PUT). onProgress(bytesSent). No overall timeout: recordings can be hours long. */
-  async uploadJob(id, file, onProgress) {
+  deleteJob(id) {
+    return this._fetch(`/api/jobs/${id}`, null, { method: 'DELETE' });
+  }
+  /**
+   * Stream a file into a job (PUT). onProgress(bytesSent). No overall timeout: recordings can be hours long; `signal`
+   * gives it up. `offset` carries on a file the server already has that much of (getJob: `received`).
+   */
+  async uploadJob(id, file, onProgress, signal, offset = 0) {
     if (!this.cfg.url) throw new Error('cloud server URL is not set');
     if (!this.cfg.token) throw new Error('not logged in');
     const { Readable } = require('node:stream');
     const fs = require('node:fs');
     let sent = 0;
-    const src = fs.createReadStream(file, { highWaterMark: 1 << 20 });
+    const src = fs.createReadStream(file, { highWaterMark: 1 << 20, start: offset });
     src.on('data', (d) => { sent += d.length; if (onProgress) onProgress(sent); });
-    const res = await fetch(`${this.cfg.url.replace(/\/$/, '')}/api/jobs/${id}/upload`, {
+    const res = await fetch(`${this.cfg.url.replace(/\/$/, '')}/api/jobs/${id}/upload${offset ? `?offset=${offset}` : ''}`, {
       method: 'PUT', duplex: 'half',
       headers: { authorization: `Bearer ${this.cfg.token}`, 'content-type': 'application/octet-stream' },
       body: Readable.toWeb(src),
+      signal,
     });
     const text = await res.text();
     let json = null;
     try { json = text ? JSON.parse(text) : null; } catch { /* non-JSON */ }
-    if (!res.ok) throw new Error((json && json.error) || `upload failed: ${res.status} ${res.statusText}`);
+    if (!res.ok) { const err = new Error((json && json.error) || `upload failed: ${res.status} ${res.statusText}`); err.status = res.status; if (json && json.code) err.code = json.code; throw err; }
     return json;
   }
   /** Download one of a job's output files to `dest` (written as dest.part, then renamed). */

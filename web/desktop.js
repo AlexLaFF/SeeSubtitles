@@ -67,6 +67,32 @@
     input.focus(); input.select();
   });
 
+  /** One of a few answers, as a sheet: each a button with a line saying what it means. Escape cancels → null. options: [{value, label, hint}] */
+  window.askChoice = (message, options) => new Promise((resolve) => {
+    document.querySelectorAll('.shell .scrim.ask').forEach((x) => x.remove());
+    const scrim = el('div', { class: 'scrim ask' });
+    const sheet = el('div', { class: 'sheet ask' });
+    const done = (v) => { scrim.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(null); } };
+    scrim.addEventListener('click', (e) => { if (e.target === scrim) done(null); });
+    document.addEventListener('keydown', onKey);
+    const head = el('div', { class: 'sh' }); head.appendChild(el('h2', {}, message));
+    const body = el('div', { class: 'body choices' });
+    for (const o of options) {
+      const b = el('button', { class: 'choice' });
+      b.append(el('b', {}, o.label), el('span', { class: 'hint' }, o.hint || ''));
+      b.addEventListener('click', () => done(o.value));
+      body.appendChild(b);
+    }
+    const cancel = el('button', {}, t('common.cancel'));
+    cancel.addEventListener('click', () => done(null));
+    const foot = el('div', { class: 'sf' }); foot.appendChild(cancel);
+    sheet.append(head, body, foot);
+    scrim.appendChild(sheet);
+    document.body.appendChild(scrim);
+    body.firstElementChild.focus();
+  });
+
   /** Small dropdown menu anchored below a button. items: [{label, href?, download?, onClick?}] */
   App.menu = function (anchor, items) {
     document.querySelectorAll('.shell .menu').forEach((m) => m.remove());

@@ -110,7 +110,14 @@ const { ResubtitleQueue } = require('./lib/resubtitle');
 const resubtitle = new ResubtitleQueue({ cloud, log: (level, text) => core && core.log(level, text) });
 const { Updater } = require('./lib/updater');
 const { UploadQueue } = require('./lib/uploads');
-const uploads = new UploadQueue({ cloud, log: (level, text) => core && core.log(level, text) });
+// Uploads under way are written down, so one the app was closed in the middle of carries on from what the server has.
+const uploads = new UploadQueue({
+  cloud,
+  tmpDir: path.join(app.getPath('userData'), 'uploads'), // the sound taken out of a video sent as audio only
+  getPending: () => loadConfig().pendingUploads || {},
+  setPending: (map) => { const c = loadConfig(); c.pendingUploads = map; saveConfig(c); },
+  log: (level, text) => (core ? core.log(level, text) : consoleLog(level, text)),
+});
 const { JobImporter } = require('./lib/import-job');
 // A finished cloud job is copied into the recordings folder so an added file behaves like any recording.
 const jobImporter = new JobImporter({
@@ -206,6 +213,7 @@ async function startCore() {
     resubtitle,
     uploads,
     cloudJobs: async () => (cloud.status().loggedIn ? jobImporter.annotate(await cloud._fetch('/api/jobs', null, { method: 'GET' })) : []),
+    deleteCloudJob: async (id) => { uploads.cancel(id); await cloud.deleteJob(id); },
     onOpenDisplay: ({ fullscreen } = {}) => { const w = openDisplay(); if (fullscreen) w.setFullScreen(true); },
     displayStatus: () => ({ open: !!(wins.display && !wins.display.isDestroyed()), fullscreen: !!(wins.display && !wins.display.isDestroyed() && wins.display.isFullScreen()) }),
     onOpenExternal: (url) => shell.openExternal(url),
@@ -221,6 +229,7 @@ async function startCore() {
     cloud.onEvent(ev, data);
   });
   cloud.attach(core, cloudConfig(cfg));
+  if (cloud.status().loggedIn) uploads.resumePending();
   rebuildMenu();
   reportOverlay();
 }

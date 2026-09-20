@@ -113,3 +113,24 @@ test('a recording set can be renamed; bad names and clashes are handled', async 
   const list = await (await fetch(`${server.base}/api/recordings`, { headers: { cookie: 'token=tk' } })).json();
   assert.deepEqual(list.map((r) => r.base).sort(), ['营养讲座', '营养讲座-2']);
 });
+
+test('an added file can be deleted from the Files list: the route hands the job to the cloud link', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'subtitle-jobdel-'));
+  const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
+  const deleted = [];
+  const server = await createLocalServer({
+    webDir: path.resolve(__dirname, '../../web'), schemaFile: require.resolve('@subs/core/schema'),
+    dataDir: path.join(root, 'data'), recordingsDir: rec, transcriptsDir: path.join(root, 'transcripts'),
+    demo: true, token: 'test-token', env: { MP4_AUTO: '0' }, consoleLog() {},
+    deleteCloudJob: async (id) => { if (id === 'beef') throw new Error('job is running; wait for it to finish'); deleted.push(id); },
+  });
+  t.after(async () => { await server.shutdown(); fs.rmSync(root, { recursive: true, force: true }); });
+  const post = (p, data) => fetch(server.base + p, { method: 'POST', headers: { cookie: 'token=test-token', 'content-type': 'application/json' }, body: JSON.stringify(data) });
+  assert.equal((await post('/api/cloud/jobs/delete', { id: '43cf947cb2aeedaf' })).status, 200);
+  assert.deepEqual(deleted, ['43cf947cb2aeedaf']);
+  assert.equal((await post('/api/cloud/jobs/delete', { id: '../x' })).status, 400, 'only a job id');
+  const busy = await post('/api/cloud/jobs/delete', { id: 'beef' });
+  assert.equal(busy.status, 400);
+  assert.match((await busy.json()).error, /running/);
+  assert.deepEqual(deleted, ['43cf947cb2aeedaf']);
+});

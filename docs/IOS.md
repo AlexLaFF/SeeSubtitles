@@ -121,6 +121,14 @@ beside it.
 
 Empty state: one sentence and the Start button.
 
+Files added for subtitling (the Mac's "Add file…", the web's upload) are not listed here — the Library is the
+phone's own recordings — so deleting one from the list, and the choice between sending a whole video and only its
+audio, are the Mac's alone. The phone's only upload is re-subtitling, and it gains what the server gained on
+2026-09-21: an upload may take longer than five minutes. Carrying a broken upload on from what the server has
+(`received`, then `PUT …/upload?offset=`) is done by the Mac and the web page, not yet by the phone: its upload is
+a recording's m4a, tens of megabytes, begun again if it breaks — port it from desktop/lib/uploads.js if that ever
+proves too much on a mobile connection.
+
 ### 2.5 · Recording
 
 Player at the top: play/pause, a scrubber, ±15 s, speed. Below, three segments:

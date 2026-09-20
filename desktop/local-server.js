@@ -61,6 +61,7 @@ function readJson(req) {
  * @param {object}   [opts.resubtitle]   ResubtitleQueue (needs the cloud login) for POST /api/recordings/resubtitle
  * @param {object}   [opts.uploads]      UploadQueue for POST /api/files/add
  * @param {function} [opts.cloudJobs]    async () => the account's upload jobs on the hosted server
+ * @param {function} [opts.deleteCloudJob] async (id) => void — delete one of them, for POST /api/cloud/jobs/delete
  * @param {function} [opts.onOpenDisplay] ({fullscreen}) => void
  * @param {function} [opts.displayStatus] () => {open, fullscreen}
  * @param {function} [opts.onOpenExternal] (url) => void
@@ -135,8 +136,8 @@ async function createLocalServer(opts) {
   try { userPresets = JSON.parse(fs.readFileSync(PRESETS_FILE, 'utf8')); } catch (err) { if (err.code !== 'ENOENT') log('warn', `presets.json ignored: ${err.message}`); }
   const currentLook = () => { const o = {}; for (const k of PRESET_KEYS) o[k] = settings[k]; return o; };
   const presetsPayload = () => ({ builtin: schema.PRESETS, user: userPresets });
-  /** "Add file…": upload any video/audio file to the hosted server as a subtitling job, using the live languages. */
-  function addFile(file) {
+  /** "Add file…": upload any video/audio file to the hosted server as a subtitling job, using the live languages. audioOnly: of a video, only its sound. */
+  function addFile(file, { audioOnly = false } = {}) {
     if (!opts.uploads) { const e = new Error('cloud link not available'); e.code = 'cloud_unavailable'; throw e; }
     const cloud = opts.cloudStatus ? opts.cloudStatus() : null;
     if (!cloud || !cloud.loggedIn) { const e = new Error('Log in under Settings first'); e.code = 'login_first'; throw e; }
@@ -146,8 +147,8 @@ async function createLocalServer(opts) {
     const TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko', yue: 'yue', id: 'id', th: 'th', ru: 'ru', zh_en: 'en' };
     const sourceLang = SOURCE[settings.source];
     if (!sourceLang) throw new Error(`the cloud does not transcribe "${settings.source}" uploads yet`);
-    const queued = opts.uploads.add({ file, sourceLang, targetLang: TARGET[settings.target] || 'none' });
-    log('info', `add file: ${path.basename(file)} (${sourceLang} → ${TARGET[settings.target] || 'none'})`);
+    const queued = opts.uploads.add({ file, sourceLang, targetLang: TARGET[settings.target] || 'none', audioOnly });
+    log('info', `add file: ${path.basename(file)}${audioOnly ? ', audio only' : ''} (${sourceLang} → ${TARGET[settings.target] || 'none'})`);
     return queued;
   }
   /** Every file of a recording set (audio, subtitles, live backups, plain text, MP4, summary, PDF). */
@@ -662,7 +663,7 @@ async function createLocalServer(opts) {
         return send(res, 200, { ok: true });
       }
       case '/api/files/add': {
-        try { return send(res, 200, { ok: true, queued: addFile(String(body.path || '')), uploads: opts.uploads.status() }); } catch (err) { return send(res, 400, { error: err.message, code: err.code || (/not found/.test(err.message) ? 'file_not_found' : undefined) }); }
+        try { return send(res, 200, { ok: true, queued: addFile(String(body.path || ''), { audioOnly: body.audioOnly === true }), uploads: opts.uploads.status() }); } catch (err) { return send(res, 400, { error: err.message, code: err.code || (/not found/.test(err.message) ? 'file_not_found' : undefined) }); }
       }
       case '/api/recordings/resubtitle': {
         const base = String(body.base || '');
@@ -679,6 +680,11 @@ async function createLocalServer(opts) {
         const queued = opts.resubtitle.add({ base, dir: opts.recordingsDir, sourceLang, targetLang });
         log('info', queued ? `re-subtitle requested for ${base} (${sourceLang} → ${targetLang})` : `re-subtitle for ${base} already in progress`);
         return send(res, 200, { ok: true, queued, resubtitle: opts.resubtitle.status() });
+      }
+      case '/api/cloud/jobs/delete': {
+        const id = String(body.id || '');
+        if (!opts.deleteCloudJob || !/^[a-f0-9]+$/.test(id)) return send(res, 400, { error: 'cloud link not available', code: 'cloud_unavailable' });
+        try { await opts.deleteCloudJob(id); log('info', `deleted cloud job ${id}`); return send(res, 200, { ok: true }); } catch (err) { return send(res, 400, { error: err.message, code: err.code }); }
       }
       case '/api/recordings/mp4': {
         const base = String(body.base || '');

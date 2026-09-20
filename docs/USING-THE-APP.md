@@ -54,6 +54,16 @@ subtitles, exports and actions.
 Files you add are uploaded, subtitled in the cloud, and then brought down into your recordings folder,
 so an added file ends up behaving exactly like one you recorded.
 
+Adding a video asks how much of it to send. **Only the audio** is a small fraction of the size and gives the
+same subtitles — the app takes the sound out of the video as it is, without re-encoding it where it can.
+**The whole video** is needed only for an MP4 with the subtitles over the picture, made on seesubtitles.com.
+
+An upload that loses its connection carries on from what the server already has, not from the beginning: the
+row says "reconnecting…" until it is through. One the app was closed in the middle of carries on when the app
+opens again, as long as the file is still where it was and unchanged. A row that says "upload interrupted" is
+waiting for the app (or browser tab) that was sending it; **Delete…** removes it, and the server drops what
+arrived of an upload nobody has come back to for a day.
+
 ### Cloud re-subtitling
 
 **Files › a recording › Actions › Re-subtitle** uploads the recording's MP3 to the server as a job

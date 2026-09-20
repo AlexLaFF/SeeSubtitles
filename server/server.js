@@ -5,6 +5,7 @@
 //   TENCENT_APPID / TENCENT_SECRET_ID / TENCENT_SECRET_KEY   TOKENHUB_API_KEY + TRANSLATION_MODEL (hy-mt2-pro)   FFMPEG / FFPROBE (binaries; MP4 burn-in needs libass)
 //   SUMMARY_MODEL (deepseek-v4-flash) SUMMARY_EFFORT (high): the model behind /api/summaries   IOS_APP_IDS: apps that may open this server's links
 //   TENCENT_WS_URL / TOKENHUB_BASE_URL / LIVE_METER_MS: stand-ins and a faster meter, for tests only (ios/e2e)
+//   UPLOAD_IDLE_MS (120000): an upload connection that says nothing for this long is closed; the sender carries on from what arrived
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -97,6 +98,7 @@ const usage = new UsageMonitor({ creds, billingCreds, pack: parsePack(process.en
 if (process.env.TENCENT_PACK && !usage.pack) log('warn', `TENCENT_PACK "${process.env.TENCENT_PACK}" is not <hours>h@<YYYY-MM-DD>; the dashboard shows usage without the pack`);
 const jobs = new JobRunner({
   db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe',
+  ...(Number(process.env.UPLOAD_IDLE_MS) > 0 ? { uploadIdleMs: Number(process.env.UPLOAD_IDLE_MS) } : {}),
   // the plan's file hours: refuse a file that does not fit in what is left this month, otherwise count it
   onDuration: (job, seconds) => {
     const row = account.userRow(job.user_id); if (!row) return;
@@ -389,8 +391,18 @@ async function api(req, res, url, user) {
     if (action === 'upload' && req.method === 'PUT') {
       if (job.status !== 'uploading') return fail(res, 409, 'already uploaded');
       const len = Number(req.headers['content-length'] || 0);
-      if (len > MAX_UPLOAD) return fail(res, 413, 'file too large');
-      try { const bytes = await jobs.uploadStream(job, req); log('info', `job ${id}: uploaded ${(bytes / 1e6).toFixed(1)} MB ${job.filename}`); return send(res, 200, jobs.view(jobs.get(id))); } catch (err) { return fail(res, 500, err.message); }
+      // ?offset=N carries on a file the server already has N bytes of (GET the job: `received`)
+      const offset = Number(url.searchParams.get('offset') || 0);
+      if (!Number.isSafeInteger(offset) || offset < 0) return fail(res, 400, 'offset must be a whole number of bytes');
+      if (len + offset > MAX_UPLOAD) { jobs._update(id, { status: 'failed', error: 'file too large' }); return fail(res, 413, 'file too large'); }
+      try {
+        const bytes = await jobs.uploadStream(job, req, offset);
+        log('info', `job ${id}: uploaded ${(bytes / 1e6).toFixed(1)} MB ${job.filename}${offset ? ` (carried on from ${(offset / 1e6).toFixed(1)} MB)` : ''}`);
+        return send(res, 200, jobs.view(jobs.get(id)));
+      } catch (err) {
+        if (err.code === 'upload_offset') return fail(res, 409, err.message, { code: err.code, received: err.received });
+        return fail(res, 500, err.message);
+      }
     }
     if (action === 'stream') {
       sse(res);
@@ -489,6 +501,10 @@ const liveProxy = createLiveProxy({ creds, authenticate: (req) => auth.authentic
   tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), wsUrl: STANDINS.wsUrl,
   translateUrl: STANDINS.tokenhub ? new URL('/v1/api/translations', STANDINS.tokenhub).href : null,
   ...(Number(process.env.LIVE_METER_MS) > 0 ? { meterMs: Number(process.env.LIVE_METER_MS) } : {}) });
+// An upload takes as long as the file and the line need. Node gives a whole request five minutes unless told
+// otherwise, which ended every file that needed longer — a 1.3 GB video stopped at 809 MB, 307 s in (2026-09-21).
+// What ends a connection is silence (UPLOAD_IDLE_MS), and the sender carries on from what arrived: jobs.uploadStream.
+server.requestTimeout = 0;
 server.on('upgrade', (req, socket, head) => {
   if (liveProxy.upgrade(req, socket, head)) return;
   socket.destroy();

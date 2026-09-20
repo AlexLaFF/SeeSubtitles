@@ -99,9 +99,12 @@ class JobRunner extends EventEmitter {
    * @param {string} [o.model]        translation model for the chosen backend
    * @param {Function} [o.translate]  override (tests): ({text, source, target}) → Promise<string>
    */
-  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null, onDuration = null }) {
+  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null, onDuration = null, uploadIdleMs = 120_000, uploadStaleMs = 24 * 3600_000 }) {
     super();
     this.db = db;
+    this.uploadIdleMs = uploadIdleMs; // a connection that says nothing for this long has lost its sender
+    this.uploadStaleMs = uploadStaleMs; // and a file nobody has sent a byte of for this long is not coming
+    this.uploads = new Map(); // id -> {stop(why), closed}, for each upload arriving now
     this.onDuration = onDuration; // (job, seconds) → may throw to refuse the file (plan quota); called once the duration is known
     this.dir = dir;
     this.creds = creds;
@@ -167,8 +170,16 @@ class JobRunner extends EventEmitter {
     if (!j) return null;
     const d = this.jobDir(j.id);
     const files = fs.existsSync(d) ? fs.readdirSync(d).filter((f) => /\.(srt|vtt|txt|mp4)$/.test(f) && !f.startsWith('.') && f !== 'audio.mp3').sort() : [];
-    return { ...j, files, render: this.renders.get(j.id) || null, engineLabel: (ENGINES[j.source_lang] || {}).label, targetLabel: TARGETS[j.target_lang] };
+    // an upload says how much of it is here (a sender that lost its connection carries on from there) and whether
+    // anything is arriving now — "uploading" with nobody sending is a file waiting for its sender to come back
+    const upload = j.status === 'uploading' ? { received: this._partSize(j), receiving: this.uploads.has(j.id) } : {};
+    return { ...j, ...upload, files, render: this.renders.get(j.id) || null, engineLabel: (ENGINES[j.source_lang] || {}).label, targetLabel: TARGETS[j.target_lang] };
   }
+  _sourcePath(job) {
+    const ext = (path.extname(job.filename) || '.bin').toLowerCase().replace(/[^a-z0-9.]/g, '').slice(0, 8) || '.bin';
+    return path.join(this.jobDir(job.id), `source${ext}`);
+  }
+  _partSize(job) { try { return fs.statSync(`${this._sourcePath(job)}.part`).size; } catch { return 0; } }
 
   create(userId, { filename, size, sourceLang, targetLang }) {
     if (!ENGINES[sourceLang]) throw new Error(`unknown source language "${sourceLang}"`);
@@ -181,28 +192,76 @@ class JobRunner extends EventEmitter {
     return this.get(id);
   }
 
-  /** Stream the request body to <job>/source.<ext>; then queue the job. */
-  uploadStream(job, req) {
-    const ext = (path.extname(job.filename) || '.bin').toLowerCase().replace(/[^a-z0-9.]/g, '').slice(0, 8) || '.bin';
-    const file = path.join(this.jobDir(job.id), `source${ext}`);
+  /**
+   * Stream the request body onto <job>/source.<ext>.part; once the whole file is there, queue the job.
+   * An upload that breaks off — the connection drops, or nothing arrives for uploadIdleMs — keeps what arrived:
+   * the sender asks the job how much the server has (`received`) and sends the rest with ?offset=. Without an
+   * offset the file starts again from nothing. sweepUploads drops a file nobody comes back to.
+   */
+  async uploadStream(job, req, offset = 0) {
+    // the sender is back on a new connection before the old one was seen to die: the new one has the file now
+    const before = this.uploads.get(job.id);
+    if (before) { before.stop('upload taken over by a new connection'); await before.closed; }
+    if (req.destroyed) throw new Error('upload interrupted');
+    const file = this._sourcePath(job);
+    const have = this._partSize(job);
+    if (offset && offset !== have) throw Object.assign(new Error(`the server has ${have} bytes of this file, not ${offset}`), { code: 'upload_offset', received: have });
     return new Promise((resolve, reject) => {
-      const out = fs.createWriteStream(`${file}.part`);
+      const out = fs.createWriteStream(`${file}.part`, { flags: offset ? 'a' : 'w' });
       let bytes = 0;
-      req.on('data', (d) => { bytes += d.length; });
-      req.on('aborted', () => { out.destroy(); reject(new Error('upload aborted')); });
+      let over = false;
+      const entry = { stop: null, closed: new Promise((r) => out.on('close', r)) };
+      const idle = setTimeout(() => entry.stop(`upload stalled: nothing arrived for ${Math.round(this.uploadIdleMs / 1000)} s`), this.uploadIdleMs);
+      entry.stop = (why) => {
+        if (over) return;
+        over = true;
+        clearTimeout(idle);
+        req.unpipe(out); out.end(); req.destroy();
+        entry.closed.then(() => {
+          if (this.uploads.get(job.id) === entry) this.uploads.delete(job.id);
+          if (this.get(job.id)) this._update(job.id, { status: 'uploading' }); // updated_at: when the sender was last heard from
+        });
+        reject(new Error(why));
+      };
+      this.uploads.set(job.id, entry);
+      req.on('data', (d) => { bytes += d.length; idle.refresh(); });
+      req.on('aborted', () => entry.stop('upload interrupted'));
+      req.on('error', () => entry.stop('upload interrupted'));
       req.pipe(out);
-      out.on('error', reject);
+      out.on('error', (err) => entry.stop(err.message));
       out.on('finish', () => {
+        if (over) return;
+        over = true;
+        clearTimeout(idle);
+        this.uploads.delete(job.id);
+        const total = offset + bytes;
+        // pieces sent at different times are only the file if they add up to it
+        if (offset && job.size && total !== job.size) {
+          fs.rmSync(`${file}.part`, { force: true });
+          const why = `upload does not match the file: ${total} bytes arrived, ${job.size} expected`;
+          this._update(job.id, { status: 'failed', error: why });
+          return reject(new Error(why));
+        }
         fs.renameSync(`${file}.part`, file);
-        this._update(job.id, { status: 'queued', size: bytes, progress: 0, error: null });
-        resolve(bytes);
+        this._update(job.id, { status: 'queued', size: total, progress: 0, error: null });
+        resolve(total);
         this.kick();
       });
     });
   }
+  /** Uploads nobody came back to: what arrived is dropped and the job says so. */
+  sweepUploads() {
+    for (const j of this.db.all("SELECT * FROM jobs WHERE status = 'uploading' AND updated_at < ?", Date.now() - this.uploadStaleMs)) {
+      if (this.uploads.has(j.id)) continue;
+      fs.rmSync(`${this._sourcePath(j)}.part`, { force: true });
+      this._update(j.id, { status: 'failed', error: 'upload never completed' });
+    }
+  }
 
   remove(id) {
     if (this.current && this.current.id === id) throw new Error('job is running; wait for it to finish');
+    const arriving = this.uploads.get(id);
+    if (arriving) arriving.stop('upload cancelled');
     this.db.run('DELETE FROM jobs WHERE id = ?', id);
     fs.rmSync(this.jobDir(id), { recursive: true, force: true });
   }
@@ -237,7 +296,9 @@ class JobRunner extends EventEmitter {
   /** Resume interrupted jobs after a restart, then start the next queued one. */
   resume() {
     for (const j of this.db.all("SELECT id, status FROM jobs WHERE status IN ('extracting','segmenting','translating','rendering')")) this._update(j.id, { status: 'queued', progress: 0 });
-    for (const j of this.db.all("SELECT id FROM jobs WHERE status = 'uploading' AND updated_at < ?", Date.now() - 6 * 3600_000)) this._update(j.id, { status: 'failed', error: 'upload never completed' });
+    // an upload the last server was receiving is carried on by its sender (uploadStream); only the abandoned go
+    this.sweepUploads();
+    setInterval(() => this.sweepUploads(), 3600_000).unref();
     this.kick();
   }
   kick() {
