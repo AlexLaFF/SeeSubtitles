@@ -62,7 +62,8 @@ ssh "$HOST" "docker rm -f $NAME >/dev/null 2>&1; docker run -d --rm --name $NAME
   seesubtitles-e2e sh -c 'node /ios-e2e/accounts.cjs /app/server && exec node server/server.js' >/dev/null && echo '  throwaway server started'"
 
 # the recording that stands in for the room: the one the Mac's release test calls its baseline
-CLIP=$(ssh "$HOST" "node -e \"const m=require(process.env.HOME+'/e2e-fixtures/manifest.json'); const c=m.clips.baseline||Object.values(m.clips)[0]; console.log(c.file)\"")
+# (the server itself has no node: only the images do)
+CLIP=$(ssh "$HOST" "docker run --rm -v ~/e2e-fixtures:/fixtures:ro seesubtitles-e2e node -e \"const m=require('/fixtures/manifest.json'); const c=m.clips.baseline||Object.values(m.clips)[0]; console.log(c.file)\"")
 retry command scp -q $SSHOPTS "$HOST:e2e-fixtures/$CLIP" "$LOCAL/room.wav"
 echo "  recording: $CLIP ($(du -h "$LOCAL/room.wav" | cut -f1))"
 
