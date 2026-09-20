@@ -22,7 +22,8 @@ before writing them), run `npm run e2e`, and only then delete the old keys.
 Since 0.8.0 the app opens on the **split pipeline**: 实时语音识别 `16k_zh_large` (or the engine for the spoken
 language) with the talk's hotwords, and our own 混元翻译 call — `hy-mt2-pro` with the previous two lines as context,
 for both the rolling draft and the final line. One model for both: mixing a fast draft with a better final doubles how
-often a line the audience has already read is rewritten. A pause of 700 ms ends a line and nothing runs past 6 s.
+often a line the audience has already read is rewritten. A pause of 700 ms ends a line and nothing runs past 6 s. Subtitles in the language being spoken (普通话 → 简体中文)
+skip the translator altogether: the words are the subtitle, so the line settles as recognition ends.
 `core/split-stream.js`, chosen by the `pipeline` setting (`split` | `combined`), which the relay also honours.
 Tencent's own 实时语音翻译 is still there as `combined`, and the relay uses it when the server has no TokenHub key;
 a TokenHub outage during a talk does not switch to it — lines keep their draft, or show the words alone.

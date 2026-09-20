@@ -284,3 +284,27 @@ test('a reconnect asked for while the first connection is still being set up lea
     assert.deepEqual(errors, []);
   });
 });
+
+test('subtitles in the language being spoken are the words themselves, with nothing sent to the translator', async () => {
+  const m = await mockAsr((ws) => {
+    ws.send(ok());
+    setTimeout(() => ws.send(word(1, '今天讲营养')), 40);
+    setTimeout(() => ws.send(word(1, '今天讲营养和肝脏', { end: true, end_time: 1500 })), 300);
+  });
+  const t = mockTranslate(async () => '不该被调用');
+  const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, source: 'zh', target: 'zh', rollMs: 50 });
+  const results = [];
+  s.on('result', (r) => results.push(r));
+  await withCleanup(m, s, async () => {
+    s.start();
+    for (let i = 0; i < 8; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(60); }
+    await sleep(300);
+    assert.equal(t.calls.length, 0, 'the translator was not asked');
+    assert.equal(s.status.translateCalls, 0);
+    assert.equal(s.status.transcribing, true);
+    const final = results.at(-1);
+    assert.equal(final.sentenceEnd, true);
+    assert.equal(final.targetText, '今天讲营养和肝脏', 'the settled line carries the words as its subtitle');
+    assert.ok(results.some((r) => !r.sentenceEnd && r.targetText === '今天讲营养'), 'and so does the line while it is still being spoken');
+  });
+});

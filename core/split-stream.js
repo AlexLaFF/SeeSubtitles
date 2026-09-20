@@ -114,6 +114,7 @@ class SplitStream extends EventEmitter {
       engine: this._engine(), model: this.opts.model, source: this.opts.source, target: this.opts.target,
       translateCalls: this.calls, translateRetries: this.retries, translateFailures: this.failures,
       keepalives: this.keepalives, droppedBytes: this.dropped, lastError: this.lastError, modelFallback: this.modelFallback,
+      transcribing: this._transcribing(),
       rateLimited: Date.now() < this.rateLimitedUntil, rateFallbacks: this.rateFallbacks,
       edge: this.edge,
     };
@@ -175,6 +176,13 @@ class SplitStream extends EventEmitter {
   // ---------------------------------------------------------------- the recognition connection
 
   _engine() { return this.opts.engine || ENGINE_FOR[this.opts.source] || '16k_zh_large'; }
+
+  /**
+   * Subtitles in the language being spoken (普通话 → 简体中文, say): the words recognised are the subtitle. Nothing
+   * goes to the translator — a line then settles the moment recognition ends rather than a translation call later,
+   * costs nothing to translate, and no model gets the chance to reword what the speaker said.
+   */
+  _transcribing() { return this.opts.source === this.opts.target; }
 
   _log(text) { this.emit('log', text); }
 
@@ -368,6 +376,7 @@ class SplitStream extends EventEmitter {
 
   _onPartial(row) {
     if (!this.rolling || this.rolling.index !== row.index) this.rolling = { index: row.index, lastAt: 0, lastText: '', gen: 0 };
+    if (this._transcribing()) return this._emit(row, row.text, false);
     this._emit(row, this.rolling.target, false);
     const now = Date.now();
     if (!this.opts.rollMs || now - this.rolling.lastAt < this.opts.rollMs) return;
@@ -389,10 +398,11 @@ class SplitStream extends EventEmitter {
     const roll = this.rolling;
     if (roll) roll.settled = true;
     this.rolling = null;
-    this._emit(row, roll ? roll.target : '', false); // the settled words, translation to follow
     const context = this._context(row);
     this.done.push(row); // in place before the next sentence starts, so its draft has this line too
     if (this.done.length > 8) this.done.shift();
+    if (this._transcribing()) return this._emit(row, row.text, true);
+    this._emit(row, roll ? roll.target : '', false); // the settled words, translation to follow
     this._translate(row.text, { final: true, context }).then((out) => {
       this._emit(row, out || (roll && roll.target) || '', true);
     });
