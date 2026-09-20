@@ -221,6 +221,7 @@
     const renderRemote = () => {
       for (const b of $('segShow').querySelectorAll('button')) b.classList.toggle('on', b.dataset.m === (Sub.settings.showMode || 'target'));
       $('btnAwake').classList.toggle('on', !!lock);
+      renderListen();
       const s = Sub.status || {};
       const ended = s.live === false;
       $('remoteState').textContent = ended ? t('disp.remote.ended') : t('disp.remote.live');
@@ -233,6 +234,18 @@
       else if (navigator.wakeLock) { try { lock = await navigator.wakeLock.request('screen'); lock.addEventListener('release', () => { lock = null; renderRemote(); }); } catch { lock = null; } }
       renderRemote();
     });
+    // Listen: the translation spoken in this person's own headphones, by their own device's voice. Theirs alone —
+    // it is not a setting of the talk, and the venue's screen never speaks.
+    const speaker = new Speak.Speaker({ lang: Sub.settings.target, onChange: () => renderRemote() });
+    const canListen = () => speaker.supported && Sub.settings.target && Sub.settings.target !== Sub.settings.source;
+    $('btnListen').addEventListener('click', () => { if (speaker.on) speaker.stop(); else speaker.start(lines.map((l) => l.id)); });
+    Sub.on('line', (line) => speaker.offer(line));
+    for (const ev of ['init', 'settings']) Sub.on(ev, () => { speaker.setLanguage(Sub.settings.target); if (speaker.on && !canListen()) speaker.stop(); });
+    const renderListen = () => {
+      $('btnListen').hidden = !canListen();
+      $('btnListen').classList.toggle('on', speaker.on);
+      if (speaker.on && (Sub.status || {}).live === false) speaker.stop();
+    };
     Sub.on('init', (d) => { Sub.session = d.session || null; $('remoteName').textContent = Sub.session && Sub.session.name ? `· ${Sub.session.name}` : ''; renderRemote(); });
     Sub.on('status', renderRemote); Sub.on('settings', renderRemote); Sub.on('local', renderRemote);
     I18n.onChange(renderRemote);

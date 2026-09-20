@@ -103,12 +103,13 @@ final class StubServer: URLProtocol, @unchecked Sendable {
   @Test("joining a talk needs no account and reads the host's lines")
   func join() async throws {
     StubServer.reset()
-    let stream = "event: init\ndata: {\"session\":{\"code\":\"k7m2xq\",\"name\":\"字幕与共融\"},\"lines\":[{\"id\":\"v:0\",\"sourceText\":\"甲\",\"targetText\":\"A\",\"ended\":true,\"wallStart\":10}],\"status\":{\"live\":true,\"viewers\":3}}\n\nevent: line\ndata: {\"id\":\"v:1\",\"targetText\":\"B\",\"ended\":false}\n\nevent: status\ndata: {\"live\":false,\"viewers\":2}\n\n"
+    let stream = "event: init\ndata: {\"session\":{\"code\":\"k7m2xq\",\"name\":\"字幕与共融\"},\"lines\":[{\"id\":\"v:0\",\"sourceText\":\"甲\",\"targetText\":\"A\",\"ended\":true,\"wallStart\":10}],\"status\":{\"live\":true,\"viewers\":3},\"settings\":{\"source\":\"yue\",\"target\":\"en\",\"fontSize\":120}}\n\nevent: line\ndata: {\"id\":\"v:1\",\"targetText\":\"B\",\"ended\":false}\n\nevent: status\ndata: {\"live\":false,\"viewers\":2}\n\n"
     StubServer.on("GET /api/d/k7m2xq/stream") { _, _ in StubServer.Answer(headers: ["Content-Type": "text/event-stream"], body: Data(stream.utf8)) }
     var events: [JoinEvent] = []
     for try await e in api.join(code: "k7m2xq") { events.append(e) }
-    guard case .started(let name, let lines, let live) = events[0] else { Issue.record("no init"); return }
+    guard case .started(let name, let lines, let live, let source, let target) = events[0] else { Issue.record("no init"); return }
     #expect(name == "字幕与共融" && live && lines.count == 1 && lines[0].asResult.sentenceEnd)
+    #expect(source == "yue" && target == "en", "the host's languages come with the talk: they choose the voice")
     #expect(events.count == 3 && events[2] == .status(live: false, viewers: 2))
     #expect(StubServer.asked[0].request.value(forHTTPHeaderField: "Authorization") == nil, "a share link is followed without the account")
 

@@ -96,7 +96,8 @@ public enum SummaryEvent: Sendable, Equatable {
 
 /// What a joined talk sends (server/lib/live.js).
 public enum JoinEvent: Sendable, Equatable {
-  case started(name: String, lines: [JoinedLine], live: Bool)
+  /// `source` and `target` are the host's languages: what is spoken, and what the subtitles are in.
+  case started(name: String, lines: [JoinedLine], live: Bool, source: String?, target: String?)
   case line(JoinedLine)
   case cleared
   case status(live: Bool, viewers: Int)

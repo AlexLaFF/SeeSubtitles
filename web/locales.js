@@ -890,6 +890,17 @@
     'poster.eventPh': ['name of the talk', '讲座名称'],
     'poster.print': ['Print', '打印'],
 
+    // ---- the translation, spoken (web/speak.js): the Mac's Live view and the attendee page
+    'live.speak.label': ['Spoken translation', '语音翻译'],
+    'live.speak.start': ['Speak the translation', '朗读译文'],
+    'live.speak.stop': ['Stop speaking', '停止朗读'],
+    'live.speak.hint': ['Each sentence is read aloud once it has settled, by this Mac\u2019s own voice, a few seconds behind the speaker. Headphones only: through the hall\u2019s speakers the microphone would hear it and subtitle it in turn.', '每句话定稿后由本机语音朗读，比讲者慢几秒。请只用耳机：若从会场音箱播放，麦克风会听到并再次生成字幕。'],
+    'live.speak.status': ['{spoken} sentences spoken · {skipped} skipped to keep up', '已朗读 {spoken} 句 · 为跟上进度跳过 {skipped} 句'],
+    'live.speak.sameLanguage': ['Nothing to speak: the subtitles are the words as spoken.', '无需朗读：字幕就是讲者的原话。'],
+    'live.speak.unsupported': ['This system has no voice to speak with.', '此系统没有可用的朗读语音。'],
+    'disp.remote.listen': ['Listen', '收听'],
+    'disp.remote.listenTitle': ['hear the translation in your headphones, read by your own device', '用耳机收听译文，由你自己的设备朗读'],
+
     // ---- iOS app (docs/IOS.md). Swift names these as L("key"); ios/scripts/check-strings.mjs fails the build for a
     // key that is missing here, and for one here that no Swift file uses. ios.plist.* are the permission prompts.
     'ios.tab.live': ['Live', '实时字幕'],
@@ -1115,6 +1126,21 @@
     'ios.plist.NSMicrophoneUsageDescription': ['See Subtitles listens to the microphone while a talk is running, to turn speech into subtitles and keep the recording on this device.', 'See Subtitles 仅在进行中时使用麦克风，把语音变成字幕，并将录音保存在本机。'],
     'ios.plist.NSCameraUsageDescription': ['See Subtitles uses the camera to scan the code of a talk you want to join.', 'See Subtitles 使用相机扫描你想加入的讲座的二维码。'],
     'ios.plist.CFBundleDisplayName': ['See Subtitles', 'See Subtitles'],
+    'ios.listen.title': ['Listen', '收听'],
+    'ios.listen.speak': ['Speak the translation', '朗读译文'],
+    'ios.listen.speakHint': ['each sentence, once it has settled', '每句话定稿后朗读'],
+    'ios.listen.sameLanguage': ['Nothing to speak: the subtitles are the words as spoken.', '无需朗读：字幕就是讲者的原话。'],
+    'ios.listen.noVoice': ['This device has no voice for {language}. Add one in Settings › Accessibility › Spoken Content › Voices.', '本机没有{language}的语音。请在“设置 › 辅助功能 › 朗读内容 › 声音”中添加。'],
+    'ios.listen.voice': ['Voice', '语音'],
+    'ios.listen.enhanced': ['enhanced', '增强'],
+    'ios.listen.speed': ['Speed', '语速'],
+    'ios.listen.speedHint': ['It speaks faster by itself when a sentence is waiting, and skips to the newest rather than fall behind.', '有句子在等待时会自动加快；宁可跳到最新一句，也不落后。'],
+    'ios.listen.headphones': ['Headphones only', '仅限耳机'],
+    'ios.listen.headphonesHint': ['Through the speaker the phone would hear itself and subtitle its own voice.', '若从扬声器播放，手机会听到自己的声音并为它生成字幕。'],
+    'ios.listen.connect': ['Connect headphones to listen', '连接耳机后开始收听'],
+    'ios.listen.connectHint': ['nothing is spoken through the speaker', '不会从扬声器播放'],
+    'ios.listen.speaking': ['Speaking {language} in your headphones', '正在耳机中朗读{language}'],
+    'ios.listen.counts': ['{spoken} spoken · {skipped} skipped to keep up', '已读 {spoken} 句 · 跳过 {skipped} 句'],
     'ios.demo.summary': ['# 《Subtitles that let everyone take part》\n## In a sentence\nSubtitles are not a fix for a few people but a way for **the whole room to follow at once**.\n## Points\n### Subtitles serve the whole room\n- People who **cannot hear, cannot follow the language, or drifted off** all read them [00:06]\n- Those who come back afterwards need **words they can search** [00:14]\n### Anyone can join from a phone\n- The audience **scans a code** and follows on their own screen [00:10]', '# 《用字幕让更多人参与会议》\n## 一段话\n字幕不是给少数人的补救，而是让**所有人同时跟上**的方式。\n## 要点\n### 字幕服务的是整个房间\n- **听不清、听不懂、走神**的人都在看字幕 [00:06]\n- 会后重温的人需要**可以检索的文字** [00:14]\n### 任何人都能用手机加入\n- 现场观众**扫一扫二维码**，就能在自己的屏幕上跟读 [00:10]'],
   };
   const en = {}; const zh = {};

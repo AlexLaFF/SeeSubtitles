@@ -14,7 +14,7 @@ struct LiveView: View {
   @State private var starting = false
   @State private var barHidden = true // in landscape, until the screen is tapped
   @State private var openRecording: Recording?
-  enum Sheet: String, Identifiable { case text, reply, languages, join; var id: String { rawValue } }
+  enum Sheet: String, Identifiable { case text, reply, languages, join, listen; var id: String { rawValue } }
 
   private var live: LiveModel? { app.live }
   private var running: Bool { live.map { !$0.isOver } ?? false }
@@ -25,6 +25,7 @@ struct LiveView: View {
       VStack(spacing: 0) {
         if !heldUp { header }
         content
+        if !heldUp, running, let spoken = live?.spoken { ListenStrip(spoken: spoken) }
         if !heldUp || !barHidden { bar }
       }
       .background((prefs.highContrast && running ? Color.black : Color.mqBackground).ignoresSafeArea())
@@ -37,6 +38,7 @@ struct LiveView: View {
         case .reply: ReplySheet { text in Task { await live?.reply(text) }; shownReply = text }.presentationDetents([.medium, .large])
         case .languages: NavigationStack { LanguageLists().navigationTitle(L("ios.lang.title")).navigationBarTitleDisplayMode(.inline).toolbar { Button(L("ios.done")) { sheet = nil } }.background(Color.mqBackground) }
         case .join: JoinView()
+        case .listen: if let spoken = live?.spoken { ListenSheet(spoken: spoken, headphonesOnly: true) { live?.setListening($0) }.presentationDetents([.medium, .large]) }
         }
       }
       .fullScreenCover(item: Binding(get: { shownReply.map(ShownReply.init) }, set: { shownReply = $0?.text })) { ShownReplyView(text: $0.text) }
@@ -168,6 +170,10 @@ struct LiveView: View {
         if running {
           Button { Task { await live?.stop() } } label: { Label { Text(L("ios.live.stop")) } icon: { RoundedRectangle(cornerRadius: 3).fill(Color.mqRec).frame(width: 14, height: 14) } }
             .buttonStyle(SecondaryButtonStyle()).accessibilityIdentifier("stop")
+          if live?.spoken?.hasSomethingToSay == true {
+            Button { sheet = .listen } label: { Image(systemName: "headphones").foregroundStyle(live?.spoken?.isOn == true ? Color.mqAccentText : Color.mqText) }
+              .buttonStyle(SquareButtonStyle()).accessibilityLabel(L("ios.listen.title")).accessibilityIdentifier("listen")
+          }
           Button { sheet = .reply } label: { Image(systemName: "bubble.left") }.buttonStyle(SquareButtonStyle()).accessibilityLabel(L("ios.reply.title"))
         } else {
           Button { prefs.recordOnStart.toggle() } label: { Circle().fill(prefs.recordOnStart ? Color.mqRec : Color.mqText3).frame(width: 16, height: 16) }

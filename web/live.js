@@ -43,6 +43,32 @@
     if (last) last.textContent = t('live.last', { text: logLine(entry) });
   }
   Sub.on('line', ingest);
+  // The translation, spoken through this Mac's own output — for whoever is wearing headphones plugged into it.
+  // Local to this window and off whenever the app starts: a Mac at the front of a room is usually wired to the
+  // hall's speakers, and a voice through those would be heard by the microphone and subtitled in its turn.
+  const speaker = new Speak.Speaker({ lang: (Sub.settings || {}).target, onChange: () => { if (mounted) renderSpeak(); } });
+  Sub.on('line', (line) => speaker.offer(line));
+  for (const ev of ['init', 'settings', 'local']) Sub.on(ev, () => { speaker.setLanguage((Sub.settings || {}).target); if (mounted) renderSpeak(); }); // the languages arrive after the view is drawn
+  function renderSpeak() {
+    const row = $('speakRow'); if (!row) return;
+    row.innerHTML = '';
+    const s = Sub.settings || {};
+    if (!speaker.supported) { row.appendChild(el('span', { class: 'hint', style: 'margin:0' }, t('live.speak.unsupported'))); return; }
+    if (!s.target || s.target === s.source) { row.appendChild(el('span', { class: 'hint', style: 'margin:0' }, t('live.speak.sameLanguage'))); if (speaker.on) speaker.stop(); return; }
+    const b = el('button', { class: speaker.on ? 'small primary' : 'small' }, speaker.on ? t('live.speak.stop') : t('live.speak.start'));
+    b.addEventListener('click', () => { if (speaker.on) speaker.stop(); else { speaker.setLanguage(Sub.settings.target); speaker.start(preview.map((l) => l.id)); } });
+    row.appendChild(b);
+    const voices = speaker.voices();
+    if (voices.length > 1) {
+      const sel = el('select', { style: 'margin-left:8px;max-width:200px' });
+      for (const v of voices) { const o = el('option', { value: v.name }, v.name); if (v.name === speaker.voiceName) o.selected = true; sel.appendChild(o); }
+      sel.addEventListener('change', () => { speaker.voiceName = sel.value; });
+      row.appendChild(sel);
+    }
+    const q = speaker.queue;
+    row.appendChild(el('span', { class: 'hint', style: 'display:block;margin:6px 0 0' }, speaker.on ? t('live.speak.status', { spoken: q.spoken, skipped: q.skipped }) : t('live.speak.hint')));
+  }
+  if (typeof speechSynthesis === 'object' && speechSynthesis) speechSynthesis.addEventListener('voiceschanged', () => { if (mounted) renderSpeak(); });
   Sub.on('clear', () => { preview.length = 0; previewById.clear(); if (mounted) renderPreview(); });
   Sub.on('log', addLog);
 
@@ -78,6 +104,7 @@
             <div class="row wide"><label>${t('live.displayWindow')}</label><div id="displayRow"></div></div>
             <div id="overlayFields"></div>
             <div class="row wide" style="align-items:start"><label style="padding-top:5px">${t('live.shareLink')}</label><div id="shareRow"></div></div>
+            <div class="row wide" style="align-items:start"><label style="padding-top:5px">${t('live.speak.label')}</label><div id="speakRow"></div></div>
           </div>
           <div class="ui"><h3><span class="n">4</span>${t('live.recording')}</h3>
             <div class="row wide"><label>${t('live.thisTalk')}</label><div id="recRow"></div></div>
@@ -122,6 +149,7 @@
     $('lookFolds').appendChild(more.d);
     // 3 Where it shows
     Controls.renderFields($('overlayFields'), ['window', 'showStatus']);
+    renderSpeak();
     // log
     const lg = fold(t('live.activityLog'));
     lg.d.querySelector('summary').appendChild(el('span', { id: 'logLast', class: 'muted', style: 'margin-left:6px' }, logs.length ? t('live.last', { text: logLine(logs[logs.length - 1]) }) : ''));

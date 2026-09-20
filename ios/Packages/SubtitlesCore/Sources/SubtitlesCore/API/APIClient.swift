@@ -176,7 +176,7 @@ public struct APIClient: Sendable {
     let anonymous = with(token: nil) // the request is built by the client without a token, not only sent by it
     let events = anonymous.events(anonymous.request("GET", "api/d/\(code)/stream"))
     struct Status: Decodable { let live: Bool?; let viewers: Int? }
-    struct Initial: Decodable { struct Session: Decodable { let name: String? }; let session: Session?; let lines: [JoinedLine]?; let status: Status? }
+    struct Initial: Decodable { struct Session: Decodable { let name: String? }; struct Settings: Decodable { let source: String?; let target: String? }; let session: Session?; let lines: [JoinedLine]?; let status: Status?; let settings: Settings? }
     return AsyncThrowingStream { continuation in
       let task = Task {
         do {
@@ -184,7 +184,7 @@ public struct APIClient: Sendable {
             switch event.name {
             case "init":
               let i = try event.decode(Initial.self)
-              continuation.yield(.started(name: i.session?.name ?? "", lines: i.lines ?? [], live: i.status?.live ?? true))
+              continuation.yield(.started(name: i.session?.name ?? "", lines: i.lines ?? [], live: i.status?.live ?? true, source: i.settings?.source, target: i.settings?.target))
             case "line": if let line = try? event.decode(JoinedLine.self) { continuation.yield(.line(line)) }
             case "clear": continuation.yield(.cleared)
             case "status": if let s = try? event.decode(Status.self) { continuation.yield(.status(live: s.live ?? true, viewers: s.viewers ?? 0)) }

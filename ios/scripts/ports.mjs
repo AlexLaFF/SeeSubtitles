@@ -30,6 +30,7 @@ export const PORTS = [
   { original: 'desktop/helpers/render-subs.swift', port: `${CORE}/Recording/MP4Exporter.swift`, keeps: 'the look of burned-in subtitles: stack, dimming, outline, fade, paddings' },
   { original: 'server/lib/live.js', port: `${CORE}/API/APIClient.swift`, keeps: 'the events a joined talk receives (init, line, clear, status)' },
   { original: 'server/lib/summaries.js', port: `${CORE}/API/APIClient.swift`, keeps: 'the events a summary streams (stage, delta, done, error)' },
+  { original: 'web/speak.js', port: `${CORE}/Speech/SpeechQueue.swift`, keeps: 'what is spoken and what is skipped (the scenario test compares them); re-run export-schema.mjs to refresh the scenarios, the rates and the voice languages' },
   { original: 'design/tokens/marquee.css', port: 'ios/Packages/SubtitlesDesign/Sources/SubtitlesDesign/Tokens.swift', keeps: 'every colour, both appearances' },
 ];
 

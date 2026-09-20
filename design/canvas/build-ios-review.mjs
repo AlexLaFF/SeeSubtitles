@@ -11,7 +11,7 @@ const NOTES = {
   Library: 'The stack row from the Mac: a name, then what it is. A recording opens on its transcript, with the player always in reach.',
   Settings: 'The account first, then what shapes a talk, then the app. The glossary is the account’s, shared with the Mac and the web.',
   'Light and iPad': 'Light follows the system. iPad is the same screens side by side, not a second design.',
-  'Tentative: spoken translation': 'Not built. The translation read aloud in headphones, a sentence at a time, a few seconds behind the speaker — like an interpreter’s channel at a summit. On your own talk it is one more button; on a joined talk each listener picks their language, which needs the server to translate a talk into more than one. What it would take and how good it would be: docs/IOS.md §8.',
+  'Tentative: spoken translation': 'Built since this was drawn, except the language picker on a joined talk (a talk has one subtitle language today). The translation read aloud in headphones, a sentence at a time, a few seconds behind the speaker — like an interpreter’s channel at a summit. On your own talk it is one more button; on a joined talk each listener picks their language, which needs the server to translate a talk into more than one. What it would take and how good it would be: docs/IOS.md §8.',
 };
 const groups = [];
 for (const s of SCREENS) { let g = groups.find((x) => x.name === s[5]); if (!g) groups.push(g = { name: s[5], items: [] }); g.items.push(s); }

@@ -1,0 +1,598 @@
+{
+ "defaults": {
+  "rate": 1.1,
+  "maxWaiting": 2,
+  "hurry": 1.15,
+  "rush": 1.3,
+  "maxRate": 1.6
+ },
+ "voiceLanguages": {
+  "zh": "zh-CN",
+  "zh_en": "zh-CN",
+  "yue": "zh-HK",
+  "en": "en-US",
+  "ja": "ja-JP",
+  "ko": "ko-KR",
+  "fr": "fr-FR",
+  "de": "de-DE",
+  "es": "es-ES",
+  "pt": "pt-BR",
+  "it": "it-IT",
+  "ru": "ru-RU",
+  "ar": "ar-SA",
+  "hi": "hi-IN",
+  "th": "th-TH",
+  "vi": "vi-VN",
+  "id": "id-ID",
+  "ms": "ms-MY",
+  "tr": "tr-TR",
+  "pl": "pl-PL",
+  "nl": "nl-NL",
+  "cs": "cs-CZ",
+  "he": "he-IL",
+  "uk": "uk-UA"
+ },
+ "quirkyVoices": [
+  "Eddy",
+  "Flo",
+  "Grandma",
+  "Grandpa",
+  "Reed",
+  "Rocko",
+  "Sandy",
+  "Shelley",
+  "Albert",
+  "Bad News",
+  "Bahh",
+  "Bells",
+  "Boing",
+  "Bubbles",
+  "Cellos",
+  "Good News",
+  "Jester",
+  "Organ",
+  "Superstar",
+  "Trinoids",
+  "Whisper",
+  "Wobble",
+  "Zarvox",
+  "Fred",
+  "Junior",
+  "Kathy",
+  "Ralph"
+ ],
+ "scenarios": [
+  {
+   "name": "in order, once, never the past",
+   "steps": [
+    {
+     "op": "start",
+     "arg": [
+      "old"
+     ],
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "old",
+      "sourceText": "原old",
+      "targetText": "past",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "a",
+      "sourceText": "原a",
+      "targetText": "A",
+      "ended": false,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "a",
+      "sourceText": "原a",
+      "targetText": "A",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "a",
+      "sourceText": "原a",
+      "targetText": "A again",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": {
+      "id": "a",
+      "text": "A",
+      "rate": 1.1
+     },
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": null,
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "b",
+      "sourceText": "原b",
+      "targetText": "B",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 2,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "finished",
+     "arg": "a",
+     "result": null,
+     "behind": 1,
+     "spoken": 1,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": {
+      "id": "b",
+      "text": "B",
+      "rate": 1.1
+     },
+     "behind": 1,
+     "spoken": 1,
+     "skipped": 0
+    },
+    {
+     "op": "finished",
+     "arg": "b",
+     "result": null,
+     "behind": 0,
+     "spoken": 2,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": null,
+     "behind": 0,
+     "spoken": 2,
+     "skipped": 0
+    }
+   ]
+  },
+  {
+   "name": "falls behind: hurries, then skips to the newest",
+   "steps": [
+    {
+     "op": "start",
+     "arg": [],
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "a",
+      "sourceText": "原a",
+      "targetText": "A",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": {
+      "id": "a",
+      "text": "A",
+      "rate": 1.1
+     },
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "b",
+      "sourceText": "原b",
+      "targetText": "B",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 2,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "c",
+      "sourceText": "原c",
+      "targetText": "C",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 3,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "d",
+      "sourceText": "原d",
+      "targetText": "D",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [
+      "b"
+     ],
+     "behind": 3,
+     "spoken": 0,
+     "skipped": 1
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "e",
+      "sourceText": "原e",
+      "targetText": "E",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [
+      "c"
+     ],
+     "behind": 3,
+     "spoken": 0,
+     "skipped": 2
+    },
+    {
+     "op": "finished",
+     "arg": "a",
+     "result": null,
+     "behind": 2,
+     "spoken": 1,
+     "skipped": 2
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": {
+      "id": "d",
+      "text": "D",
+      "rate": 1.265
+     },
+     "behind": 2,
+     "spoken": 1,
+     "skipped": 2
+    },
+    {
+     "op": "finished",
+     "arg": "d",
+     "result": null,
+     "behind": 1,
+     "spoken": 2,
+     "skipped": 2
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": {
+      "id": "e",
+      "text": "E",
+      "rate": 1.1
+     },
+     "behind": 1,
+     "spoken": 2,
+     "skipped": 2
+    },
+    {
+     "op": "finished",
+     "arg": "e",
+     "result": null,
+     "behind": 0,
+     "spoken": 3,
+     "skipped": 2
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": null,
+     "behind": 0,
+     "spoken": 3,
+     "skipped": 2
+    }
+   ]
+  },
+  {
+   "name": "what is not worth saying",
+   "steps": [
+    {
+     "op": "start",
+     "arg": [],
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "same",
+      "sourceText": "你好",
+      "targetText": "你好",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "empty",
+      "sourceText": "你好",
+      "targetText": "",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "mine",
+      "sourceText": "原mine",
+      "targetText": "Thanks",
+      "ended": true,
+      "kind": "reply"
+     },
+     "result": [],
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "ok",
+      "sourceText": "原ok",
+      "targetText": "  Hello  ",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": {
+      "id": "ok",
+      "text": "Hello",
+      "rate": 1.1
+     },
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    }
+   ]
+  },
+  {
+   "name": "off, then on again",
+   "steps": [
+    {
+     "op": "offer",
+     "arg": {
+      "id": "a",
+      "sourceText": "原a",
+      "targetText": "A",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "start",
+     "arg": [
+      "a"
+     ],
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "b",
+      "sourceText": "原b",
+      "targetText": "B",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": {
+      "id": "b",
+      "text": "B",
+      "rate": 1.1
+     },
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "stop",
+     "arg": null,
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "c",
+      "sourceText": "原c",
+      "targetText": "C",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "start",
+     "arg": [
+      "a",
+      "b",
+      "c"
+     ],
+     "result": null,
+     "behind": 0,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "offer",
+     "arg": {
+      "id": "d",
+      "sourceText": "原d",
+      "targetText": "D",
+      "ended": true,
+      "kind": "speech"
+     },
+     "result": [],
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    },
+    {
+     "op": "next",
+     "arg": null,
+     "result": {
+      "id": "d",
+      "text": "D",
+      "rate": 1.1
+     },
+     "behind": 1,
+     "spoken": 0,
+     "skipped": 0
+    }
+   ]
+  }
+ ]
+}

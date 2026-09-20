@@ -16,6 +16,8 @@ final class LiveModel {
   var unseen = 0
   private var indexById: [String: Int] = [:]
   private let activity = TalkActivityController()
+  /// The translation, spoken. Made when the talk starts; on when the person has Listen on.
+  private(set) var spoken: SpokenTranslation?
   private var stopObserver: NSObjectProtocol?
 
   init(session: TalkSession, recording: Bool, app: AppModel) {
@@ -35,6 +37,11 @@ final class LiveModel {
     let schema = LiveSchema.shared
     let pair = "\(schema.name(of: app?.prefs.source ?? "").native) → \(schema.name(of: app?.prefs.target ?? "").native)"
     activity.start(startedAt: startedAt, pair: pair, status: L("ios.status.connecting"), tone: 0)
+    if let prefs = app?.prefs {
+      let spoken = SpokenTranslation(prefs: prefs, source: prefs.source, target: prefs.target, headphonesOnly: true)
+      self.spoken = spoken
+      if prefs.listen { spoken.turnOn(existing: []) }
+    }
     // Stop, pressed on the lock screen
     stopObserver = NotificationCenter.default.addObserver(forName: StopTalkIntent.notification, object: nil, queue: .main) { [weak self] _ in
       MainActor.assumeIsolated { Task { await self?.stop() } }
@@ -79,8 +86,14 @@ final class LiveModel {
     }
   }
 
+  func setListening(_ on: Bool) {
+    app?.prefs.listen = on
+    if on { spoken?.turnOn(existing: lines.map(\.id)) } else { spoken?.turnOff() }
+  }
+
   private func didSettle() {
     unseen += 1
+    if let settled = lines.last(where: { $0.kind == .speech && $0.ended }) { spoken?.offer(settled) }
     if let line = lines.last(where: { $0.kind == .speech && $0.ended }) {
       let both = app?.prefs.showMode == .both && line.targetText != line.sourceText && !line.targetText.isEmpty
       activity.show(text: app?.prefs.showMode == .source ? line.sourceText : line.display, original: both ? line.sourceText : "")
@@ -90,6 +103,7 @@ final class LiveModel {
 
   /// A talk the server refused recorded nothing worth keeping: end it and take its empty folder away.
   private func discardRefused() async {
+    spoken?.turnOff()
     UIApplication.shared.isIdleTimerDisabled = false
     guard let info = await session.stop(), info.cues == 0 else { return }
     try? FileManager.default.removeItem(at: info.folder)
@@ -126,6 +140,7 @@ final class LiveModel {
       finished = info
     }
     phase = .ended
+    spoken?.turnOff()
     activity.end()
     if let stopObserver { NotificationCenter.default.removeObserver(stopObserver) }
     UIApplication.shared.isIdleTimerDisabled = false

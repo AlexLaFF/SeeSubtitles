@@ -31,6 +31,12 @@ final class Preferences {
   var haptics: Bool { didSet { save("haptics", haptics) } }
   var keepAwake: Bool { didSet { save("keepAwake", keepAwake) } }
 
+  /// Listen: the translation spoken in headphones. Remembered, so a person who listens does not turn it on every talk.
+  var listen: Bool { didSet { save("listen", listen) } }
+  var speechRate: Double { didSet { save("speechRate", speechRate) } }
+  /// The voice chosen for each subtitle language, by the system's identifier.
+  var voiceIds: [String: String] { didSet { save("voiceIds", voiceIds) } }
+
   var language: String { didSet { save("language", language); Localizer.language = language } }
   var appearance: String { didSet { save("appearance", appearance) } } // system · dark · light
   var demo: Bool { didSet { save("demo", demo) } }
@@ -57,6 +63,9 @@ final class Preferences {
     highContrast = store.bool(forKey: "highContrast")
     haptics = store.object(forKey: "haptics") as? Bool ?? true
     keepAwake = store.object(forKey: "keepAwake") as? Bool ?? true
+    listen = store.bool(forKey: "listen")
+    speechRate = store.object(forKey: "speechRate") as? Double ?? SpeechQueue.defaults.rate
+    voiceIds = store.dictionary(forKey: "voiceIds") as? [String: String] ?? [:]
     language = store.string(forKey: "language") ?? "system"
     appearance = store.string(forKey: "appearance") ?? "system"
     demo = store.bool(forKey: "demo")

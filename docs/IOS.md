@@ -343,63 +343,44 @@ ios/Packages/SubtitlesCore runs the core's tests on the Mac, no simulator needed
   Type works. Swap it in SubtitlesDesign/Tokens.swift if the wordmark should match the Mac's exactly.
 - **Speaker labels** and **on-device recognition** are not in v1, as on the Mac.
 
-## 8 · Tentative: the translation, spoken
+## 8 · The translation, spoken
 
-Not built; drawn on the canvas (group "Tentative") and assessed here. The idea: what a delegate hears in an
-interpreter's headphones at a summit — the talk in your own language, as sound, a few seconds behind the speaker.
+What a delegate hears in an interpreter's headphones at a summit — the talk in your own language, as sound, a few
+seconds behind the speaker — made from the subtitles that already exist. **It costs nothing beyond them:** the
+voices are the system's own, on the device that is listening, and what they read is the translation the talk has
+already paid for. Built on 2026-09-20 in three places, by one set of rules:
 
-### What it would be
+- **The phone, on your own talk.** A headphones button in Live's bar opens Listen: a switch, the voice, the speed.
+  The audio session plays and records at once with Bluetooth for output only (A2DP), so AirPods play the voice
+  while the phone's own microphone keeps listening to the room. Headphones only: through the speaker the phone
+  would hear itself and subtitle its own voice, so nothing is spoken until headphones are in, and it stops
+  mid-word when they come out.
+- **The phone, on a joined talk.** The same button. There is no microphone open, so any output is allowed.
+- **The Mac.** "Spoken translation" under Live › Where it shows speaks through the Mac's own output, for whoever
+  wears headphones plugged into it; it is off whenever the app starts, because a Mac at the front of a room is
+  usually wired to the hall's speakers. And **Listen on the attendee page** — every phone that scanned the code —
+  which is the summit case proper: each listener's own device reads the talk to them.
 
-Each sentence is spoken once it has settled: recognition, then translation, then a voice. Never the drafts — a
-draft is rewritten three or four times before it settles, and sound cannot be rewritten. There are two places for it:
+**The rules** (web/speak.js `Queue`; ios SpeechQueue.swift mirrors it and replays scenarios the JavaScript
+generates, so the two cannot drift): only settled sentences, because a draft is rewritten and sound cannot be;
+never the past; one sentence waiting means speak faster, more than two means drop the oldest and say the newest,
+because a gap is heard once and drift never ends; and nothing at all when the subtitles are the words as spoken.
 
-- **Your own talk** (Live). One more button in the bar. The phone's microphone listens to the room while the
-  translation plays in your headphones.
-- **A joined talk.** The summit case proper: the Mac at the front does the listening, and every phone in the room
-  plays the talk in its owner's language. Today a talk has one subtitle language, so this needs the server to
-  translate a talk into each language someone is listening in — one translation per sentence per language, shared
-  by everyone who picked it. That is also what would let attendees *read* in their own language, which the web
-  attendee page cannot do either. It is the larger and the more valuable half.
+**How far behind, and how good.** Measured on this pipeline (docs/LIVE-PIPELINE-MEASUREMENTS.md): a line settles
+about 0.8 s after the speaker pauses, and the first word of a line waits up to 7.3 s (90th percentile) because a
+line can run 6 s before it is cut. A system voice adds 0.1–0.3 s. So a listener is **3–5 s behind the speaker's
+words on average and 8 s at worst**; a human simultaneous interpreter runs 2–4 s behind. Every machine
+interpreter of this kind has this design (Wordly, KUDO AI, Interprefy AI). The enhanced system voices are clear
+and flat: fine for following a talk, tiring over an hour. Errors are harder to forgive by ear than by eye, so the
+glossary matters more here than anywhere, and the subtitles stay on screen as the way to check.
 
-### How far behind, and how good
+**What only ears can judge,** and no test here does: whether 1.1× is the right resting speed, whether the speed-up
+is comfortable, and which voices are pleasant. The mapping from "1.3×" to the system's scale is a judgement
+(SystemVoice.utteranceRate) to tune after listening in a real room.
 
-Measured on this pipeline (docs/LIVE-PIPELINE-MEASUREMENTS.md): a line settles about 0.8 s after the speaker pauses,
-and the first word of a line waits up to 7.3 s (90th percentile) for its final translation, because a line can run
-6 s before it is cut. A voice adds 0.1–0.3 s on the device, or 0.3–1 s from a cloud service. So a listener hears
-each sentence begin **about 1–1.5 s after the speaker finished it**, which puts them **3–5 s behind the speaker's
-words on average and 8 s at worst**. A human simultaneous interpreter runs 2–4 s behind. This is the design every
-machine interpreter of this kind has (Wordly, KUDO AI, Interprefy AI); closing the gap further needs a model that
-translates speech to speech in fragments, and none of those is reachable from mainland China without a VPN today.
-
-Three things decide whether it is good enough:
-
-- **It must not fall behind.** English takes longer to say than the Cantonese it came from. The voice speaks a
-  little fast (1.1×), faster when a queue builds, and skips to the newest sentence rather than ever running more
-  than two sentences late. Skipping is audible and rare; drifting is fatal.
-- **Errors are harder to forgive by ear.** A reader skims past a misrecognised name; a listener cannot glance
-  back. The glossary matters more here than anywhere, and the subtitles stay on screen as the way to check.
-- **The voice.** The system's voices (AVSpeechSynthesizer) are free, instant, work offline and with the screen
-  locked, and cover Mandarin, Cantonese, English, Japanese, Korean and most of the split pipeline's languages. The
-  enhanced ones are clear and flat: fine for following a talk, tiring over an hour. A cloud voice (Tencent 语音合成's
-  large-model voices) sounds far more natural, costs money per character — unverified, but an hour of speech is
-  roughly 15,000 Chinese characters, so on the order of a few yuan an hour per language, synthesised once and sent
-  to everyone listening in it — and needs the server to proxy and meter it like everything else with a key.
-
-Honest expectation: good enough to follow a lecture or a meeting in a language you do not speak, with headphones,
-and clearly a machine. Not a replacement for an interpreter where wording matters.
-
-### What it would take
-
-- **The phone, system voices, your own talk: about 3–4 days.** The audio session becomes play-and-record with
-  Bluetooth A2DP output, so AirPods play the voice while the phone's own microphone keeps listening to the room
-  (the hands-free Bluetooth profile would move the microphone to the AirPods and ruin recognition). A queue that
-  speaks settled sentences with the catch-up rules above. The Listen sheet, a voice picker, and the rule that it
-  only works with headphones — through the speaker the phone would hear itself and subtitle its own voice.
-- **A joined talk in the listener's language: about 1.5–2 weeks**, mostly server: the session mirror carries the
-  source text, the server translates it into each requested language (rate limits on `hy-mt2-pro` apply: 60 a
-  minute, and one talk already makes 45, so extra languages go to `hy-mt2-plus`), and the attendee page and the
-  app gain a language picker. Costs a TokenHub call per sentence per language, which is small.
-- **Cloud voices: about a week** on top, with a price check first and a paid test only after the cost is quoted.
-
-The order that makes sense: build the phone-only version first because it is cheap and answers the quality
-question with real ears in a real room; decide the rest after hearing it.
+**Not built.** Each listener choosing *their own* language: a talk has one subtitle language, so everyone hears
+that one. Translating a talk into several at once is server work (a translation per sentence per language, shared
+by everyone who picked it; `hy-mt2-pro` allows 60 requests a minute and one talk already makes 45, so extra
+languages would go to `hy-mt2-plus`) — about two weeks, and the first thing here that would cost money, though
+little. Cloud voices (Tencent 语音合成) would sound far more natural and are billed per character: a price check
+and a quoted test before anything is built on them.

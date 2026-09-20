@@ -1225,6 +1225,261 @@
         }
       }
     },
+    "ios.listen.connect": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect headphones to listen"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接耳机后开始收听"
+          }
+        }
+      }
+    },
+    "ios.listen.connectHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nothing is spoken through the speaker"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不会从扬声器播放"
+          }
+        }
+      }
+    },
+    "ios.listen.counts": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "{spoken} spoken · {skipped} skipped to keep up"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已读 {spoken} 句 · 跳过 {skipped} 句"
+          }
+        }
+      }
+    },
+    "ios.listen.enhanced": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "enhanced"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "增强"
+          }
+        }
+      }
+    },
+    "ios.listen.headphones": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Headphones only"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅限耳机"
+          }
+        }
+      }
+    },
+    "ios.listen.headphonesHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Through the speaker the phone would hear itself and subtitle its own voice."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "若从扬声器播放，手机会听到自己的声音并为它生成字幕。"
+          }
+        }
+      }
+    },
+    "ios.listen.noVoice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This device has no voice for {language}. Add one in Settings › Accessibility › Spoken Content › Voices."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本机没有{language}的语音。请在“设置 › 辅助功能 › 朗读内容 › 声音”中添加。"
+          }
+        }
+      }
+    },
+    "ios.listen.sameLanguage": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to speak: the subtitles are the words as spoken."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无需朗读：字幕就是讲者的原话。"
+          }
+        }
+      }
+    },
+    "ios.listen.speak": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speak the translation"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "朗读译文"
+          }
+        }
+      }
+    },
+    "ios.listen.speakHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "each sentence, once it has settled"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每句话定稿后朗读"
+          }
+        }
+      }
+    },
+    "ios.listen.speaking": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speaking {language} in your headphones"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在耳机中朗读{language}"
+          }
+        }
+      }
+    },
+    "ios.listen.speed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Speed"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "语速"
+          }
+        }
+      }
+    },
+    "ios.listen.speedHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It speaks faster by itself when a sentence is waiting, and skips to the newest rather than fall behind."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有句子在等待时会自动加快；宁可跳到最新一句，也不落后。"
+          }
+        }
+      }
+    },
+    "ios.listen.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listen"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收听"
+          }
+        }
+      }
+    },
+    "ios.listen.voice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "语音"
+          }
+        }
+      }
+    },
     "ios.live.hoursLeft": {
       "extractionState": "manual",
       "localizations": {

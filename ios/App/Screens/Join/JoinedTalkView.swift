@@ -11,6 +11,11 @@ final class JoinedModel {
   private(set) var transcript = Transcript()
   private(set) var state: State = .connecting
   var unseen = 0
+  /// The host's languages, once known: a joined talk is kept under them, and they choose the voice.
+  private(set) var source: String?
+  private(set) var target: String?
+  /// The translation, spoken. A joined talk has no microphone, so any output will do — though headphones are kinder.
+  var spoken: SpokenTranslation?
   private var task: Task<Void, Never>?
   private var saved = false
   private let startedAt = Date()
@@ -24,19 +29,22 @@ final class JoinedModel {
       do {
         for try await event in api.join(code: code) {
           switch event {
-          case .started(let name, let lines, let live):
+          case .started(let name, let lines, let live, let source, let target):
             self.name = name
+            if let source, let target { self.source = source; self.target = target; spoken?.setLanguages(source: source, target: target) }
             for line in lines { transcript.apply(line.asResult, now: Date().timeIntervalSince1970 * 1000) }
             state = live ? .live : .ended
           case .line(let line):
             let (applied, isNew) = transcript.apply(line.asResult, now: Date().timeIntervalSince1970 * 1000)
             if applied.ended, isNew || line.ended == true { unseen += 1; if haptics { Haptics.sentence() } }
+            spoken?.offer(applied)
           case .cleared: break // the host cleared their screen; a reader keeps what was said
           case .status(let live, _): if !live, state == .live { state = .ended; if haptics { Haptics.done() } }
           }
           if state == .ended { break }
         }
         if state == .connecting || state == .live { state = .ended }
+        spoken?.turnOff()
       } catch let error as APIError where error.status == 404 { state = .notFound }
       catch is CancellationError {} catch { if state != .ended { state = .offline } }
     }
@@ -46,10 +54,11 @@ final class JoinedModel {
   @discardableResult
   func save(to library: RecordingLibrary, source: String, target: String) async -> String? {
     task?.cancel()
+    spoken?.turnOff()
     guard !saved, !transcript.finished.isEmpty else { return nil }
     saved = true
     let recorder = Recorder(root: library.root, now: { [startedAt] in startedAt.timeIntervalSince1970 * 1000 })
-    guard let id = try? await recorder.start(source: source, target: target, audio: false, kind: .joined, title: name.isEmpty ? nil : name, sessionCode: code) else { return nil }
+    guard let id = try? await recorder.start(source: self.source ?? source, target: self.target ?? target, audio: false, kind: .joined, title: name.isEmpty ? nil : name, sessionCode: code) else { return nil }
     for line in transcript.finished { await recorder.add(line) }
     _ = await recorder.stop(transcript: transcript)
     return id
@@ -64,6 +73,7 @@ struct JoinedTalkView: View {
   @State private var model: JoinedModel?
   @State private var textSheet = false
   @State private var reply = false
+  @State private var listening = false
   @State private var shownReply: String?
 
   var body: some View {
@@ -89,8 +99,13 @@ struct JoinedTalkView: View {
             if model.state == .ended { Card { Text(L("ios.join.endedTitle")).font(.headline); Text(L("ios.join.endedBody")).font(.mqHint).foregroundStyle(Color.mqText3) }.foregroundStyle(Color.mqText) }
           }
         }
+        if let spoken = model.spoken { ListenStrip(spoken: spoken) }
         HStack(spacing: 12) {
           Button(model.state == .ended ? L("ios.done") : L("ios.join.leave")) { leave() }.buttonStyle(SecondaryButtonStyle())
+          if model.spoken?.hasSomethingToSay == true, model.state == .live {
+            Button { listening = true } label: { Image(systemName: "headphones").foregroundStyle(model.spoken?.isOn == true ? Color.mqAccentText : Color.mqText) }
+              .buttonStyle(SquareButtonStyle()).accessibilityLabel(L("ios.listen.title")).accessibilityIdentifier("listen")
+          }
           Button { reply = true } label: { Image(systemName: "bubble.left") }.buttonStyle(SquareButtonStyle()).accessibilityLabel(L("ios.reply.title"))
           Button { textSheet = true } label: { Image(systemName: "textformat.size") }.buttonStyle(SquareButtonStyle()).accessibilityLabel(L("ios.text.title"))
         }
@@ -102,12 +117,21 @@ struct JoinedTalkView: View {
     .task {
       guard model == nil else { return }
       let m = JoinedModel(code: code)
+      m.spoken = SpokenTranslation(prefs: prefs, source: prefs.source, target: prefs.target, headphonesOnly: false)
       model = m
       UIApplication.shared.isIdleTimerDisabled = prefs.keepAwake
       m.follow(api: app.api, haptics: prefs.haptics)
     }
     .sheet(isPresented: $textSheet) { TextSheet().presentationDetents([.medium]) }
     .sheet(isPresented: $reply) { ReplySheet { shownReply = $0 }.presentationDetents([.medium, .large]) }
+    .sheet(isPresented: $listening) {
+      if let model, let spoken = model.spoken {
+        ListenSheet(spoken: spoken, headphonesOnly: false) { on in
+          prefs.listen = on
+          if on { spoken.turnOn(existing: model.transcript.lines.map(\.id)) } else { spoken.turnOff() }
+        }.presentationDetents([.medium, .large])
+      }
+    }
     .fullScreenCover(item: Binding(get: { shownReply.map(ShownReply.init) }, set: { shownReply = $0?.text })) { ShownReplyView(text: $0.text) }
   }
 

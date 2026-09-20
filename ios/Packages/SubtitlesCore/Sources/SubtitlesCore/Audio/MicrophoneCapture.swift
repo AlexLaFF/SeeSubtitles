@@ -19,8 +19,11 @@ public final class MicrophoneCapture: AudioSource, @unchecked Sendable {
     guard !running else { return }
     #if os(iOS)
     let session = AVAudioSession.sharedInstance()
-    // .record, not .playAndRecord: nothing is played while a talk runs, and the speaker stays out of the microphone
-    try session.setCategory(.record, mode: .default, options: [.allowBluetooth])
+    // Play and record, so the translation can be spoken while the talk is heard. Bluetooth for output only
+    // (A2DP): AirPods play the voice while the phone's own microphone keeps listening to the room. The hands-free
+    // profile would move the microphone to the headset, pointing away from the speaker, at telephone quality.
+    // Nothing is played unless the person turns Listen on, and then only into headphones.
+    try session.setCategory(.playAndRecord, mode: .default, options: [.allowBluetoothA2DP])
     try session.setActive(true, options: [])
     #endif
     observe()
