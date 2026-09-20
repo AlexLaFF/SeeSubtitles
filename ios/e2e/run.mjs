@@ -20,11 +20,12 @@
 //                  logging out.
 // Each stage gets a server of its own: the server allows twenty sign-ins a quarter of an hour from one address.
 //
-// Real keys. Stages 2 and 3 cost nothing: nothing in them reaches Tencent. To run the core against the hosted
-// server with real recognition and translation — what `npm run e2e` does for the Mac, and like it about ¥0.3 a run —
-// set E2E_SERVER, E2E_PASSWORD and E2E_BUSINESS (a Business test account; E2E_HOBBY, E2E_SPENT and E2E_OWNER too if
-// they exist), E2E_AUDIO (a real recording of speech, never committed) and pass --real. Tests that need the
-// harness's control plane skip themselves.
+// Real keys. Stages 2 and 3 cost nothing: nothing in them reaches Tencent. `npm run e2e:ios:real`
+// (real-on-server.sh) is the run that does — a throwaway copy of the server on the box, with the real keys, reached
+// through an ssh tunnel; about ¥0.3, like `npm run e2e` for the Mac. `--real` here is the same suite pointed at any
+// server that is already running: set E2E_SERVER, E2E_PASSWORD, E2E_BUSINESS (and E2E_HOBBY, E2E_SPENT, E2E_OWNER if
+// they exist) and E2E_AUDIO (a real recording of speech, never committed). Tests that need the harness's control
+// plane skip themselves.
 //
 // What none of this can see: a real microphone in a real room, AirPods, a phone call arriving, the camera reading a
 // QR code, the lock screen of a real device, and how the voice sounds. The checklist at the end of a run lists them.

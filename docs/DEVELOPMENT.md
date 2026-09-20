@@ -198,10 +198,20 @@ holding one. Three stages, about five minutes, **no keys and no cost** — nothi
 Each stage gets a server of its own, because the server allows twenty sign-ins a quarter of an hour from one address
 and a test run should not need that loosened. `node ios/e2e/run.mjs core` or `ui` runs one half.
 
-**With real keys.** `node ios/e2e/run.mjs --real` points stage 2 at a server that is already running — the hosted
-one — with real recognition and translation, as `npm run e2e` does for the Mac and at about the same ¥0.3. It needs
-`E2E_SERVER`, `E2E_PASSWORD`, `E2E_BUSINESS` (a Business test account) and `E2E_AUDIO` (a real recording, never
-committed). The Mac's `npm run e2e` also checks `/api/summaries` with the real TokenHub.
+**With real keys: `npm run e2e:ios:real`** (ios/e2e/real-on-server.sh). Stage 2 again, against real recognition,
+real translation, a real summary and real whole-file recognition — the phone's counterpart of `npm run e2e`, at about
+the same ¥0.3. The keys exist only on the server, so the script ships the committed code there, starts a throwaway
+copy of the server in the test image beside the running service (its own database, a port bound to the server's
+loopback, capped at one core and 900 MB), and reaches it from this Mac through an ssh tunnel; one of the private
+recordings in `~/e2e-fixtures` stands in for the room and is deleted from this Mac afterwards. Nothing is deployed and
+the live service is not touched. The two tests that need the local harness's control plane — two-factor and joining a
+hosted talk — skip themselves; re-subtitling, which the stand-ins cannot do, runs only here. It refuses to start with
+uncommitted changes or while the server is carrying a talk. The Mac's `npm run e2e` also checks `/api/summaries`
+with the real TokenHub.
+
+Both real-keys scripts share one ssh connection, keep it alive, and run their work on the server's own clock: from
+a laptop the link to Hong Kong resets connections and dies silently often enough that a run attached to it was lost
+twice on 20 September.
 
 **What it cannot see**, printed as a checklist at the end of a passing run: a real microphone in a real room,
 AirPods, a phone call arriving mid-talk, the camera reading a QR code, a real lock screen, iPad, and how the voice

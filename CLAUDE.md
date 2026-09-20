@@ -61,7 +61,8 @@ change to the Mac app or the server is not finished until the phone has been con
 **Before an iOS build goes to TestFlight: `npm run e2e:ios`** (ios/e2e/run.mjs — unit tests, the phone's networking
 code against the real server with stand-ins for Tencent and TokenHub, and the app driven in the Simulator; five
 minutes, no keys, no cost; docs/DEVELOPMENT.md), then walk the checklist it prints on a real iPhone. Never ship a
-build it rejects. `--real` runs it against the hosted server and spends Tencent time: quote it first.
+build it rejects. `npm run e2e:ios:real` runs the core against real keys on a throwaway copy of the server (about
+¥0.3, nothing deployed): quote it first.
 
 A new Mac feature gets a line in docs/IOS.md saying whether the phone gets it, and why not if not (the Display
 window, the Overlay and hosting a share link are the Mac's alone). The phone is always relayed — it has no direct
