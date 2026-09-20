@@ -36,13 +36,30 @@ ssh "$HOST" 'docker image prune -f >/dev/null; cd ~/e2e-src && docker build -q -
 # --cpus / --memory keep the running service responsive; --env-file is the server's own key file; the recordings are
 # read-only; /out receives the one recording the Mac step below renders.
 ssh "$HOST" 'rm -rf ~/e2e-out && mkdir -p ~/e2e-out'
+# The test runs detached, on the server's own clock: it takes six minutes, a minute of them silent, and the link from
+# a laptop to Hong Kong does not always last that long — on 20 September it dropped during the video render and took
+# the run with it. This end only watches: it asks every few seconds, prints what is new, and a dropped connection
+# costs a retry, not the run.
+RUN=seesubtitles-e2e-run
+ssh "$HOST" "docker rm -f $RUN >/dev/null 2>&1; docker run -d --name $RUN --cpus 1 --memory 900m --env-file ~/SeeSubtitles/deploy/.env -v ~/e2e-fixtures:/fixtures:ro -v ~/e2e-out:/out seesubtitles-e2e node e2e/run.js --fixtures /fixtures --out /out >/dev/null"
 set +e
-ssh "$HOST" 'docker run --rm --cpus 1 --memory 900m --env-file ~/SeeSubtitles/deploy/.env -v ~/e2e-fixtures:/fixtures:ro -v ~/e2e-out:/out seesubtitles-e2e node e2e/run.js --fixtures /fixtures --out /out'
-SERVER=$?
+SEEN=0; SERVER=; MISSES=0
+while [ -z "$SERVER" ]; do
+  sleep 5
+  # one call: the log so far, then a last line saying whether it is still running and how it ended
+  OUT=$(ssh "$HOST" "docker logs $RUN 2>&1; docker inspect -f 'STATE {{.State.Running}} {{.State.ExitCode}}' $RUN") || { MISSES=$((MISSES + 1)); [ "$MISSES" -gt 60 ] && { echo "✖ lost the server for five minutes" >&2; SERVER=255; }; continue; }
+  MISSES=0
+  STATE=$(printf '%s\n' "$OUT" | tail -n 1)
+  LINES=$(printf '%s\n' "$OUT" | sed '$d')
+  TOTAL=$(printf '%s\n' "$LINES" | wc -l | tr -d ' ')
+  if [ "$TOTAL" -gt "$SEEN" ]; then printf '%s\n' "$LINES" | tail -n +"$((SEEN + 1))"; SEEN=$TOTAL; fi
+  case "$STATE" in "STATE false "*) SERVER=${STATE##* } ;; esac
+done
+ssh "$HOST" "docker rm -f $RUN >/dev/null 2>&1"
 
 # The app's MP4 renderer is macOS-only, so the recording the server run just made is rendered here, as the app would.
 LOCAL=$(mktemp -d)
-scp -q -o ControlPath="$CTL/c" -o ConnectTimeout=20 "$HOST:e2e-out/*" "$LOCAL/" 2>/dev/null
+for attempt in 1 2 3; do scp -q -o ControlPath="$CTL/c" -o ConnectTimeout=20 "$HOST:e2e-out/*" "$LOCAL/" 2>/dev/null && break; sleep 5; done
 ssh "$HOST" 'rm -rf ~/e2e-out'
 node e2e/mac.js "$LOCAL"
 MAC=$?
