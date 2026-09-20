@@ -19,8 +19,8 @@ NAME=seesubtitles-ios-e2e
 cd "$(dirname "$0")/../.."
 # One connection, reused by every command below: a link to Hong Kong that resets one connection in five should be
 # asked for as few as possible. Keepalives, so a connection that dies without a word is given up on, not waited for.
-CTL=$(mktemp -d)
-SSHOPTS="-o ControlMaster=auto -o ControlPath=$CTL/%C -o ControlPersist=300 -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -o ConnectTimeout=20"
+CTL=$(mktemp -d /tmp/ss.XXXXXX) # short on purpose: a socket's path may not pass 104 bytes, and macOS's own temporary folder nearly does by itself
+SSHOPTS="-o ControlMaster=auto -o ControlPath=$CTL/c -o ControlPersist=300 -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -o ConnectTimeout=20"
 ssh() { command ssh $SSHOPTS "$@"; }
 retry() { for attempt in 1 2 3; do "$@" && return 0; echo "  · the connection dropped (attempt $attempt) — trying again" >&2; sleep 5; done; return 1; }
 
@@ -40,11 +40,11 @@ esac
 
 LOCAL=$(mktemp -d)
 chmod 700 "$LOCAL"
-SOCKET="$LOCAL/tunnel"
+SOCKET="$CTL/t"
 cleanup() {
   command ssh -S "$SOCKET" -O exit "$HOST" 2>/dev/null || true
   ssh "$HOST" "docker rm -f $NAME >/dev/null 2>&1; rm -rf ~/ios-e2e-src" 2>/dev/null || true
-  command ssh -o ControlPath="$CTL/%C" -O exit "$HOST" 2>/dev/null || true
+  command ssh -o ControlPath="$CTL/c" -O exit "$HOST" 2>/dev/null || true
   rm -rf "$LOCAL" "$CTL"
 }
 trap cleanup EXIT INT TERM

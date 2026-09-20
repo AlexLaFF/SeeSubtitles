@@ -13,9 +13,9 @@ cd "$(dirname "$0")/../.."
 # A connection to Hong Kong that dies without a word would otherwise leave this waiting for ever — it did, on
 # 20 September, for a quarter of an hour on an image that was never being built. Ask every 15 s; give up after two minutes of silence.
 # One connection reused by every command: a link that resets one connection in five should be asked for few.
-CTL=$(mktemp -d)
-trap 'command ssh -o ControlPath="$CTL/%C" -O exit "$HOST" 2>/dev/null; rm -rf "$CTL"' EXIT
-ssh() { command ssh -o ControlMaster=auto -o ControlPath="$CTL/%C" -o ControlPersist=300 -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -o ConnectTimeout=20 "$@"; }
+CTL=$(mktemp -d /tmp/ss.XXXXXX) # short on purpose: a socket's path may not pass 104 bytes, and macOS's own temporary folder nearly does by itself
+trap 'command ssh -o ControlPath="$CTL/c" -O exit "$HOST" 2>/dev/null; rm -rf "$CTL"' EXIT
+ssh() { command ssh -o ControlMaster=auto -o ControlPath="$CTL/c" -o ControlPersist=300 -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -o ConnectTimeout=20 "$@"; }
 
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "✖ uncommitted changes: the release test runs the committed code, so commit first" >&2
@@ -42,7 +42,7 @@ SERVER=$?
 
 # The app's MP4 renderer is macOS-only, so the recording the server run just made is rendered here, as the app would.
 LOCAL=$(mktemp -d)
-scp -q -o ControlPath="$CTL/%C" -o ConnectTimeout=20 "$HOST:e2e-out/*" "$LOCAL/" 2>/dev/null
+scp -q -o ControlPath="$CTL/c" -o ConnectTimeout=20 "$HOST:e2e-out/*" "$LOCAL/" 2>/dev/null
 ssh "$HOST" 'rm -rf ~/e2e-out'
 node e2e/mac.js "$LOCAL"
 MAC=$?
