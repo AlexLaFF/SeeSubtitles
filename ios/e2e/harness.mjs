@@ -22,15 +22,14 @@ import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const { WebSocketServer } = require(path.join(ROOT, 'node_modules', 'ws'));
-const { openDb } = require(path.join(ROOT, 'server', 'lib', 'db.js'));
-const { createAuth } = require(path.join(ROOT, 'server', 'lib', 'auth.js'));
 const totp = require(path.join(ROOT, 'server', 'lib', 'totp.js'));
+const { ACCOUNTS, createAccounts } = require('./accounts.cjs');
+export { ACCOUNTS };
 
 // Keys that open nothing. The tests look for them in everything the app receives and writes: a key, even a
 // stand-in's, must never reach the phone.
 export const SECRETS = { TENCENT_SECRET_ID: 'AKIDe2estandinnotarealkey0000000000', TENCENT_SECRET_KEY: 'e2eStandInSecretKeyNotReal000000', TOKENHUB_API_KEY: 'sk-e2e-standin-tokenhub-key' };
 export const PASSWORD = 'correct horse battery';
-export const ACCOUNTS = { owner: 'owner@e2e.test', business: 'business@e2e.test', hobby: 'hobby@e2e.test', spent: 'spent@e2e.test', secure: 'secure@e2e.test' };
 
 /** What the room "says", and what it means. The recogniser recites the left column; the translator knows the right. */
 export const TALK = [
@@ -107,20 +106,8 @@ export async function start({ log = () => {} } = {}) {
   const asr = await recogniser();
   const hub = await tokenhub();
 
-  // accounts, made the way the server's own tests make them
-  const db = openDb(root);
-  const auth = createAuth(db);
-  for (const email of Object.values(ACCOUNTS)) auth.addUser(email, PASSWORD);
-  auth.setRole(ACCOUNTS.owner, 'admin');
-  db.run("UPDATE users SET plan = 'business' WHERE email IN (?, ?)", ACCOUNTS.business, ACCOUNTS.secure);
-  const id = (email) => db.get('SELECT id FROM users WHERE email = ?', email).id;
-  // a Hobbyist whose ten live hours are gone
-  db.run('INSERT INTO usage(user_id, month, live_seconds, file_seconds) VALUES (?,?,?,0)', id(ACCOUNTS.spent), new Date().toISOString().slice(0, 7), 10 * 3600);
-  // two-factor on, the way a person turns it on: begin, then confirm with a code from the secret
-  const begun = auth.beginTotp(id(ACCOUNTS.secure));
-  const secret = begun.secret;
-  auth.confirmTotp(id(ACCOUNTS.secure), totp.codeFor(secret));
-  db.close();
+  // accounts, made the way the server's own tests make them (accounts.cjs, shared with the real-keys run)
+  const { totpSecret: secret } = createAccounts(root, PASSWORD, path.join(ROOT, 'server'));
 
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;

@@ -138,7 +138,8 @@ async function startServer() {
 
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
-  const env = { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: root, BASE_URL: base, SIGNUP_MODE: 'closed', REQUEST_WEBHOOK_URL: '' };
+  // SUMMARY_EFFORT low: the server's own summaries (/api/summaries) think as little as the app's do in this test (see openApp) — seconds, not minutes
+  const env = { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: root, BASE_URL: base, SIGNUP_MODE: 'closed', REQUEST_WEBHOOK_URL: '', SUMMARY_EFFORT: 'low' };
   const proc = spawn(process.execPath, [path.join(ROOT, 'server/server.js')], { env, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';
   proc.stdout.on('data', (d) => { log += d; });
@@ -573,8 +574,9 @@ async function main() {
       const cues = (lang) => { const f = names.srtPath(member.rec, base, lang); return fs.existsSync(f) ? parseSrt(fs.readFileSync(f, 'utf8')) : []; };
       const res = await fetch(`${server.base}/api/summaries`, { method: 'POST', headers: { authorization: `Bearer ${tokens.member}`, 'content-type': 'application/json' },
         body: JSON.stringify({ name: base, language: 'zh', target: cues(target), source: source === target ? [] : cues(source) }) });
-      must(res.status === 200, `the server refused: ${res.status} ${(await res.text()).slice(0, 160)}`);
-      const events = (await res.text()).split('\n\n').map((b) => { const e = /^event: (.+)$/m.exec(b); const d = /^data: (.+)$/m.exec(b); return e && d ? { event: e[1], data: JSON.parse(d[1]) } : null; }).filter(Boolean);
+      const stream = await res.text(); // read once: a message built from a second read would itself throw
+      must(res.status === 200, `the server refused: ${res.status} ${stream.slice(0, 160)}`);
+      const events = stream.split('\n\n').map((b) => { const e = /^event: (.+)$/m.exec(b); const d = /^data: (.+)$/m.exec(b); return e && d ? { event: e[1], data: JSON.parse(d[1]) } : null; }).filter(Boolean);
       const failed = events.find((e) => e.event === 'error');
       must(!failed, failed && `${failed.data.code}: ${failed.data.message}`);
       const done = events.find((e) => e.event === 'done');

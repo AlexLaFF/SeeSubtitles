@@ -11,6 +11,7 @@
     "probe:ab": "node server/probe-ab.js",
     "e2e": "sh desktop/scripts/e2e-on-server.sh",
     "e2e:ios": "node ios/e2e/run.mjs",
+    "e2e:ios:real": "sh ios/e2e/real-on-server.sh",
     "deploy": "ssh -t subtitle-hk bash SeeSubtitles/deploy/deploy.sh",
     "backup:pull": "sh deploy/backup-pull.sh",
     "backup:install": "sh deploy/backup-install.sh"
