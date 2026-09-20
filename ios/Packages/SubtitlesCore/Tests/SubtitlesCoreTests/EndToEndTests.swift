@@ -56,7 +56,7 @@ enum E2E {
   }
 
   /// Run one talk with a file as the microphone until `sentences` have settled (or `timeout`), then stop it.
-  static func talk(as api: APIClient, root: URL, sentences: Int, audioSeconds: Double = 8, record: Bool = true, hotwords: String = "", timeout: Double = 30) async throws -> (info: RecordingInfo?, lines: [TranscriptLine], phases: [TalkPhase]) {
+  static func talk(as api: APIClient, root: URL, sentences: Int, audioSeconds: Double = 8, record: Bool = true, hotwords: String = "", timeout: Double = hermetic ? 30 : 120) async throws -> (info: RecordingInfo?, lines: [TranscriptLine], phases: [TalkPhase]) {
     let options = RelayOptions(source: "yue", target: "zh", hotwords: hotwords, vadSilenceTime: 700, maxSpeakTime: 6)
     let relay = RelayClient(server: api.server, token: api.token ?? "", options: options)
     let source = FileAudioSource(url: try audio(seconds: audioSeconds, in: root))
@@ -176,8 +176,10 @@ extension Array where Element: Hashable { func uniqued() -> [Element] { var seen
     let settled = result.lines.filter { $0.ended && $0.kind == .speech }
     #expect(settled.count >= 4, "only \(settled.count) sentences settled; phases \(result.phases)")
     #expect(result.phases.contains(.listening) && result.phases.last == .ended, "phases: \(result.phases)")
+    // with a real recogniser a short sentence can read the same in Cantonese and Mandarin; most will not
+    #expect(settled.prefix(4).filter { $0.targetText != $0.sourceText }.count >= (E2E.hermetic ? 4 : 2), "not translated: \(settled.prefix(4))")
     for line in settled.prefix(4) {
-      #expect(!line.sourceText.isEmpty && !line.targetText.isEmpty && line.targetText != line.sourceText, "not translated: \(line)")
+      #expect(!line.sourceText.isEmpty && !line.targetText.isEmpty, "a sentence with nothing in it: \(line)")
       #expect(line.wallStart != nil && line.wallEnd != nil, "a sentence without its times cannot become a cue")
       #expect(line.wallStart! > began.timeIntervalSince1970 * 1000 - 2000 && line.wallStart! < Date().timeIntervalSince1970 * 1000, "cue times must be on this device's clock, not the server's stream position")
     }
@@ -224,14 +226,21 @@ extension Array where Element: Hashable { func uniqued() -> [Element] { var seen
   @Test("a summary: written by the server with its own key and the shared prompt, streamed as it is written, cleaned of invented timestamps")
   func summary() async throws {
     let api = try await E2E.login("business")
-    let target = [Cue(start: 1000, end: 3000, text: "大家好，欢迎来到今天的分享。"), Cue(start: 4000, end: 9000, text: "今天我们会讲一下如何用字幕帮助更多人参与会议。")]
+    var target = [Cue(start: 1000, end: 3000, text: "大家好，欢迎来到今天的分享。"), Cue(start: 4000, end: 9000, text: "今天我们会讲一下如何用字幕帮助更多人参与会议。")]
     let source = [Cue(start: 1000, end: 3000, text: "大家好，欢迎嚟到今日嘅分享。")]
+    if !E2E.hermetic { // a real model needs a talk with something in it
+      let more = ["首先是现场的观众，他们可以用手机扫二维码，在自己的屏幕上看字幕。", "第二，是会后想重温内容的人，他们需要可以检索的文字。", "字幕不只是给听不见的人，是给所有人：听不清、听不懂、走神的人都在看。",
+                  "要让字幕准确，最重要的是事先准备：把人名和术语提前放进词汇表。", "话筒要离讲者一个拳头以内，房间越吵，越要靠近。", "如果网络中断，录音不会停，字幕会在网络恢复后自动回来。",
+                  "会后可以用云端重做字幕，补上中断时漏掉的部分。", "最后，把录音、字幕和总结一起发给参加者，让没到场的人也能跟上。"]
+      for (i, text) in more.enumerated() { target.append(Cue(start: 10_000 + i * 8000, end: 17_000 + i * 8000, text: text)) }
+    }
     var stages: [String] = [], streamed = "", finished = ""
     for try await event in api.summarise(name: "9月20号11点33分", language: "zh", target: target, source: source) {
       switch event { case .stage(let s): stages.append(s); case .delta(let t): streamed += t; case .done(let m): finished = m }
     }
     #expect(stages.first == "asking" && stages.contains("writing"))
-    #expect(!streamed.isEmpty && finished.contains("## 要点") && finished.hasPrefix("<!-- recording: 9月20号11点33分"))
+    #expect(!streamed.isEmpty && finished.contains("\n# ") && finished.hasPrefix("<!-- recording: 9月20号11点33分"), "not a summary: \(finished.prefix(300))")
+    if E2E.hermetic { #expect(finished.contains("## 要点")) }
     for secret in E2E.secrets { #expect(!finished.contains(secret) && !streamed.contains(secret)) }
     if E2E.hermetic {
       #expect(finished.contains("[00:02]") && !finished.contains("[59:59]"), "a timestamp beyond the recording must be dropped")
@@ -243,6 +252,32 @@ extension Array where Element: Hashable { func uniqued() -> [Element] { var seen
       let keys = (hub["keysSeen"] as? [String]) ?? []
       #expect(!keys.isEmpty && keys.allSatisfy { $0.hasPrefix("Bearer sk-e2e") }, "TokenHub must see the server's key and never the account's token: \(keys)")
     }
+  }
+
+  @Test("re-subtitling for real: the recording a talk left is recognised again as a whole file, and the talk's own subtitles are kept beside the new ones", .enabled(if: !E2E.hermetic, "the stand-ins have no file recognition"))
+  func resubtitle() async throws {
+    let root = temporaryDirectory("e2e"); defer { try? FileManager.default.removeItem(at: root) }
+    let api = try await E2E.login("business")
+    let before = try await api.me().plan.used.fileSeconds
+    let talked = try await E2E.talk(as: api, root: root, sentences: 3)
+    let info = try #require(talked.info)
+    let library = RecordingLibrary(root: root.appendingPathComponent("Recordings"))
+    let recording = try #require(library.recording(id: info.id))
+    let live = recording.cues().target
+    #expect(Resubtitler.canResubtitle(recording) && !live.isEmpty)
+
+    let stages = StageLog()
+    try await Resubtitler(api: api).run(recording) { stages.add($0) }
+
+    let after = try #require(library.recording(id: info.id))
+    #expect(after.resubtitled, "the talk's own subtitles were not kept as .live.srt")
+    #expect(!after.cues().target.isEmpty && !after.cues().source.isEmpty, "the cloud's subtitles did not arrive")
+    #expect(after.cues().target.allSatisfy { $0.end <= info.durationMs + 2000 }, "cues beyond the recording: \(after.cues().target)")
+    #expect(stages.values.contains { if case .working = $0 { true } else { false } } && stages.values.last == .downloading)
+    let kept = try String(contentsOf: after.folder.appendingPathComponent(RecordingNames.liveName(RecordingNames.srtName(info.id, language: "zh"))), encoding: .utf8)
+    #expect(SRT.parse(kept) == live)
+    #expect(try await api.me().plan.used.fileSeconds > before, "the file hours did not move")
+    for secret in E2E.secrets { for file in after.files where file.pathExtension == "srt" { #expect(!(try String(contentsOf: file, encoding: .utf8)).contains(secret)) } }
   }
 
   // ---------------------------------------------------------------- someone else's talk

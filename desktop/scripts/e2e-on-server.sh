@@ -10,6 +10,9 @@
 set -eu
 HOST="${SEESUBTITLES_SSH:-subtitle-hk}"
 cd "$(dirname "$0")/../.."
+# A connection to Hong Kong that dies without a word would otherwise leave this waiting for ever — it did, on
+# 20 September, for a quarter of an hour on an image that was never being built. Ask every 15 s; give up after two minutes of silence.
+ssh() { command ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -o ConnectTimeout=20 "$@"; }
 
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "✖ uncommitted changes: the release test runs the committed code, so commit first" >&2
@@ -36,7 +39,7 @@ SERVER=$?
 
 # The app's MP4 renderer is macOS-only, so the recording the server run just made is rendered here, as the app would.
 LOCAL=$(mktemp -d)
-scp -q "$HOST:e2e-out/*" "$LOCAL/" 2>/dev/null
+scp -q -o ServerAliveInterval=15 -o ServerAliveCountMax=8 -o ConnectTimeout=20 "$HOST:e2e-out/*" "$LOCAL/" 2>/dev/null
 ssh "$HOST" 'rm -rf ~/e2e-out'
 node e2e/mac.js "$LOCAL"
 MAC=$?
