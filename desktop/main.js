@@ -130,7 +130,7 @@ const jobImporter = new JobImporter({
   setMap: (map) => { const c = loadConfig(); c.importedJobs = map; saveConfig(c); },
   log: (level, text) => (core ? core.log(level, text) : consoleLog(level, text)),
 });
-const updater = new Updater({ cloud, log: (level, text) => (core ? core.log(level, `updates: ${text}`) : consoleLog(level, `updates: ${text}`)), packaged: PACKAGED });
+const updater = new Updater({ cloud, log: (level, text) => (core ? core.log(level, `updates: ${text}`) : consoleLog(level, `updates: ${text}`)), packaged: PACKAGED, beforeInstall: () => shutDownOnce() });
 
 function consoleLog(level, text) {
   const ts = new Date().toTimeString().slice(0, 8);
@@ -603,14 +603,18 @@ app.on('activate', () => { if (core) openControl(); });
 app.on('window-all-closed', () => { /* keep the pipeline running in the dock */ });
 
 let quitting = false;
-app.on('before-quit', (e) => {
-  if (quitting) return;
-  e.preventDefault();
+/** The app's own orderly end: the talk stopped, the recording closed, the local server down. Once, whoever asks. */
+function shutDownOnce() {
   quitting = true;
-  const done = () => app.exit(0);
-  setTimeout(done, 6000).unref();
   cloud.detach();
-  (core ? core.shutdown() : Promise.resolve()).then(done, done);
+  return core ? core.shutdown() : Promise.resolve();
+}
+app.on('before-quit', (e) => {
+  if (quitting) return; // already shut down (the updater's restart does it first): let this quit through
+  e.preventDefault();
+  const done = () => app.exit(0);
+  setTimeout(done, 6000); // not unref'd: this is what ends a shutdown that never finishes
+  shutDownOnce().then(done, done);
 });
 process.on('uncaughtException', (err) => { consoleLog('error', `uncaught: ${err.stack || err.message}`); });
 process.on('unhandledRejection', (err) => { consoleLog('error', `unhandled rejection: ${err && err.stack ? err.stack : err}`); });

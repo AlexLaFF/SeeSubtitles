@@ -18,10 +18,12 @@ function compareVersions(a, b) {
 }
 
 class Updater {
-  constructor({ cloud, log, packaged }) {
+  /** @param {function} [o.beforeInstall] async () => void — the app's own orderly shutdown, run before the updater is told to quit */
+  constructor({ cloud, log, packaged, beforeInstall = null }) {
     this.cloud = cloud;
     this.log = log || (() => {});
     this.packaged = !!packaged;
+    this.beforeInstall = beforeInstall;
     this.state = { checking: false, available: null, downloading: false, downloaded: false, error: null, lastCheck: null, current: app.getVersion() };
     this.au = null;
   }
@@ -40,11 +42,25 @@ class Updater {
       this.state.downloaded = true;
       this.log('info', `update ${info.version} downloaded`);
       const r = await dialog.showMessageBox({ type: 'info', buttons: [t('upd.restart'), t('upd.later')], defaultId: 0, cancelId: 1, message: t('upd.ready', { version: info.version }), detail: t('upd.readyDetail') });
-      if (r.response === 0) autoUpdater.quitAndInstall();
+      if (r.response === 0) await this._restartToInstall(autoUpdater);
     });
     autoUpdater.on('error', (err) => { this.state.downloading = false; this._fallback(err).catch(() => {}); });
     this.au = autoUpdater;
     return autoUpdater;
+  }
+
+  /**
+   * Restart into the update. The updater's helper (ShipIt) swaps the app only once this process is gone, and waits
+   * for that for ever — on 2026-09-22 it waited, the app never went, and the Mac had to be force-quit. So nothing is
+   * left to chance here: the app shuts its own things down first (with a deadline), the updater's quit is then let
+   * through rather than cancelled and redone, and if the process is somehow still here ten seconds later it exits
+   * outright — the helper installs and relaunches either way.
+   */
+  async _restartToInstall(autoUpdater) {
+    this.log('info', 'restarting to install the update');
+    try { if (this.beforeInstall) await Promise.race([this.beforeInstall(), new Promise((r) => setTimeout(r, 5000))]); } catch (err) { this.log('warn', `shutdown before the update: ${err.message}`); }
+    setTimeout(() => app.exit(0), 10_000);
+    autoUpdater.quitAndInstall(false, true);
   }
 
   /** Check the server. interactive = the user asked (always show a dialog). */
