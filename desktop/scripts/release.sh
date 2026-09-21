@@ -27,6 +27,19 @@ fi
 # really lives in one particular keychain file: `notarytool store-credentials` keeps profiles in the
 # data-protection keychain, which an explicit `--keychain <file>` excludes — naming the login keychain here made
 # every build refuse notarization with "No Keychain password item found for profile".
+# A version number names one set of contents, once. The updater only ever moves a copy to a *higher* number, so a
+# second "0.8.1" built from other code never reaches whoever has the first — and nobody can tell the two apart
+# (2026-09-21: six builds all called 0.8.1). dist/built.json says what each number was built from, written only when
+# a build is RELEASABLE; the same commit may be built again (a signing step lost to the network), other code may not.
+SCRIPTS="$(cd "$(dirname "$0")" && pwd)"
+THIS_VERSION=$(node -p "require('$SCRIPTS/../package.json').version")
+THIS_COMMIT=$(git -C "$SCRIPTS" rev-parse --short HEAD)
+BUILT_FROM=$(node -e "try { process.stdout.write(String(require('$SCRIPTS/../dist/built.json')['$THIS_VERSION'] || '')) } catch { }")
+if [ -n "$BUILT_FROM" ] && [ "$BUILT_FROM" != "$THIS_COMMIT" ]; then
+  echo "✖ $THIS_VERSION has already been built, from $BUILT_FROM — this is $THIS_COMMIT." >&2
+  echo "  Different code gets a new number: bump desktop/package.json and run this again." >&2
+  exit 1
+fi
 # Every release first passes the release test on the server: the whole app below its windows, end to end, with real
 # recordings and the real keys (e2e/run.js). A failure stops here, before anything is built or sent to Apple.
 sh "$(dirname "$0")/e2e-on-server.sh"
@@ -56,6 +69,8 @@ if [ -f "$DMG" ]; then
 fi
 
 node "$HERE/verify-release.js"
+# RELEASABLE: from now on this number means this commit
+node -e "const fs = require('fs'); const f = '$HERE/../dist/built.json'; let m = {}; try { m = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { } m['$THIS_VERSION'] = '$THIS_COMMIT'; fs.writeFileSync(f, JSON.stringify(m, null, 2));"
 
 cat <<'CHECKLIST'
 

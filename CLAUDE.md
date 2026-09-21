@@ -87,6 +87,11 @@ SeeSubtitles`; demo mode (`-demo YES`) runs a whole talk with no account or netw
   (deploy/backup-pull.sh via launchd, 30 days). Restore steps are in docs/SELF-HOSTING.md.
 - **Each plan caps how many talks run at once** (server/lib/plans.js `talks`: Hobbyist 1, Business 3, Enterprise 10
   across the team, pay-as-you-go 1, administrators unlimited); the relay refuses the next one with `plan_talks`.
+- **A version number names one set of contents, once.** Any change to what goes into the app after a build of that
+  number exists — even one only Alex has tried — gets a new number before it is built again; never rebuild a number
+  with different code. The updater only moves a copy to a higher number, so a second "0.8.1" never reaches whoever
+  has the first, and the two cannot be told apart (2026-09-21: six different builds were all 0.8.1; it shipped as
+  0.8.2). release.sh enforces it through `desktop/dist/built.json`; the same commit may be built again.
 - Release: bump `desktop/package.json`, then `npm run release -w desktop` — it first runs the release test on the server (`npm run e2e`:
   the whole app below its windows, end to end, with real recordings and the real keys; see docs/DEVELOPMENT.md), then
   builds, notarizes with the keychain profile named in `~/.config/seesubtitles/notarize.env`, and refuses the build
