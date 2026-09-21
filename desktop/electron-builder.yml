@@ -18,6 +18,11 @@ extraResources:
   - from: resources/bin
     to: bin
 asar: true
+# The app speaks English and Simplified Chinese. Electron ships 220 locale folders (every language, each in four
+# grammatical-gender variants), and every one is signed with its own request to Apple's timestamp server: from a
+# connection that drops one request in forty, builds failed three times in a day on exactly that (2026-09-21), and
+# took a quarter of an hour when they did not. These eight are the two languages; English is Chromium's fallback.
+electronLanguages: [en, en_FEMININE, en_MASCULINE, en_NEUTER, zh_CN, zh_CN_FEMININE, zh_CN_MASCULINE, zh_CN_NEUTER]
 npmRebuild: false
 # Updates are served by the hosted server (server/lib/updates.js): copy dist/latest-mac.yml, the zip and the dmg
 # into its <DATA_DIR>/updates. The app checks <server>/updates on launch and from See Subtitles → Check for Updates…
