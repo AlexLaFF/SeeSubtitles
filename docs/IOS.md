@@ -122,8 +122,12 @@ beside it.
 Empty state: one sentence and the Start button.
 
 Files added for subtitling (the Mac's "Add file…", the web's upload) are not listed here — the Library is the
-phone's own recordings — so deleting one from the list, and the choice between sending a whole video and only its
-audio, are the Mac's alone. The phone's only upload is re-subtitling, and it gains what the server gained on
+phone's own recordings — so deleting one from the list, and the sheet that asks a file's languages and whether to
+send a whole video or only its audio, are the Mac's alone. Re-subtitling on the phone still uses the recording's
+own languages without asking and keeps the talk's subtitles as `.live.srt` only: choosing other languages, the
+server making them again from the file it already has (`POST /api/jobs/<id>/regenerate`), and the `旧版本` folder
+of earlier versions (desktop/lib/resubtitle.js) are not on the phone yet — it gets them when its Recording page
+gets a languages row, since the server half is already there. The phone's only upload is re-subtitling, and it gains what the server gained on
 2026-09-21: an upload may take longer than five minutes. Carrying a broken upload on from what the server has
 (`received`, then `PUT …/upload?offset=`) is done by the Mac and the web page, not yet by the phone: its upload is
 a recording's m4a, tens of megabytes, begun again if it breaks — port it from desktop/lib/uploads.js if that ever

@@ -76,3 +76,79 @@ test('a failed cloud job leaves the live files untouched and reports the error',
   assert.equal(q.status().current, null);
   assert.equal(q.status().last.ok, false);
 });
+
+// ---- made again, in other languages: nothing made before is lost, and a file the server has is not sent twice
+const names2 = require('@subs/core/names');
+const { listVersions, versionsDir } = require('../lib/resubtitle');
+
+test('a recording re-subtitled again, in another language, keeps the earlier subtitles, their MP4 and the summary as a version', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'resub-versions-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const base = '9月5号14点33分';
+  // a recording that came from an added file: English heard, Chinese subtitles, made by job j1 — no talk, so nothing is "live"
+  fs.writeFileSync(names2.filePath(dir, base, 'mp3'), 'audio');
+  fs.writeFileSync(path.join(dir, names2.fileName(base, 'manifest', 'cn')), JSON.stringify({ base, source: 'en', target: 'zh', importedFrom: 'j1' }));
+  fs.writeFileSync(path.join(dir, names2.srtName(base, 'en')), 'EN v1');
+  fs.writeFileSync(path.join(dir, names2.srtName(base, 'zh')), 'ZH v1 (edited by hand)');
+  fs.writeFileSync(path.join(dir, names2.srtName(base, 'zh').replace(/\.srt$/, '.plain.txt')), 'ZH v1 plain');
+  fs.writeFileSync(names2.filePath(dir, base, 'mp4'), 'MP4 of v1');
+  fs.writeFileSync(names2.filePath(dir, base, 'summary'), '# summary of v1');
+
+  const calls = [];
+  const cloud = {
+    createJob: async () => { calls.push('create'); return { id: 'jNew' }; },
+    uploadJob: async () => { calls.push('upload'); },
+    regenerateJob: async (id, langs) => { calls.push(`regenerate ${id} ${langs.sourceLang}→${langs.targetLang}`); return { id, status: 'queued' }; },
+    getJob: async (id) => ({ id, status: 'done', files: ['talk.en.srt', 'talk.ja.srt'] }),
+    downloadJobFile: async (id, name, dest) => { fs.writeFileSync(dest, `${name} from ${id}`); },
+  };
+  const q = new ResubtitleQueue({ cloud, pollMs: 1 });
+  const jobs = [];
+  q.on('job', (j) => jobs.push(j));
+  q.add({ base, dir, sourceLang: 'en', targetLang: 'ja', jobId: 'j1' });
+  await new Promise((resolve, reject) => { q.once('done', resolve); q.once('error', (e) => reject(new Error(e.error))); });
+
+  assert.deepEqual(calls, ['regenerate j1 en→ja'], 'the server has the file: nothing is created or uploaded');
+  assert.equal(fs.readFileSync(path.join(dir, names2.srtName(base, 'ja')), 'utf8'), 'talk.ja.srt from j1');
+  assert.deepEqual(names2.languagesOf(dir, base), { source: 'en', target: 'ja' }, 'the recording is in its new languages');
+  assert.equal(JSON.parse(fs.readFileSync(names2.filePath(dir, base, 'manifest'), 'utf8')).job, 'j1');
+  assert.equal(fs.existsSync(path.join(dir, names2.srtName(base, 'zh'))), false, 'the Chinese subtitles are no longer beside it…');
+  const [v] = listVersions(dir, base);
+  assert.deepEqual([v.n, v.source, v.target], [1, 'en', 'zh']);
+  assert.equal(fs.readFileSync(path.join(versionsDir(dir, base), v.folder, names2.srtName(base, 'zh')), 'utf8'), 'ZH v1 (edited by hand)', '…they are a version, edits and all');
+  assert.ok(v.files.includes(names2.srtName(base, 'en')) && v.files.some((f) => f.endsWith('.plain.txt')) && v.files.includes(names2.fileName(base, 'mp4', 'cn')), v.files.join(', '));
+  assert.ok(v.files.includes(names2.fileName(base, 'summary', 'cn')) && fs.existsSync(names2.filePath(dir, base, 'summary')), 'the summary is copied: the recording still shows it');
+  assert.ok(!fs.readdirSync(dir).some((f) => /\.live\./.test(f)), 'nothing here was the talk\'s own');
+
+  // and once more: a second version, the first untouched
+  q.add({ base, dir, sourceLang: 'en', targetLang: 'ja', jobId: 'j1' });
+  await new Promise((resolve) => q.once('done', resolve));
+  assert.deepEqual(listVersions(dir, base).map((x) => `${x.n}:${x.target}`), ['1:zh', '2:ja']);
+});
+
+test('a file the server no longer has is sent again; a talk\'s own subtitles still get their .live. name first', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'resub-gone-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const base = '9月6号10点00分';
+  fs.writeFileSync(names2.filePath(dir, base, 'mp3'), 'audio');
+  fs.writeFileSync(path.join(dir, names2.fileName(base, 'manifest', 'cn')), JSON.stringify({ base, source: 'yue', target: 'zh' }));
+  fs.writeFileSync(path.join(dir, names2.srtName(base, 'zh')), 'ZH from the talk');
+  const calls = [];
+  const cloud = {
+    createJob: async () => { calls.push('create'); return { id: 'jNew' }; },
+    uploadJob: async () => { calls.push('upload'); },
+    regenerateJob: async () => { calls.push('regenerate'); throw Object.assign(new Error('no such job'), { status: 404 }); },
+    getJob: async (id) => ({ id, status: 'done', files: ['a.yue.srt', 'a.en.srt'] }),
+    downloadJobFile: async (id, name, dest) => { fs.writeFileSync(dest, name); },
+  };
+  const q = new ResubtitleQueue({ cloud, pollMs: 1 });
+  const jobs = [];
+  q.on('job', (j) => jobs.push(j));
+  q.add({ base, dir, sourceLang: 'yue', targetLang: 'en', jobId: 'jOld' });
+  await new Promise((resolve, reject) => { q.once('done', resolve); q.once('error', (e) => reject(new Error(e.error))); });
+  assert.deepEqual(calls, ['regenerate', 'create', 'upload']);
+  assert.deepEqual(jobs, [{ jobId: 'jNew', base }], 'the new job is said to be this recording, so it is not imported as another');
+  assert.equal(fs.readFileSync(path.join(dir, names2.srtName(base, 'zh').replace(/\.srt$/, '.live.srt')), 'utf8'), 'ZH from the talk');
+  assert.deepEqual(listVersions(dir, base), [], 'the talk\'s own went to .live., so there is no version to make');
+  assert.deepEqual(names2.languagesOf(dir, base), { source: 'yue', target: 'en' });
+});

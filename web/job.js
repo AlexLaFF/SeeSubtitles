@@ -24,6 +24,8 @@
     const chip = $('statusText'); chip.className = `chip ${j.status === 'done' ? 'ok' : j.status === 'failed' ? 'bad' : 'warn'}`; chip.innerHTML = '';
     chip.append(el('span', { class: 'dot' }), `${stage.replace(/^\w/, (c) => c.toUpperCase())}${j.status !== 'done' && j.status !== 'failed' ? ` · ${Math.round(pct)}%` : ''}${j.error ? ` — ${j.error}` : ''}${j.cues ? ` · ${t('web.cuesCount', { n: j.cues })}` : ''}${j.duration ? t('web.min', { n: (j.duration / 60).toFixed(1) }) : ''} · ${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}`);
     $('progressBox').hidden = j.status === 'done' || j.status === 'failed';
+    renderLanguages();
+    if (j.status !== 'done' && loadedCues) { $('work').hidden = true; loadedCues = false; dirty = false; } // being made again: what was on the page is a version now
     if (j.status === 'done') {
       $('work').hidden = false;
       if (!loadedCues) { loadedCues = true; loadCues(); }
@@ -31,6 +33,33 @@
     }
     if (j.render) { $('mp4Text').textContent = t('web.rendering', { which: j.render.which, pct: j.render.percent }); $('btnMp4').disabled = true; $('mp4Text').dataset.rendering = '1'; } else { $('btnMp4').disabled = false; if (j.renderError) $('mp4Text').textContent = `⚠ ${j.renderError}`; else if ($('mp4Text').dataset.rendering) { $('mp4Text').textContent = t('web.mp4Ready'); delete $('mp4Text').dataset.rendering; } }
   }
+  /** The languages this file was subtitled in, which can be changed — and the versions that leaves behind. */
+  let langs = null;
+  async function renderLanguages() {
+    const settled = job.status === 'done' || job.status === 'failed';
+    $('langBox').hidden = !settled && !(job.versions || []).length;
+    if (!langs) {
+      langs = await api('/api/languages').catch(() => null);
+      if (!langs) return;
+      for (const [k, v] of Object.entries(langs.sources)) $('sourceLang').appendChild(el('option', { value: k }, v));
+      for (const [k, v] of Object.entries(langs.targets)) $('targetLang').appendChild(el('option', { value: k }, v));
+      $('sourceLang').value = job.source_lang; $('targetLang').value = job.target_lang;
+    }
+    $('btnRegen').disabled = !settled || !!job.render;
+    const box = $('versions'); box.innerHTML = '';
+    for (const v of [...(job.versions || [])].reverse()) {
+      box.appendChild(el('div', { class: 'muted', style: 'margin-top:12px' }, t('web.version', { n: v.n, langs: `${v.sourceLabel || v.sourceLang} → ${v.targetLabel || v.targetLang}`, date: v.keptAt ? new Date(v.keptAt).toLocaleString() : '' })));
+      const row = el('div', { class: 'files', style: 'margin-top:4px' });
+      for (const f of v.files) row.appendChild(el('a', { href: `/jobs/${id}/versions/${v.n}/files/${encodeURIComponent(f)}?download` }, f));
+      box.appendChild(row);
+    }
+  }
+  $('btnRegen').onclick = async () => {
+    const same = $('sourceLang').value === job.source_lang && $('targetLang').value === job.target_lang;
+    if (!confirm(t(dirty ? 'web.regenConfirmDirty' : same ? 'web.regenConfirmSame' : 'web.regenConfirm'))) return;
+    alertBox('');
+    try { renderJob(await api(`/api/jobs/${id}/regenerate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sourceLang: $('sourceLang').value, targetLang: $('targetLang').value }) })); } catch (err) { alertBox(err.message); }
+  };
   function renderFiles() {
     const box = $('files');
     box.innerHTML = '';

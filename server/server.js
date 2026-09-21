@@ -421,6 +421,12 @@ async function api(req, res, url, user) {
       jobs.renderMp4(id, { which: body.which, fontSize: Number(body.fontSize) || undefined }).catch((err) => { log('error', `job ${id} mp4: ${err.message}`); jobs.emit('update', { ...jobs.view(jobs.get(id)), renderError: err.message }); });
       return send(res, 200, { ok: true });
     }
+    if (action === 'regenerate' && req.method === 'POST') {
+      const body = await readJson(req, 1e4);
+      // heard as another language the file is recognised again, which is file time again; a new subtitle language alone is not
+      if (body.sourceLang !== job.source_lang && quotas.remaining(planRow(user), 'file') <= 0) return fail(res, 403, 'the file subtitling hours of this month are used up', { code: 'plan_quota' });
+      try { return send(res, 200, jobs.view(jobs.regenerate(id, { sourceLang: body.sourceLang, targetLang: body.targetLang }))); } catch (err) { return fail(res, 409, err.message); }
+    }
     if (action === 'retry' && req.method === 'POST') { if (job.status !== 'failed') return fail(res, 409, 'job is not failed'); jobs._update(id, { status: 'queued', progress: 0, error: null, task_id: null }); jobs.kick(); return send(res, 200, { ok: true }); }
   }
   return fail(res, 404, 'unknown endpoint');
@@ -465,6 +471,12 @@ const server = http.createServer(async (req, res) => {
     if (p === '/' || p === '/account' || (r = /^\/jobs\/([a-f0-9]+)$/.exec(p))) {
       if (!user) return redirect(res, `/login?next=${encodeURIComponent(p)}`);
       return page(res, p === '/' ? 'app.html' : p === '/account' ? 'account.html' : 'job.html');
+    }
+    if ((r = /^\/jobs\/([a-f0-9]+)\/versions\/(\d+)\/files\/(.+)$/.exec(p))) {
+      if (!user) return fail(res, 401, 'login required');
+      const job = jobs.get(r[1]);
+      if (!job || job.user_id !== user.id) return fail(res, 404, 'no such job');
+      return serveFile(req, res, jobs.versionFile(job.id, r[2], decodeURIComponent(r[3])), url.searchParams.has('download'));
     }
     if ((r = /^\/jobs\/([a-f0-9]+)\/files\/(.+)$/.exec(p))) {
       if (!user) return fail(res, 401, 'login required');

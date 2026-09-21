@@ -54,20 +54,36 @@ subtitles, exports and actions.
 Files you add are uploaded, subtitled in the cloud, and then brought down into your recordings folder,
 so an added file ends up behaving exactly like one you recorded.
 
-Adding a video asks how much of it to send. **Only the audio** is a small fraction of the size and gives the
+Adding a file asks first what it is, because a file is in its own languages and not in whatever Live happens to
+be set to: the **spoken language**, the language the **subtitles** should be in (or none: the spoken language
+only), and for a video how much of it to send. The sheet starts from the last file's answers — Live's pair the
+first time. **Only the audio** is a small fraction of the size and gives the
 same subtitles — the app takes the sound out of the video as it is, without re-encoding it where it can.
 **The whole video** is needed only for an MP4 with the subtitles over the picture, made on seesubtitles.com.
 
 An upload that loses its connection carries on from what the server already has, not from the beginning: the
-row says "reconnecting…" until it is through. One the app was closed in the middle of carries on when the app
+row says "waiting for the connection…" within a few seconds of nothing going out — a connection that has died
+seldom says so itself — and after twenty seconds of that the app drops it and carries on over a new one. One the app was closed in the middle of carries on when the app
 opens again, as long as the file is still where it was and unchanged. A row that says "upload interrupted" is
 waiting for the app (or browser tab) that was sending it; **Delete…** removes it, and the server drops what
 arrived of an upload nobody has come back to for a day.
 
-### Cloud re-subtitling
+### Cloud re-subtitling, and making subtitles again in other languages
 
-**Files › a recording › Actions › Re-subtitle** uploads the recording's MP3 to the server as a job
-(whole-file 录音文件识别 plus translation) and replaces the live subtitles with the complete set. It
+**Files › a recording › Actions › Re-subtitle** asks for the spoken and subtitle languages — starting from the
+ones the recording is in — and makes the subtitles again from the whole file (录音文件识别 plus translation).
+It is also how a file added in the wrong languages is put right. When seesubtitles.com still has the file (it was
+added from there, or re-subtitled before) nothing is uploaded again, and changing only the subtitle language
+does not recognise the speech again, so it uses no file hours.
+
+**Nothing made before is lost.** The talk's own subtitles stay beside the recording as `.live.srt`, as they
+always have. Anything made since — an earlier re-subtitle, the subtitles an added file arrived with, edits made
+to them, the MP4 rendered from them, and a copy of the AI summary — moves into the recording's `旧版本` folder,
+one numbered folder per version named for its languages (`1 英文→中文`). The recording's page lists them under
+Files; renaming or deleting the recording takes the folder along. On seesubtitles.com a job's page has the same
+control ("Make the subtitles again") and lists its versions with every file they held.
+
+The first re-subtitle of a live recording replaces the live subtitles with the complete set. It
 fills the gaps a dropped connection leaves and generally reads better, because whole sentences are
 translated with more context than a live stream allows.
 

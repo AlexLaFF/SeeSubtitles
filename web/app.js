@@ -33,7 +33,11 @@
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', `/api/jobs/${job.id}/upload${offset ? `?offset=${offset}` : ''}`);
         $('uploadBar').hidden = false;
-        xhr.upload.onprogress = (e) => { const sent = offset + e.loaded; $('uploadBar').firstElementChild.style.width = `${(sent / file.size) * 100}%`; $('uploadText').textContent = t('web.uploading', { done: fmtBytes(sent), total: fmtBytes(file.size) }); };
+        // a connection that dies seldom says so: twenty seconds with nothing going out and this one is dropped, for a new one to carry on
+        let stall = setTimeout(() => xhr.abort(), 20_000);
+        xhr.onabort = () => reject(Object.assign(new Error(t('web.uploadNet')), { again: true }));
+        xhr.onloadend = () => clearTimeout(stall);
+        xhr.upload.onprogress = (e) => { clearTimeout(stall); stall = setTimeout(() => xhr.abort(), e.loaded >= e.total ? 150_000 : 20_000); const sent = offset + e.loaded; $('uploadBar').firstElementChild.style.width = `${(sent / file.size) * 100}%`; $('uploadText').textContent = t('web.uploading', { done: fmtBytes(sent), total: fmtBytes(file.size) }); };
         xhr.onload = () => (xhr.status < 300 ? resolve() : reject(Object.assign(new Error(t('web.uploadFailed', { status: `${xhr.status} ${xhr.responseText.slice(0, 200)}` })), { again: xhr.status === 409 || xhr.status >= 500 })));
         xhr.onerror = () => reject(Object.assign(new Error(t('web.uploadNet')), { again: true }));
         xhr.send(offset ? file.slice(offset) : file);

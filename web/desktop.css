@@ -172,6 +172,12 @@ body.shell { margin: 0; padding: 0; background: var(--bg); color: var(--fg); fon
 .shell .sheet.ask .body { padding: 0 20px 4px; }
 .shell .sheet.ask input { width: 100%; box-sizing: border-box; }
 .shell .sheet.ask .sf { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 20px 16px; }
+.shell .sheet.ask.add { width: min(520px, calc(100vw - 60px)); }
+.shell .sheet.ask.add .body { display: block; overflow: auto; }
+.shell .sheet.ask .field { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 8px; margin: 0 0 10px; color: var(--fg-2); font-size: 12.5px; }
+.shell .sheet.ask .field select { width: 100%; }
+.shell .sheet.ask .field-h { color: var(--fg-2); font-size: 12.5px; margin: 14px 0 8px; }
 .shell .sheet.ask .choices { display: flex; flex-direction: column; gap: 8px; }
+.shell .sheet.ask .choice.on { border-color: var(--accent); background: var(--accent-soft); }
 .shell .sheet.ask .choice { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 14px; text-align: left; white-space: normal; height: auto; }
 .shell .sheet.ask .choice .hint { margin: 0; font-weight: 400; }

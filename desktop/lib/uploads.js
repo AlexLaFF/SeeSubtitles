@@ -6,6 +6,11 @@
 // A file that loses its connection is carried on from what the server has, not begun again: every attempt asks the
 // job how much arrived (`received`) and sends the rest, for as long as the app is open. The uploads under way are
 // written down (getPending / setPending), so one the app was closed in the middle of carries on when it next opens.
+//
+// A connection that dies seldom says so. Wi‑Fi off for ten seconds (the more so under a VPN) raises no error: the
+// socket goes quiet and TCP tries again when its backed-off timer says, which was a frozen row for a minute
+// (2026-09-21). So silence is watched: after QUIET_MS of nothing going out the row says it is waiting for the
+// connection, and after STALL_MS the connection is dropped and a new one carries on.
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -13,7 +18,10 @@ const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 
-const RETRY_MS = [2000, 5000, 15_000, 30_000, 60_000]; // between attempts that got nowhere; one that got further starts over at the first
+const RETRY_MS = [2000, 3000, 5000, 10_000, 15_000]; // between attempts that got nowhere; one that got further starts over at the first. An attempt costs one small request, so the last wait is short: it is how long a network that is back goes unnoticed
+const QUIET_MS = 6000;   // nothing taken by the connection for this long: say so
+const STALL_MS = 20_000; // and for this long: it is dead, or as good as — a new one carries on from what arrived
+const TAIL_MS = 150_000; // once the whole file has been handed over, what is left is in buffers and the server's answer: that wait is the server's to end (its own limit is 120 s)
 
 /** Errors no second attempt will cure: the job is gone, the account is, the file is not what was being sent. */
 const hopeless = (err) => !!err.hopeless || [400, 401, 403, 404, 413].includes(err.status) || /not logged in|URL is not set/.test(err.message);
@@ -28,8 +36,9 @@ class UploadQueue extends EventEmitter {
    * @param {function} [o.getPending] () => { [jobId]: {file, source, name, size, mtimeMs, temp} } — uploads under way
    * @param {function} [o.setPending] (map) => persist it
    * @param {number[]} [o.retryMs]   waits between attempts (tests)
+   * @param {number} [o.quietMs]     silence before the row says it is waiting; [o.stallMs] before a new connection carries on (tests)
    */
-  constructor({ cloud, log, ffmpeg = 'ffmpeg', tmpDir = path.join(os.tmpdir(), 'see-subtitles-uploads'), getPending = null, setPending = null, retryMs = RETRY_MS } = {}) {
+  constructor({ cloud, log, ffmpeg = 'ffmpeg', tmpDir = path.join(os.tmpdir(), 'see-subtitles-uploads'), getPending = null, setPending = null, retryMs = RETRY_MS, quietMs = QUIET_MS, stallMs = STALL_MS } = {}) {
     super();
     this.cloud = cloud;
     this.log = log || (() => {});
@@ -39,6 +48,8 @@ class UploadQueue extends EventEmitter {
     this.getPending = getPending || (() => memory);
     this.setPending = setPending || ((map) => { memory = map; });
     this.retryMs = retryMs;
+    this.quietMs = quietMs;
+    this.stallMs = stallMs;
     this.queue = [];
     this.current = null;
     this.last = null;
@@ -146,7 +157,7 @@ class UploadQueue extends EventEmitter {
         cur.retrying = false;
         cur.percent = (offset / size) * 100;
         this.emit('status', this.status());
-        return await this.cloud.uploadJob(id, file, (sent) => { cur.percent = ((offset + sent) / size) * 100; if (this.current === cur) this.emit('status', this.status()); }, signal, offset);
+        return await this._send(cur, id, file, size, offset);
       } catch (err) {
         if (signal.aborted) throw new Error('upload cancelled');
         if (err.code === 'ENOENT') throw Object.assign(new Error('the file is no longer where it was'), { hopeless: true });
@@ -158,6 +169,35 @@ class UploadQueue extends EventEmitter {
         this.emit('status', this.status());
         await new Promise((resolve) => { const t = setTimeout(done, wait); function done() { clearTimeout(t); signal.removeEventListener('abort', done); resolve(); } signal.addEventListener('abort', done); });
       }
+    }
+  }
+  /** One connection's worth of the file, from `offset`. Watched for silence: a connection that takes nothing is said to be waiting, then dropped. */
+  async _send(cur, id, file, size, offset) {
+    const { signal } = cur.abort;
+    const attempt = new AbortController();
+    const cancelled = () => attempt.abort();
+    signal.addEventListener('abort', cancelled);
+    let quiet; let stall; let stalled = false; let shown = Math.round(cur.percent);
+    const tell = () => { if (this.current === cur) this.emit('status', this.status()); };
+    const watch = (limit) => {
+      clearTimeout(quiet); clearTimeout(stall);
+      quiet = setTimeout(() => { cur.retrying = true; tell(); }, this.quietMs);
+      stall = setTimeout(() => { stalled = true; attempt.abort(); }, limit);
+    };
+    watch(this.stallMs);
+    try {
+      return await this.cloud.uploadJob(id, file, (sent) => {
+        watch(offset + sent >= size ? TAIL_MS : this.stallMs);
+        cur.percent = ((offset + sent) / size) * 100;
+        const pct = Math.round(cur.percent);
+        if (pct !== shown || cur.retrying) { shown = pct; cur.retrying = false; tell(); } // the file is read in small pieces: the windows hear of a new percent, not of every piece
+      }, attempt.signal, offset);
+    } catch (err) {
+      if (stalled && !signal.aborted) throw new Error(`the connection took nothing for ${Math.round(this.stallMs / 1000)} s`);
+      throw err;
+    } finally {
+      clearTimeout(quiet); clearTimeout(stall);
+      signal.removeEventListener('abort', cancelled);
     }
   }
   /** The sound of a video as an .m4a in tmpDir: as it is in the file where m4a can hold it, so the subtitles are those the whole video would get. */

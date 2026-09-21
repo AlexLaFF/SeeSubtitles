@@ -71,6 +71,30 @@ test('a connection that breaks is carried on from what the server has, not begun
   assert.deepEqual(s.map, {}, 'nothing left to carry on once it has arrived');
 });
 
+test('a connection that goes silent without failing is noticed, said, and replaced', async (t) => {
+  const dir = tmp(t);
+  const f = path.join(dir, 'talk.mp4'); fs.writeFileSync(f, Buffer.alloc(1000));
+  const cloud = fakeCloud();
+  const upload = cloud.uploadJob;
+  let hung = 0;
+  // Wi‑Fi off for ten seconds: 300 bytes go, then the connection takes nothing more and raises no error
+  cloud.uploadJob = (id, file, onP, signal, offset) => (hung++ ? upload(id, file, onP, signal, offset) : new Promise((resolve, reject) => {
+    cloud.calls.push(['upload', id, path.basename(file), offset]);
+    onP(300); cloud.jobs[id].received = 300;
+    signal.addEventListener('abort', () => reject(new Error('This operation was aborted')));
+  }));
+  const logs = [];
+  const q = new UploadQueue({ cloud, retryMs: [1], quietMs: 20, stallMs: 80, log: (level, text) => logs.push(text) });
+  const seen = [];
+  q.on('status', (st) => { if (st.current) seen.push(`${st.current.percent}${st.current.retrying ? ' waiting' : ''}`); });
+  q.add({ file: f, sourceLang: 'yue', targetLang: 'zh' });
+  await done(q);
+  assert.deepEqual(cloud.calls.filter((c) => c[0] === 'upload').map((c) => c[3]), [0, 300]);
+  assert.ok(seen.indexOf('30 waiting') > seen.indexOf('30') && seen.indexOf('30') >= 0, `the row says it is waiting before anything fails: ${seen.join(' | ')}`);
+  assert.equal(seen.at(-1), '100');
+  assert.ok(logs.some((l) => /took nothing for/.test(l)), logs.join('\n'));
+});
+
 test('an upload the app was closed in the middle of carries on when it opens again', async (t) => {
   const dir = tmp(t);
   const f = path.join(dir, 'talk.mp4'); fs.writeFileSync(f, Buffer.alloc(1000));

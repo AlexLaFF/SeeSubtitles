@@ -105,6 +105,10 @@ class CloudLink {
   getJob(id) {
     return this._fetch(`/api/jobs/${id}`, null, { method: 'GET' });
   }
+  /** Make a job's subtitles again in other languages, from the file the server already has (it keeps the old ones as a version). */
+  regenerateJob(id, { sourceLang, targetLang }) {
+    return this._fetch(`/api/jobs/${id}/regenerate`, { sourceLang, targetLang });
+  }
   deleteJob(id) {
     return this._fetch(`/api/jobs/${id}`, null, { method: 'DELETE' });
   }
@@ -118,7 +122,8 @@ class CloudLink {
     const { Readable } = require('node:stream');
     const fs = require('node:fs');
     let sent = 0;
-    const src = fs.createReadStream(file, { highWaterMark: 1 << 20, start: offset });
+    // small pieces: each one read is one the connection had room for, which is how the sender tells a slow line from a dead one (lib/uploads.js)
+    const src = fs.createReadStream(file, { highWaterMark: 128 * 1024, start: offset });
     src.on('data', (d) => { sent += d.length; if (onProgress) onProgress(sent); });
     const res = await fetch(`${this.cfg.url.replace(/\/$/, '')}/api/jobs/${id}/upload${offset ? `?offset=${offset}` : ''}`, {
       method: 'PUT', duplex: 'half',

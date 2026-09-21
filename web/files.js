@@ -16,6 +16,7 @@
 
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   const cap = (x) => String(x).replace(/^\w/, (c) => c.toUpperCase());
+  const langName = (code) => (SCHEMA.LANG_NAMES && SCHEMA.LANG_NAMES[code]) || code;
   const fmtDate = (ms) => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 
   async function loadRecordings() { recordings = await fetch('/api/recordings').then((r) => r.json()).catch(() => []); }
@@ -71,19 +72,71 @@
     const p = await d.chooseFile();
     if (p) addPath(p);
   }
-  /** A file that is sound already is sent as it is; of anything else the user says how much to send. */
+  /** A file that is sound already has nothing but sound to send. */
   const SOUND = /\.(mp3|m4a|aac|wav|flac|ogg|oga|opus|wma|aiff?|amr)$/i;
+  const LAST = 'files.addLast'; // what the last file was sent as: files follow one another more than they follow Live
+  const lastAdd = () => { try { return JSON.parse(localStorage.getItem(LAST)) || {}; } catch { return {}; } };
+
+  /**
+   * Before a file is sent: what is spoken in it, what its subtitles should be in, and of a video how much to send.
+   * A file is in its own languages, not in whatever Live is set to — so it is asked, every time, starting from the
+   * last file's answers (or Live's pair the first time). → {sourceLang, targetLang, audioOnly} | null
+   */
+  function askUpload(name, o, isSound, again = false) {
+    return new Promise((resolve) => {
+      document.querySelectorAll('.shell .scrim.ask').forEach((x) => x.remove());
+      const last = again ? {} : lastAdd(); // a recording being re-subtitled starts from the languages it is in, not from the last file's
+      const scrim = el('div', { class: 'scrim ask' });
+      const sheet = el('div', { class: 'sheet ask add' });
+      const done = (v) => { scrim.remove(); document.removeEventListener('keydown', onKey); resolve(v); };
+      const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); done(null); } };
+      scrim.addEventListener('click', (e) => { if (e.target === scrim) done(null); });
+      document.addEventListener('keydown', onKey);
+      const head = el('div', { class: 'sh' }); head.appendChild(el('h2', {}, t(again ? 'files.again.title' : 'files.add.title', { name })));
+      const body = el('div', { class: 'body' });
+      const select = (label, options, value) => {
+        const sel = el('select');
+        for (const [k, v] of Object.entries(options)) sel.appendChild(el('option', { value: k }, k === 'none' ? t('files.add.noTranslation') : v));
+        if (value in options) sel.value = value;
+        const row = el('label', { class: 'field' }); row.append(el('span', {}, label), sel);
+        body.appendChild(row);
+        return sel;
+      };
+      const source = select(t('web.spoken'), o.sources, last.sourceLang in o.sources ? last.sourceLang : o.sourceLang);
+      const target = select(t('files.add.subtitles'), o.targets, last.targetLang in o.targets ? last.targetLang : o.targetLang);
+      let how = isSound ? 'video' : last.how === 'video' ? 'video' : 'audio';
+      if (!isSound) {
+        body.appendChild(el('div', { class: 'field-h' }, t('files.add.send')));
+        const box = body.appendChild(el('div', { class: 'choices' }));
+        for (const [value, label, hint] of [['audio', t('files.sendAudio'), t('files.sendAudioHint')], ['video', t('files.sendVideo'), t('files.sendVideoHint')]]) {
+          const b = el('button', { class: `choice${how === value ? ' on' : ''}`, type: 'button' });
+          b.append(el('b', {}, label), el('span', { class: 'hint' }, hint));
+          b.addEventListener('click', () => { how = value; for (const x of box.children) x.classList.toggle('on', x === b); });
+          box.appendChild(b);
+        }
+      }
+      if (again) body.appendChild(el('div', { class: 'hint', style: 'margin:12px 0 0' }, t(o.jobId ? 'files.again.noteServer' : 'files.again.note')));
+      const cancel = el('button', {}, t('common.cancel'));
+      const ok = el('button', { class: 'primary' }, t(again ? 'files.again.go' : 'files.add.go'));
+      cancel.addEventListener('click', () => done(null));
+      ok.addEventListener('click', () => {
+        const v = { sourceLang: source.value, targetLang: target.value, audioOnly: !isSound && how === 'audio' };
+        if (!again) try { localStorage.setItem(LAST, JSON.stringify({ sourceLang: v.sourceLang, targetLang: v.targetLang, how: isSound ? last.how : how })); } catch { /* remembered next time, or not */ }
+        done(v);
+      });
+      const foot = el('div', { class: 'sf' }); foot.append(cancel, ok);
+      sheet.append(head, body, foot);
+      scrim.appendChild(sheet);
+      document.body.appendChild(scrim);
+      source.focus();
+    });
+  }
   async function addPath(p) {
-    let audioOnly = false;
-    if (!SOUND.test(p) && window.askChoice) {
-      const how = await askChoice(t('files.sendHow', { name: p.split('/').pop() }), [
-        { value: 'audio', label: t('files.sendAudio'), hint: t('files.sendAudioHint') },
-        { value: 'video', label: t('files.sendVideo'), hint: t('files.sendVideoHint') },
-      ]);
-      if (!how) return;
-      audioOnly = how === 'audio';
-    }
-    const r = await Sub.post('/api/files/add', { path: p, audioOnly });
+    const o = await fetch('/api/files/options').then((r) => r.json()).catch(() => ({ error: t('files.add.noServer') }));
+    if (!o || o.error || !o.sources) return alert(o && o.error ? I18n.err(o) : t('files.add.noServer'));
+    const how = await askUpload(p.split('/').pop(), o, SOUND.test(p));
+    if (!how) return;
+    const r = await Sub.post('/api/files/add', { path: p, ...how });
     if (r && r.error) alert(I18n.err(r)); else loadJobs().then(renderRows);
   }
 
@@ -92,7 +145,6 @@
     const s = Sub.status || {};
     const rs = s.resubtitle || {}; const mp = s.mp4 || {}; const sm = s.summary || {}; const up = s.uploads || {};
     const items = [];
-    const langName = (code) => (SCHEMA.LANG_NAMES && SCHEMA.LANG_NAMES[code]) || code;
     for (const r of recordings) items.push({ kind: 'rec', name: r.base, sub: t('files.recordingSub', { langs: `${langName(r.source)} → ${langName(r.target)}` }), date: r.mtime, length: r.durationMs, rec: r });
     for (const j of jobs) { if (j.importedBase) continue; items.push({ kind: 'added', name: j.filename, sub: t('files.addedSub', { langs: `${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}` }), date: j.created_at, length: j.duration ? j.duration * 1000 : null, job: j, upload: up.current && up.current.jobId === j.id ? up.current : null }); }
     if (up.current && !jobs.some((j) => j.id === up.current.jobId)) items.push({ kind: 'added', name: up.current.name, sub: t('files.uploading'), date: up.current.startedAt, upload: up.current });
@@ -238,10 +290,13 @@
     if (rr.summary && !confirm(t('files.confirmRegen'))) return;
     post('/api/recordings/summary', { base: rr.base });
   }
-  function resubtitle(rr) {
+  /** Make a recording's subtitles again: in the languages it is in, or in others — the first guess about a file can be wrong. What it has now is kept. */
+  async function resubtitle(rr) {
     const c = Sub.status.cloud; if (!c || !c.loggedIn) return alert(t('files.loginFirst'));
-    if ((rr.srtTarget || rr.srtSource) && !confirm(t('files.confirmResub'))) return;
-    post('/api/recordings/resubtitle', { base: rr.base });
+    const o = await fetch(`/api/files/options?base=${encodeURIComponent(rr.base)}`).then((r) => r.json()).catch(() => null);
+    if (!o || o.error || !o.sources) return alert(o && o.error ? I18n.err(o) : t('files.add.noServer'));
+    const how = await askUpload(rr.base, o, true, true);
+    if (how) post('/api/recordings/resubtitle', { base: rr.base, sourceLang: how.sourceLang, targetLang: how.targetLang });
   }
   const progress = (pct) => { const p = el('span', { class: 'progress', style: 'margin-left:6px' }); p.appendChild(el('i', { style: `width:${Math.round(pct || 0)}%` })); return p; };
 
@@ -380,6 +435,10 @@
       f(rr.mp3, Sub.fmtBytes(rr.bytes)); if (rr.mp4) f(rr.mp4, Sub.fmtBytes(rr.mp4Bytes));
       if (rr.srtTarget) f(rr.srtTarget); if (rr.srtSource && rr.srtSource !== rr.srtTarget) f(rr.srtSource);
       for (const b of rr.backups || []) f(b, t('files.fromTalk'));
+      for (const v of [...(rr.versions || [])].reverse()) {
+        files.appendChild(el('div', { class: 'muted', style: 'margin-top:10px' }, t('files.version', { n: v.n, langs: `${langName(v.source)} → ${langName(v.target)}`, date: v.keptAt ? new Date(v.keptAt).toLocaleString() : '' })));
+        for (const name of v.files) { const d = el('div'); d.appendChild(el('a', { href: `/recording-versions/${encodeURIComponent(base)}/${encodeURIComponent(v.folder)}/${encodeURIComponent(name)}`, download: name }, name)); files.appendChild(d); }
+      }
       if (rr.summary) f(rr.summary); if (rr.summaryPdf) f(rr.summaryPdf);
     };
     view.detailKey = '';

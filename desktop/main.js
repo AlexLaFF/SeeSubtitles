@@ -108,6 +108,8 @@ let port = 0;
 const cloud = new CloudLink({ log: (level, text) => core && core.log(level, `cloud: ${text}`) });
 const { ResubtitleQueue } = require('./lib/resubtitle');
 const resubtitle = new ResubtitleQueue({ cloud, log: (level, text) => core && core.log(level, text) });
+// A job made to re-subtitle a recording is that recording: written down at once, so the importer never brings it down as a new one.
+resubtitle.on('job', ({ jobId, base }) => { const c = loadConfig(); c.importedJobs = { ...(c.importedJobs || {}), [jobId]: base }; saveConfig(c); });
 const { Updater } = require('./lib/updater');
 const { UploadQueue } = require('./lib/uploads');
 // Uploads under way are written down, so one the app was closed in the middle of carries on from what the server has.
@@ -118,6 +120,7 @@ const uploads = new UploadQueue({
   setPending: (map) => { const c = loadConfig(); c.pendingUploads = map; saveConfig(c); },
   log: (level, text) => (core ? core.log(level, text) : consoleLog(level, text)),
 });
+let jobLanguages = null; // the server's list of file-job languages, asked for once
 const { JobImporter } = require('./lib/import-job');
 // A finished cloud job is copied into the recordings folder so an added file behaves like any recording.
 const jobImporter = new JobImporter({
@@ -214,6 +217,7 @@ async function startCore() {
     uploads,
     cloudJobs: async () => (cloud.status().loggedIn ? jobImporter.annotate(await cloud._fetch('/api/jobs', null, { method: 'GET' })) : []),
     deleteCloudJob: async (id) => { uploads.cancel(id); await cloud.deleteJob(id); },
+    cloudLanguages: async () => (jobLanguages = jobLanguages || await cloud._fetch('/api/languages', null, { method: 'GET' })),
     onOpenDisplay: ({ fullscreen } = {}) => { const w = openDisplay(); if (fullscreen) w.setFullScreen(true); },
     displayStatus: () => ({ open: !!(wins.display && !wins.display.isDestroyed()), fullscreen: !!(wins.display && !wins.display.isDestroyed() && wins.display.isFullScreen()) }),
     onOpenExternal: (url) => shell.openExternal(url),

@@ -15,6 +15,16 @@
 <div class="alert" id="alert" hidden></div>
 <div class="top"><h1><span class="crumb" data-i18n="files.crumb">Files ›</span> <span id="title" data-i18n="web.job">Job</span></h1><div class="chips"><span class="chip" id="statusText"></span></div></div>
 <div class="ui" id="progressBox"><div class="bar"><i id="bar"></i></div></div>
+<div class="ui" id="langBox" hidden>
+  <h2 data-i18n="web.langs">Languages</h2>
+  <div class="btns">
+    <label><span data-i18n="web.spoken">Spoken language</span> <select id="sourceLang"></select></label>
+    <label><span data-i18n="web.translateTo">Translate subtitles to</span> <select id="targetLang"></select></label>
+    <button id="btnRegen" data-i18n="web.regen">Make the subtitles again</button>
+  </div>
+  <div class="hint" data-i18n="web.regenHint">The file is not uploaded again, and the subtitles you have now — with your edits and any MP4 made from them — are kept below as a version. Changing only the subtitle language does not use file hours.</div>
+  <div id="versions"></div>
+</div>
 <div class="jobwrap" id="work" hidden>
   <div class="col">
     <div class="ui" style="padding:10px">

@@ -134,3 +134,79 @@ test('an added file can be deleted from the Files list: the route hands the job 
   assert.match((await busy.json()).error, /running/);
   assert.deepEqual(deleted, ['43cf947cb2aeedaf']);
 });
+
+test('Add file asks first: the languages come from the server with Live\'s pair to start from, and the answer is what is sent', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'subtitle-addfile-'));
+  const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
+  const video = path.join(root, 'talk.mp4'); fs.writeFileSync(video, 'fixture');
+  const added = [];
+  let loggedIn = true;
+  const server = await createLocalServer({
+    webDir: path.resolve(__dirname, '../../web'), schemaFile: require.resolve('@subs/core/schema'),
+    dataDir: path.join(root, 'data'), recordingsDir: rec, transcriptsDir: path.join(root, 'transcripts'),
+    demo: true, token: 'test-token', env: { MP4_AUTO: '0' }, consoleLog() {},
+    cloudStatus: () => ({ loggedIn }),
+    cloudLanguages: async () => ({ sources: { yue: '粤语 Cantonese', zh: '普通话 Mandarin', en: 'English' }, targets: { none: 'no translation', zh: '简体中文', en: 'English' } }),
+    uploads: Object.assign(new (require('node:events').EventEmitter)(), { add: (x) => { added.push(x); return true; }, status: () => ({ current: null, queue: [], queuedJobs: [], last: null }) }),
+  });
+  t.after(async () => { await server.shutdown(); fs.rmSync(root, { recursive: true, force: true }); });
+  const get = (p) => fetch(server.base + p, { headers: { cookie: 'token=test-token' } });
+  const post = (p, data) => fetch(server.base + p, { method: 'POST', headers: { cookie: 'token=test-token', 'content-type': 'application/json' }, body: JSON.stringify(data) });
+
+  const o = await (await get('/api/files/options')).json();
+  assert.deepEqual(Object.keys(o.sources), ['yue', 'zh', 'en']);
+  assert.ok(o.sourceLang in o.sources && o.targetLang in o.targets, 'Live\'s pair, as file-job languages, is where the sheet starts');
+
+  assert.equal((await post('/api/files/add', { path: video, sourceLang: 'en', targetLang: 'zh', audioOnly: true })).status, 200);
+  assert.deepEqual(added[0], { file: video, sourceLang: 'en', targetLang: 'zh', audioOnly: true }, 'the file goes in the languages confirmed, not in Live\'s');
+  assert.equal((await post('/api/files/add', { path: video, sourceLang: 'en', targetLang: 'none' })).status, 200);
+  assert.equal(added[1].targetLang, 'none');
+  assert.equal((await post('/api/files/add', { path: video })).status, 200);
+  assert.equal(added[2].sourceLang, o.sourceLang, 'with no answer it is Live\'s pair, as before');
+
+  loggedIn = false;
+  const out = await get('/api/files/options');
+  assert.equal(out.status, 400);
+  assert.equal((await out.json()).code, 'login_first');
+});
+
+test('re-subtitling asks in the recording\'s own languages, sends the ones confirmed, and the earlier versions are listed and served', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'subtitle-again-'));
+  const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
+  const base = '9月5号14点33分';
+  fs.writeFileSync(path.join(rec, names.fileName(base, 'mp3', 'cn')), 'audio');
+  fs.writeFileSync(path.join(rec, names.fileName(base, 'manifest', 'cn')), JSON.stringify({ base, source: 'en', target: 'ja', job: 'abc123' }));
+  fs.writeFileSync(path.join(rec, names.srtName(base, 'ja')), '1\n00:00:01,000 --> 00:00:03,000\nおはよう\n');
+  const v1 = path.join(rec, `${base}旧版本`, '1 英文→中文'); fs.mkdirSync(v1, { recursive: true });
+  fs.writeFileSync(path.join(v1, names.srtName(base, 'zh')), 'ZH v1');
+  fs.writeFileSync(path.join(v1, 'version.json'), JSON.stringify({ source: 'en', target: 'zh', keptAt: 1790000000000 }));
+  const asked = [];
+  const server = await createLocalServer({
+    webDir: path.resolve(__dirname, '../../web'), schemaFile: require.resolve('@subs/core/schema'),
+    dataDir: path.join(root, 'data'), recordingsDir: rec, transcriptsDir: path.join(root, 'transcripts'),
+    demo: true, token: 'test-token', env: { MP4_AUTO: '0' }, consoleLog() {},
+    cloudStatus: () => ({ loggedIn: true }),
+    cloudLanguages: async () => ({ sources: { yue: '粤语', zh: '普通话', en: 'English', ja: '日本語' }, targets: { none: 'no translation', zh: '简体中文', en: 'English', ja: '日本語' } }),
+    uploads: Object.assign(new (require('node:events').EventEmitter)(), { add: () => true, status: () => ({ current: null, queue: [], queuedJobs: [], last: null }) }),
+    resubtitle: Object.assign(new (require('node:events').EventEmitter)(), { add: (x) => { asked.push(x); return true; }, status: () => ({ current: null, queue: [], last: null }) }),
+  });
+  t.after(async () => { await server.shutdown(); fs.rmSync(root, { recursive: true, force: true }); });
+  const get = (p) => fetch(server.base + p, { headers: { cookie: 'token=test-token' } });
+  const post = (p, data) => fetch(server.base + p, { method: 'POST', headers: { cookie: 'token=test-token', 'content-type': 'application/json' }, body: JSON.stringify(data) });
+
+  const o = await (await get(`/api/files/options?base=${encodeURIComponent(base)}`)).json();
+  assert.deepEqual([o.sourceLang, o.targetLang, o.jobId], ['en', 'ja', 'abc123'], 'the sheet starts from what the recording is, not from Live');
+
+  assert.equal((await post('/api/recordings/resubtitle', { base, sourceLang: 'en', targetLang: 'zh' })).status, 200);
+  assert.deepEqual(asked[0], { base, dir: rec, sourceLang: 'en', targetLang: 'zh', jobId: 'abc123' });
+  assert.equal((await post('/api/recordings/resubtitle', { base })).status, 200);
+  assert.deepEqual([asked[1].sourceLang, asked[1].targetLang], ['en', 'ja'], 'with nothing confirmed (a selection of recordings), each keeps its own languages');
+
+  const [r] = await (await get('/api/recordings')).json();
+  assert.equal(r.resubtitled, true);
+  assert.deepEqual(r.versions.map((v) => [v.n, v.source, v.target, v.files]), [[1, 'en', 'zh', [names.srtName(base, 'zh')]]]);
+  const file = await get(`/recording-versions/${encodeURIComponent(base)}/${encodeURIComponent(r.versions[0].folder)}/${encodeURIComponent(names.srtName(base, 'zh'))}`);
+  assert.equal(file.status, 200);
+  assert.equal(await file.text(), 'ZH v1');
+  assert.equal((await get(`/recording-versions/${encodeURIComponent(base)}/..%2F..%2F/${encodeURIComponent(names.fileName(base, 'mp3', 'cn'))}`)).status, 404, 'only what is in a version folder');
+});

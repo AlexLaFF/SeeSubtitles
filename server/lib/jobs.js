@@ -173,7 +173,7 @@ class JobRunner extends EventEmitter {
     // an upload says how much of it is here (a sender that lost its connection carries on from there) and whether
     // anything is arriving now — "uploading" with nobody sending is a file waiting for its sender to come back
     const upload = j.status === 'uploading' ? { received: this._partSize(j), receiving: this.uploads.has(j.id) } : {};
-    return { ...j, ...upload, files, render: this.renders.get(j.id) || null, engineLabel: (ENGINES[j.source_lang] || {}).label, targetLabel: TARGETS[j.target_lang] };
+    return { ...j, ...upload, files, versions: this.versions(j.id), render: this.renders.get(j.id) || null, engineLabel: (ENGINES[j.source_lang] || {}).label, targetLabel: TARGETS[j.target_lang] };
   }
   _sourcePath(job) {
     const ext = (path.extname(job.filename) || '.bin').toLowerCase().replace(/[^a-z0-9.]/g, '').slice(0, 8) || '.bin';
@@ -258,6 +258,56 @@ class JobRunner extends EventEmitter {
     }
   }
 
+  /** What a run made: everything in the job's folder but the upload, the audio taken from it, the versions and working files. */
+  _outputs(id) {
+    const d = this.jobDir(id);
+    return fs.existsSync(d) ? fs.readdirSync(d).filter((f) => !/^source\./.test(f) && f !== 'audio.mp3' && f !== 'versions' && !f.endsWith('.part') && !f.startsWith('.')) : [];
+  }
+  /** The earlier sets of subtitles (and whatever was made from them) this job has had, oldest first: versions/<n>/ with a version.json. */
+  versions(id) {
+    const d = path.join(this.jobDir(id), 'versions');
+    if (!fs.existsSync(d)) return [];
+    return fs.readdirSync(d).filter((n) => /^\d+$/.test(n)).map(Number).sort((a, b) => a - b).map((n) => {
+      let meta = {};
+      try { meta = JSON.parse(fs.readFileSync(path.join(d, String(n), 'version.json'), 'utf8')); } catch { /* the files are still worth listing */ }
+      const files = fs.readdirSync(path.join(d, String(n))).filter((f) => /\.(srt|vtt|txt|mp4)$/.test(f)).sort();
+      return { n, ...meta, sourceLabel: (ENGINES[meta.sourceLang] || {}).label, targetLabel: TARGETS[meta.targetLang], files };
+    });
+  }
+  versionFile(id, n, name) { return path.join(this.jobDir(id), 'versions', String(Number(n) || 0), path.basename(name)); }
+  /**
+   * Make the subtitles again, in other languages: a file is in its own languages, and the first guess can be wrong.
+   * Nothing made so far is lost — the cues (with the edits made to them), every export and every MP4 move to
+   * versions/<n>/ first. The upload stays, so nothing is sent again; and when only the subtitle language changes the
+   * recognition is kept too (_run), so nothing is recognised, or counted against the plan, twice.
+   */
+  regenerate(id, { sourceLang, targetLang }) {
+    const job = this.get(id);
+    if (!job) throw new Error('no such job');
+    if (!ENGINES[sourceLang]) throw new Error(`unknown source language "${sourceLang}"`);
+    if (!(targetLang in TARGETS)) throw new Error(`unknown target language "${targetLang}"`);
+    if (!['done', 'failed'].includes(job.status) || (this.current && this.current.id === id)) throw new Error('the job is still running; wait for it to finish');
+    if (this.renders.has(id)) throw new Error('an MP4 is being made from these subtitles; wait for it to finish');
+    if (!this.sourceFile(id)) throw new Error('the uploaded file is no longer on the server: add it again');
+    const dir = this.jobDir(id);
+    const made = this._outputs(id);
+    if (made.includes('cues.json')) {
+      const n = (this.versions(id).at(-1) || { n: 0 }).n + 1;
+      const to = path.join(dir, 'versions', String(n));
+      fs.mkdirSync(to, { recursive: true });
+      for (const f of made) {
+        if (f === 'asr.json') fs.copyFileSync(path.join(dir, f), path.join(to, f)); // what was heard is also what the next version starts from
+        else fs.renameSync(path.join(dir, f), path.join(to, f));
+      }
+      fs.writeFileSync(path.join(to, 'version.json'), JSON.stringify({ sourceLang: job.source_lang, targetLang: job.target_lang, engine: job.engine, cues: job.cues, madeAt: job.updated_at, keptAt: Date.now() }));
+      this.log('info', `job ${id}: ${job.source_lang} → ${job.target_lang} kept as version ${n} (${made.length} files)`);
+    }
+    if (sourceLang !== job.source_lang) fs.rmSync(path.join(dir, 'asr.json'), { force: true }); // heard as another language, it has to be heard again
+    this._update(id, { source_lang: sourceLang, target_lang: targetLang, engine: ENGINES[sourceLang].engine, status: 'queued', progress: 0, error: null, cues: 0, task_id: null });
+    this.kick();
+    return this.get(id);
+  }
+
   remove(id) {
     if (this.current && this.current.id === id) throw new Error('job is running; wait for it to finish');
     const arriving = this.uploads.get(id);
@@ -321,12 +371,16 @@ class JobRunner extends EventEmitter {
     const meta = await probe(this.ffprobe, src);
     if (!meta.hasAudio) throw new Error('the file has no audio track');
     if (meta.duration > MAX_DURATION_S) throw new Error(`audio is ${(meta.duration / 3600).toFixed(1)} h; the limit is 5 h`);
-    if (this.onDuration && !job.task_id) await this.onDuration(job, meta.duration); // a resumed recognition was already counted
+    // What was heard in this file, in this language, is kept (regenerate drops it when the language changes): subtitles
+    // made again in another language, and a failed translation tried again, recognise nothing twice.
+    const asrFile = path.join(dir, 'asr.json');
+    const heard = !job.task_id && fs.existsSync(asrFile);
+    if (this.onDuration && !job.task_id && !heard) await this.onDuration(job, meta.duration); // a resumed recognition was already counted; one kept is not counted again
     this._update(id, { duration: meta.duration });
 
     // 1. extract 16 kHz mono audio (skip if resuming a recognition)
     let taskId = job.task_id;
-    if (!taskId || !fs.existsSync(audio)) {
+    if (!heard && (!taskId || !fs.existsSync(audio))) {
       this._progress(id, 'extracting', 0);
       await run(this.ffmpeg, ['-y', '-hide_banner', '-loglevel', 'error', '-nostats', '-progress', 'pipe:1', '-i', src, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '64k', '-f', 'mp3', `${audio}.part`], {
         onStdout: (t) => { const m = /out_time_us=(\d+)/g; let last = null; let r; while ((r = m.exec(t))) last = Number(r[1]); if (last != null && meta.duration) this._progress(id, 'extracting', (last / 1e6 / meta.duration) * 100); },
@@ -336,7 +390,7 @@ class JobRunner extends EventEmitter {
     }
 
     // 2. batch recognition
-    if (!taskId) {
+    if (!heard && !taskId) {
       this._progress(id, 'recognizing', 0);
       const size = fs.statSync(audio).size;
       const payload = { EngineModelType: job.engine, ChannelNum: 1, ResTextFormat: 1, SourceType: 0 };
@@ -355,8 +409,8 @@ class JobRunner extends EventEmitter {
     }
     const t0 = Date.now();
     const expectedMs = Math.max(15_000, (meta.duration / 25) * 1000);
-    let result;
-    for (;;) {
+    let result = heard ? JSON.parse(fs.readFileSync(asrFile, 'utf8')) : null;
+    while (!result) {
       await sleep(POLL_MS);
       const r = await asr(this.creds, 'DescribeTaskStatus', { TaskId: taskId });
       const st = r.Data || {};
@@ -364,7 +418,7 @@ class JobRunner extends EventEmitter {
       if (st.Status === 3) throw new Error(`recognition failed: ${st.ErrorMsg || 'unknown error'}`);
       this._progress(id, 'recognizing', Math.min(95, ((Date.now() - t0) / expectedMs) * 100));
     }
-    fs.writeFileSync(path.join(dir, 'asr.json'), JSON.stringify(result));
+    if (!heard) fs.writeFileSync(asrFile, JSON.stringify(result));
 
     // 3. cues
     this._progress(id, 'segmenting', 100);

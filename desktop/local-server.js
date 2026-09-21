@@ -12,7 +12,7 @@ const { readCues, writeCues } = require('./lib/cues');
 const { fromSrt } = require('@subs/core/plain-text');
 const os = require('node:os');
 const { spawn } = require('node:child_process');
-const { liveName } = require('./lib/resubtitle');
+const { liveName, versionsDir, listVersions } = require('./lib/resubtitle');
 const { AudioCapture, FileCapture, listDevices, listDevicesFfmpeg } = require('./lib/capture');
 const { Mp4Queue } = require('./lib/mp4');
 const { SummaryQueue } = require('./lib/summary');
@@ -61,6 +61,7 @@ function readJson(req) {
  * @param {object}   [opts.resubtitle]   ResubtitleQueue (needs the cloud login) for POST /api/recordings/resubtitle
  * @param {object}   [opts.uploads]      UploadQueue for POST /api/files/add
  * @param {function} [opts.cloudJobs]    async () => the account's upload jobs on the hosted server
+ * @param {function} [opts.cloudLanguages] async () => {sources, targets} — the languages a file job can be in, for GET /api/files/options
  * @param {function} [opts.deleteCloudJob] async (id) => void — delete one of them, for POST /api/cloud/jobs/delete
  * @param {function} [opts.onOpenDisplay] ({fullscreen}) => void
  * @param {function} [opts.displayStatus] () => {open, fullscreen}
@@ -136,19 +137,40 @@ async function createLocalServer(opts) {
   try { userPresets = JSON.parse(fs.readFileSync(PRESETS_FILE, 'utf8')); } catch (err) { if (err.code !== 'ENOENT') log('warn', `presets.json ignored: ${err.message}`); }
   const currentLook = () => { const o = {}; for (const k of PRESET_KEYS) o[k] = settings[k]; return o; };
   const presetsPayload = () => ({ builtin: schema.PRESETS, user: userPresets });
-  /** "Add file…": upload any video/audio file to the hosted server as a subtitling job, using the live languages. audioOnly: of a video, only its sound. */
-  function addFile(file, { audioOnly = false } = {}) {
+  // live language → the cloud's job languages. Russian is live-only: 录音文件识别 has no Russian engine.
+  const JOB_SOURCE = { yue: 'yue', zh: 'zh', zh_en: 'mixed', en: 'en', ja: 'ja', ko: 'ko', id: 'id', th: 'th' };
+  const JOB_TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko', yue: 'yue', id: 'id', th: 'th', ru: 'ru', zh_en: 'en' };
+  const needCloud = () => {
     if (!opts.uploads) { const e = new Error('cloud link not available'); e.code = 'cloud_unavailable'; throw e; }
     const cloud = opts.cloudStatus ? opts.cloudStatus() : null;
     if (!cloud || !cloud.loggedIn) { const e = new Error('Log in under Settings first'); e.code = 'login_first'; throw e; }
-    // live language → the cloud's job languages. Russian is live-only: 录音文件识别 has no Russian engine,
-    // so a Russian talk falls through to the "not transcribed yet" error below.
-    const SOURCE = { yue: 'yue', zh: 'zh', zh_en: 'mixed', en: 'en', ja: 'ja', ko: 'ko', id: 'id', th: 'th' };
-    const TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko', yue: 'yue', id: 'id', th: 'th', ru: 'ru', zh_en: 'en' };
-    const sourceLang = SOURCE[settings.source];
-    if (!sourceLang) throw new Error(`the cloud does not transcribe "${settings.source}" uploads yet`);
-    const queued = opts.uploads.add({ file, sourceLang, targetLang: TARGET[settings.target] || 'none', audioOnly });
-    log('info', `add file: ${path.basename(file)}${audioOnly ? ', audio only' : ''} (${sourceLang} → ${TARGET[settings.target] || 'none'})`);
+  };
+  /** What "Add file…" asks before anything is sent: a file is in its own languages, not in Live's. The server's list of what a file job can be in, with Live's pair to start from. */
+  async function addFileOptions(base) {
+    needCloud();
+    if (!opts.cloudLanguages) { const e = new Error('cloud link not available'); e.code = 'cloud_unavailable'; throw e; }
+    const langs = await opts.cloudLanguages();
+    if (base) return { sources: langs.sources, targets: langs.targets, ...recordingJobLangs(base, langs) }; // a recording being re-subtitled starts from the languages it is in
+    return { sources: langs.sources, targets: langs.targets, sourceLang: JOB_SOURCE[settings.source] || null, targetLang: JOB_TARGET[settings.target] || 'none' };
+  }
+  /** The languages a recording is in, as file-job languages, and the job that already holds its file. A manifest written by Live says them in Live's codes, one written from a job in the job's. */
+  function recordingJobLangs(base, langs = null) {
+    const was = names.languagesOf(opts.recordingsDir, base);
+    let manifest = {};
+    try { manifest = JSON.parse(fs.readFileSync(names.filePath(opts.recordingsDir, base, 'manifest'), 'utf8')) || {}; } catch { /* a recording from before manifests */ }
+    const known = (map, code) => (langs && code in map ? code : null);
+    const sourceLang = JOB_SOURCE[was.source] || (langs ? known(langs.sources, was.source) : was.source) || null;
+    const targetLang = was.target === was.source && (manifest.job || manifest.importedFrom) ? 'none' : JOB_TARGET[was.target] || (langs ? known(langs.targets, was.target) : was.target) || 'none';
+    return { sourceLang, targetLang, jobId: manifest.job || manifest.importedFrom || null };
+  }
+  /** "Add file…": upload any video/audio file to the hosted server as a subtitling job, in the languages the user confirmed (Live's when none are given). audioOnly: of a video, only its sound. */
+  function addFile(file, { audioOnly = false, sourceLang = null, targetLang = null } = {}) {
+    needCloud();
+    const source = sourceLang || JOB_SOURCE[settings.source];
+    if (!source) throw new Error(`the cloud does not transcribe "${settings.source}" uploads yet`);
+    const target = targetLang || JOB_TARGET[settings.target] || 'none';
+    const queued = opts.uploads.add({ file, sourceLang: source, targetLang: target, audioOnly });
+    log('info', `add file: ${path.basename(file)}${audioOnly ? ', audio only' : ''} (${source} → ${target})`);
     return queued;
   }
   /** Every file of a recording set (audio, subtitles, live backups, plain text, MP4, summary, PDF). */
@@ -181,12 +203,15 @@ async function createLocalServer(opts) {
   }
   /** Recordings with what the Files view needs: whether the subtitles came from the cloud, the live backups, the length. */
   function listRecordings() {
+    let live = [];
+    try { live = fs.readdirSync(opts.recordingsDir).filter((f) => /\.live\.(srt|mp4)$/.test(f)); } catch { /* no folder yet */ }
     return recorder.list().map((r) => {
-      const backups = [names.srtPath(opts.recordingsDir, r.base, r.target), names.srtPath(opts.recordingsDir, r.base, r.source), names.filePath(opts.recordingsDir, r.base, 'mp4')]
-        .map(liveName).filter((f) => fs.existsSync(f)).map((f) => path.basename(f));
+      // by name, not by the recording's languages: re-subtitled into others, the talk's own subtitles are still its backups
+      const backups = live.filter((f) => f.startsWith(r.base) && !/^\d/.test(f.slice(r.base.length)));
+      const versions = listVersions(opts.recordingsDir, r.base);
       let durationMs = null;
       try { const cues = readCues(opts.recordingsDir, r.base); if (cues.length) durationMs = cues[cues.length - 1].end; } catch { /* none */ }
-      return { ...r, resubtitled: backups.some((b) => /\.srt$/.test(b)), backups, durationMs };
+      return { ...r, resubtitled: backups.some((b) => /\.srt$/.test(b)) || versions.length > 0, backups, versions, durationMs };
     });
   }
   const savePresetsFile = () => fs.writeFile(PRESETS_FILE, JSON.stringify(userPresets, null, 2), (err) => { if (err) log('error', `saving presets: ${err.message}`); });
@@ -587,6 +612,9 @@ async function createLocalServer(opts) {
         log('info', `archive of ${bases.length} recording(s), ${files.length} files`);
         return undefined;
       }
+      if (p === '/api/files/options') {
+        try { return send(res, 200, await addFileOptions(url.searchParams.get('base') || '')); } catch (err) { return send(res, 400, { error: err.message, code: err.code }); }
+      }
       if (p === '/api/cloud/jobs') {
         if (!opts.cloudJobs) return send(res, 200, []);
         try { return send(res, 200, await opts.cloudJobs()); } catch (err) { return send(res, 200, []); }
@@ -663,7 +691,7 @@ async function createLocalServer(opts) {
         return send(res, 200, { ok: true });
       }
       case '/api/files/add': {
-        try { return send(res, 200, { ok: true, queued: addFile(String(body.path || ''), { audioOnly: body.audioOnly === true }), uploads: opts.uploads.status() }); } catch (err) { return send(res, 400, { error: err.message, code: err.code || (/not found/.test(err.message) ? 'file_not_found' : undefined) }); }
+        try { return send(res, 200, { ok: true, queued: addFile(String(body.path || ''), { audioOnly: body.audioOnly === true, sourceLang: /^[\w-]{1,16}$/.test(body.sourceLang || '') ? body.sourceLang : null, targetLang: /^[\w-]{1,16}$/.test(body.targetLang || '') ? body.targetLang : null }), uploads: opts.uploads.status() }); } catch (err) { return send(res, 400, { error: err.message, code: err.code || (/not found/.test(err.message) ? 'file_not_found' : undefined) }); }
       }
       case '/api/recordings/resubtitle': {
         const base = String(body.base || '');
@@ -671,14 +699,14 @@ async function createLocalServer(opts) {
         if (!opts.resubtitle) return send(res, 400, { error: 'cloud link not available', code: 'cloud_unavailable' });
         const cloud = opts.cloudStatus ? opts.cloudStatus() : null;
         if (!cloud || !cloud.loggedIn) return send(res, 400, { error: 'Log in under Settings first', code: 'login_first' });
-        // live codes → the cloud's upload languages (ENGINES / TARGETS in server/lib/jobs.js)
-        const SOURCE = { yue: 'yue', zh: 'zh', zh_en: 'mixed', en: 'en', ja: 'ja', ko: 'ko' };
-        const TARGET = { zh: 'zh', en: 'en', ja: 'ja', ko: 'ko' };
-        const sourceLang = SOURCE[settings.source];
-        if (!sourceLang) return send(res, 400, { error: `the cloud does not transcribe "${settings.source}" uploads yet`, code: 'unsupported_source', lang: settings.source });
-        const targetLang = TARGET[settings.target] || 'none';
-        const queued = opts.resubtitle.add({ base, dir: opts.recordingsDir, sourceLang, targetLang });
-        log('info', queued ? `re-subtitle requested for ${base} (${sourceLang} → ${targetLang})` : `re-subtitle for ${base} already in progress`);
+        // the languages the user confirmed; failing that the recording's own — not Live's, which say nothing about a recording made earlier
+        const own = recordingJobLangs(base);
+        const lang = (v) => (/^[\w-]{1,16}$/.test(v || '') ? v : null);
+        const sourceLang = lang(body.sourceLang) || own.sourceLang;
+        if (!sourceLang) return send(res, 400, { error: `the cloud does not transcribe "${names.languagesOf(opts.recordingsDir, base).source}" uploads yet`, code: 'unsupported_source', lang: names.languagesOf(opts.recordingsDir, base).source });
+        const targetLang = lang(body.targetLang) || own.targetLang;
+        const queued = opts.resubtitle.add({ base, dir: opts.recordingsDir, sourceLang, targetLang, jobId: own.jobId });
+        log('info', queued ? `re-subtitle requested for ${base} (${sourceLang} → ${targetLang}${own.jobId ? `, from job ${own.jobId}` : ''})` : `re-subtitle for ${base} already in progress`);
         return send(res, 200, { ok: true, queued, resubtitle: opts.resubtitle.status() });
       }
       case '/api/cloud/jobs/delete': {
@@ -755,6 +783,11 @@ async function createLocalServer(opts) {
       if (p === '/events') return sse(req, res, url);
       if (p.startsWith('/api/')) return await api(req, res, p, url);
       if (p === '/schema.js') return send(res, 200, fs.readFileSync(opts.schemaFile), MIME['.js']);
+      if (p.startsWith('/recording-versions/')) { // /recording-versions/<base>/<folder>/<file>: an earlier version's file
+        const [b, folder, name] = p.slice('/recording-versions/'.length).split('/').map((x) => path.basename(decodeURIComponent(x || '')));
+        const plain = [b, folder, name].every((x) => x && x !== '.' && x !== '..'); // names, not ways out of the folder
+        return serveRecording(req, res, plain ? path.join(path.basename(versionsDir(opts.recordingsDir, b)), folder, name) : '');
+      }
       if (p.startsWith('/recordings/')) return serveRecording(req, res, path.basename(decodeURIComponent(p.slice('/recordings/'.length))));
       const isShell = PAGES[p] === 'desktop.html' || /^\/files\/./.test(p);
       const rel = isShell ? 'desktop.html' : PAGES[p] || p.slice(1);

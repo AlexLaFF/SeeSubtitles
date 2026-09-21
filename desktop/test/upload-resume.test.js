@@ -57,6 +57,26 @@ async function cuttableWire(t, serverPort, cutAfter) {
   return { port: proxy.address().port, cuts: () => cuts };
 }
 
+/** A wire that goes dead without closing, once: after `freezeAfter` bytes it carries nothing more either way, and neither end is told. */
+async function freezableWire(t, serverPort, freezeAfter) {
+  let frozen = 0;
+  const held = [];
+  const proxy = net.createServer((client) => {
+    const up = net.connect(serverPort, '127.0.0.1');
+    held.push(client, up);
+    let sent = 0;
+    client.on('data', (d) => {
+      sent += d.length;
+      if (!frozen && sent > freezeAfter) { frozen++; client.unpipe(up); up.unpipe(client); client.pause(); client.removeAllListeners('data'); }
+    });
+    client.pipe(up); up.pipe(client);
+    client.on('error', () => up.destroy()); up.on('error', () => client.destroy());
+  });
+  await new Promise((r) => proxy.listen(0, '127.0.0.1', r));
+  t.after(() => { for (const s of held) s.destroy(); proxy.close(); });
+  return { port: proxy.address().port, frozen: () => frozen };
+}
+
 function link(port, token) {
   const cloud = new CloudLink({ log() {} });
   cloud.cfg = { ...cloud.cfg, url: `http://127.0.0.1:${port}`, token };
@@ -80,6 +100,26 @@ test('a file whose connection is cut half way arrives whole, carried on from whe
   const arrived = fs.readFileSync(path.join(s.root, 'jobs', job.id, 'source.mp4'));
   assert.equal(arrived.length, 8 * 1024 * 1024);
   assert.ok(arrived.equals(fs.readFileSync(file)), 'byte for byte the file');
+});
+
+test('a connection that goes dead without saying so is dropped, and a new one carries the file on', async (t) => {
+  const s = await startServer(t);
+  const wire = await freezableWire(t, s.port, 3 * 1024 * 1024);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'upload-freeze-src-')); t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'talk.mp4');
+  fs.writeFileSync(file, crypto.randomBytes(48 * 1024 * 1024)); // more than the buffers along a dead wire will swallow
+  const logs = []; const seen = [];
+  const q = new UploadQueue({ cloud: link(wire.port, s.token), retryMs: [50], quietMs: 150, stallMs: 600, log: (level, text) => logs.push(text) });
+  q.on('status', (st) => { if (st.current && st.current.retrying) seen.push(st.current.percent); });
+  const started = Date.now();
+  q.add({ file, sourceLang: 'yue', targetLang: 'zh' });
+  const job = await new Promise((resolve, reject) => { q.once('done', resolve); q.on('status', (st) => { if (st.last && st.last.ok === false) reject(new Error(st.last.error)); }); });
+  assert.equal(wire.frozen(), 1, 'the wire went dead');
+  assert.ok(seen.length, 'the row said it was waiting for the connection');
+  assert.ok(logs.some((l) => /took nothing for/.test(l)) && logs.some((l) => /carrying on from/.test(l)), logs.join('\n'));
+  assert.ok(Date.now() - started < 15_000, 'in seconds, not when TCP gets round to it');
+  // the server still holds the dead connection open: the new one had to take the file over from it
+  assert.ok(fs.readFileSync(path.join(s.root, 'jobs', job.id, 'source.mp4')).equals(fs.readFileSync(file)), 'byte for byte the file');
 });
 
 test('a video sent as audio only arrives as its sound', async (t) => {
