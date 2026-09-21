@@ -210,3 +210,35 @@ test('re-subtitling asks in the recording\'s own languages, sends the ones confi
   assert.equal(await file.text(), 'ZH v1');
   assert.equal((await get(`/recording-versions/${encodeURIComponent(base)}/..%2F..%2F/${encodeURIComponent(names.fileName(base, 'mp3', 'cn'))}`)).status, 404, 'only what is in a version folder');
 });
+
+test('Try again: the routes behind the button hand an upload, and a failed job, back to be run again', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'subtitle-retry-'));
+  const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
+  const calls = [];
+  const server = await createLocalServer({
+    webDir: path.resolve(__dirname, '../../web'), schemaFile: require.resolve('@subs/core/schema'),
+    dataDir: path.join(root, 'data'), recordingsDir: rec, transcriptsDir: path.join(root, 'transcripts'),
+    demo: true, token: 'test-token', env: { MP4_AUTO: '0' }, consoleLog() {},
+    cloudStatus: () => ({ loggedIn: true }),
+    retryCloudJob: async (id) => { calls.push(`job ${id}`); if (id === 'dead') throw new Error('job is not failed'); },
+    uploads: Object.assign(new (require('node:events').EventEmitter)(), {
+      status: () => ({ current: null, queue: [], queuedJobs: [], last: null }),
+      retryLast: () => { calls.push('last'); return true; },
+      resume: async (jobId, file) => { calls.push(`resume ${jobId} ${file || '-'}`); if (!file) throw Object.assign(new Error('this app no longer knows where that file is'), { code: 'need_file' }); return true; },
+    }),
+  });
+  t.after(async () => { await server.shutdown(); fs.rmSync(root, { recursive: true, force: true }); });
+  const post = (p, data) => fetch(server.base + p, { method: 'POST', headers: { cookie: 'token=test-token', 'content-type': 'application/json' }, body: JSON.stringify(data) });
+
+  assert.equal((await post('/api/files/retry', {})).status, 200);
+  const need = await post('/api/files/retry', { jobId: 'abc123' });
+  assert.equal(need.status, 400);
+  assert.equal((await need.json()).code, 'need_file', 'the window is told to ask for the file');
+  assert.equal((await post('/api/files/retry', { jobId: 'abc123', path: '/tmp/talk.mp4' })).status, 200);
+  assert.equal((await post('/api/cloud/jobs/retry', { id: 'abc123' })).status, 200);
+  const refused = await post('/api/cloud/jobs/retry', { id: 'dead' });
+  assert.equal(refused.status, 400);
+  assert.match((await refused.json()).error, /not failed/);
+  assert.equal((await post('/api/cloud/jobs/retry', { id: '../x' })).status, 400);
+  assert.deepEqual(calls, ['last', 'resume abc123 -', 'resume abc123 /tmp/talk.mp4', 'job abc123', 'job dead']);
+});

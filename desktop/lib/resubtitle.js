@@ -89,6 +89,7 @@ class ResubtitleQueue extends EventEmitter {
   /** Queue a recording. jobId: the job that holds this recording's file on the server already, if one does. Returns false if it is already queued or running. */
   add({ base, dir, sourceLang, targetLang, jobId = null }) {
     if ((this.current && this.current.base === base) || this.queue.some((q) => q.base === base)) return false;
+    if (this.last && this.last.base === base) this.last = null; // being tried again: what went wrong last time is no longer the news
     this.queue.push({ base, dir, sourceLang, targetLang, jobId });
     this._next();
     return true;
@@ -106,9 +107,10 @@ class ResubtitleQueue extends EventEmitter {
     const item = this.queue.shift();
     this.current = { ...item, stage: 'starting', percent: 0, startedAt: Date.now() };
     this.emit('status', this.status());
+    // a failure remembers the languages it was asked for: "Try again" asks for the same, without the sheet
     this._run(item).then(
       (files) => { this.last = { base: item.base, ok: true, files, at: Date.now() }; this.log('info', `re-subtitled ${item.base}: ${files.join(', ')}`); this.current = null; this.emit('status', this.status()); this.emit('done', { base: item.base, files }); this._next(); },
-      (err) => { this.last = { base: item.base, ok: false, error: err.message, at: Date.now() }; this.log('error', `re-subtitle ${item.base}: ${err.message}`); this.current = null; this.emit('status', this.status()); this.emit('error', { base: item.base, error: err.message }); this._next(); },
+      (err) => { this.last = { base: item.base, ok: false, error: err.message, sourceLang: item.sourceLang, targetLang: item.targetLang, at: Date.now() }; this.log('error', `re-subtitle ${item.base}: ${err.message}`); this.current = null; this.emit('status', this.status()); this.emit('error', { base: item.base, error: err.message }); this._next(); },
     );
   }
 

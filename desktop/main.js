@@ -217,6 +217,7 @@ async function startCore() {
     uploads,
     cloudJobs: async () => (cloud.status().loggedIn ? jobImporter.annotate(await cloud._fetch('/api/jobs', null, { method: 'GET' })) : []),
     deleteCloudJob: async (id) => { uploads.cancel(id); await cloud.deleteJob(id); },
+    retryCloudJob: (id) => cloud._fetch(`/api/jobs/${id}/retry`, {}),
     cloudLanguages: async () => (jobLanguages = jobLanguages || await cloud._fetch('/api/languages', null, { method: 'GET' })),
     onOpenDisplay: ({ fullscreen } = {}) => { const w = openDisplay(); if (fullscreen) w.setFullScreen(true); },
     displayStatus: () => ({ open: !!(wins.display && !wins.display.isDestroyed()), fullscreen: !!(wins.display && !wins.display.isDestroyed() && wins.display.isFullScreen()) }),

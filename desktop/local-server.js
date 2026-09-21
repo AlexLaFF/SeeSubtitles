@@ -62,6 +62,7 @@ function readJson(req) {
  * @param {object}   [opts.uploads]      UploadQueue for POST /api/files/add
  * @param {function} [opts.cloudJobs]    async () => the account's upload jobs on the hosted server
  * @param {function} [opts.cloudLanguages] async () => {sources, targets} — the languages a file job can be in, for GET /api/files/options
+ * @param {function} [opts.retryCloudJob]  async (id) => void — run a failed job again on the server, for POST /api/cloud/jobs/retry
  * @param {function} [opts.deleteCloudJob] async (id) => void — delete one of them, for POST /api/cloud/jobs/delete
  * @param {function} [opts.onOpenDisplay] ({fullscreen}) => void
  * @param {function} [opts.displayStatus] () => {open, fullscreen}
@@ -710,6 +711,22 @@ async function createLocalServer(opts) {
         const queued = opts.resubtitle.add({ base, dir: opts.recordingsDir, sourceLang, targetLang, jobId: own.jobId });
         log('info', queued ? `re-subtitle requested for ${base} (${sourceLang} → ${targetLang}${own.jobId ? `, from job ${own.jobId}` : ''})` : `re-subtitle for ${base} already in progress`);
         return send(res, 200, { ok: true, queued, resubtitle: opts.resubtitle.status() });
+      }
+      // "Try again", wherever something that takes a while can fail: an upload, a job on the server
+      case '/api/files/retry': {
+        if (!opts.uploads) return send(res, 400, { error: 'cloud link not available', code: 'cloud_unavailable' });
+        try {
+          const jobId = /^[a-f0-9]+$/.test(body.jobId || '') ? body.jobId : null;
+          // with a job: the server has part of the file, and it carries on (given the file again, if this app no longer knows where it is); without: the last one that never got as far as a job
+          const ok = jobId ? await opts.uploads.resume(jobId, body.path ? String(body.path) : null) : opts.uploads.retryLast();
+          log('info', `upload tried again${jobId ? ` (job ${jobId})` : ''}`);
+          return send(res, 200, { ok: !!ok, uploads: opts.uploads.status() });
+        } catch (err) { return send(res, 400, { error: err.message, code: err.code }); }
+      }
+      case '/api/cloud/jobs/retry': {
+        const id = String(body.id || '');
+        if (!opts.retryCloudJob || !/^[a-f0-9]+$/.test(id)) return send(res, 400, { error: 'cloud link not available', code: 'cloud_unavailable' });
+        try { await opts.retryCloudJob(id); log('info', `cloud job ${id} tried again`); return send(res, 200, { ok: true }); } catch (err) { return send(res, 400, { error: err.message, code: err.code }); }
       }
       case '/api/cloud/jobs/delete': {
         const id = String(body.id || '');

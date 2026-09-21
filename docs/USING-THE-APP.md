@@ -68,6 +68,23 @@ opens again, as long as the file is still where it was and unchanged. A row that
 waiting for the app (or browser tab) that was sending it; **Delete…** removes it, and the server drops what
 arrived of an upload nobody has come back to for a day.
 
+### When something fails: Try again
+
+Whatever takes a while can fail — an upload, a job on the server, a re-subtitle, an MP4, an AI summary — and none
+of them is a dead end. The failure is said where it happened (the file's row, and the recording's own page) with a
+**Try again** button beside it:
+
+- a re-subtitle is asked for again in the same languages, without the sheet; if the server had finished and only the
+  fetching failed, the subtitles are fetched rather than made a third time
+- an MP4 or an AI summary is simply made again
+- a job that failed on the server is run again there — what was heard is kept, so nothing is recognised twice
+- an upload the server has part of carries on from there. If this app no longer knows where the file is (it was begun
+  by an older version, or on another Mac), it asks for the file and checks it is the same one before sending the rest
+- an upload that failed before it began (no sound in the video, the server not there) is added again as it was asked for
+
+Before it gives up, the app has already tried by itself: a connection that goes quiet is replaced after twenty
+seconds, and a re-subtitle waits out five minutes of the server being unreachable.
+
 ### Cloud re-subtitling, and making subtitles again in other languages
 
 **Files › a recording › Actions › Re-subtitle** asks for the spoken and subtitle languages — starting from the

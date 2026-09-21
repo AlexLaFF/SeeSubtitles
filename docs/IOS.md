@@ -127,7 +127,10 @@ send a whole video or only its audio, are the Mac's alone. Re-subtitling on the 
 own languages without asking and keeps the talk's subtitles as `.live.srt` only: choosing other languages, the
 server making them again from the file it already has (`POST /api/jobs/<id>/regenerate`), and the `旧版本` folder
 of earlier versions (desktop/lib/resubtitle.js) are not on the phone yet — it gets them when its Recording page
-gets a languages row, since the server half is already there. The phone's only upload is re-subtitling, and it gains what the server gained on
+gets a languages row, since the server half is already there. The Mac's **Try again** line beside every failure
+(desktop: web/files.js `failure()`) has no counterpart to add on the phone: a failed re-subtitle, MP4 or summary
+shows its reason in a row of its own (RecordingView `work`) and the action's button stays where it was, so pressing
+it again is the retry. The phone's only upload is re-subtitling, and it gains what the server gained on
 2026-09-21: an upload may take longer than five minutes. Carrying a broken upload on from what the server has
 (`received`, then `PUT …/upload?offset=`) is done by the Mac and the web page, not yet by the phone: its upload is
 a recording's m4a, tens of megabytes, begun again if it breaks — port it from desktop/lib/uploads.js if that ever

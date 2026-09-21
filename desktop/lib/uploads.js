@@ -53,6 +53,7 @@ class UploadQueue extends EventEmitter {
     this.queue = [];
     this.current = null;
     this.last = null;
+    this.failed = null; // the item behind `last`, when it failed before it had a job: what "Try again" adds again
   }
   status() {
     const c = this.current;
@@ -85,6 +86,33 @@ class UploadQueue extends EventEmitter {
     }
     if (n) { this.log('info', `carrying on ${n} upload(s) from last time`); this._next(); }
     return n;
+  }
+  /** "Try again" on an upload that failed before it had a job (the sound could not be taken out, the server was not there). */
+  retryLast() {
+    const item = this.failed;
+    if (!item || !this.last || this.last.ok) return false;
+    this.failed = null; this.last = null;
+    return this.add({ file: item.source, sourceLang: item.sourceLang, targetLang: item.targetLang, audioOnly: item.audioOnly });
+  }
+  /**
+   * "Try again" on an upload the server has part of. One this app has written down carries on as it would when the
+   * app next opened. One it has not (it was begun by an older build, or let go) carries on too, given the file —
+   * which has to be the one that was being sent: the server said how big that was.
+   */
+  async resume(jobId, file = null) {
+    if ((this.current && this.current.jobId === jobId) || this.queue.some((q) => q.jobId === jobId)) return true;
+    const known = (this.getPending() || {})[jobId];
+    if (known && fs.existsSync(known.file)) { this.resumePending(); return true; }
+    if (!file) throw Object.assign(new Error('this app no longer knows where that file is'), { code: 'need_file' });
+    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) throw new Error('file not found');
+    const job = await this.cloud.getJob(jobId);
+    if (job.status !== 'uploading') throw new Error(job.status === 'failed' ? (job.error || 'the upload failed on the server') : 'the file has arrived already');
+    const st = fs.statSync(file);
+    if (job.size && st.size !== job.size) throw Object.assign(new Error(`that is not the file that was being sent: it is ${st.size} bytes, not ${job.size}`), { code: 'not_the_file' });
+    this._remember(jobId, { file, source: file, name: job.filename, size: st.size, mtimeMs: st.mtimeMs, temp: false, audioOnly: false });
+    if (this.last && this.last.jobId === jobId) this.last = null;
+    this.resumePending();
+    return true;
   }
   /** Give up the upload of this job — being sent or waiting its turn — because its row was deleted. */
   cancel(jobId) {
@@ -120,7 +148,7 @@ class UploadQueue extends EventEmitter {
         // logged out, the file waits for the next login; anything else hopeless, and a deleted row, let it go
         if (cur.jobId && !(loggedOut(err) && !cancelled)) this._forget(cur.jobId);
         else if (!cur.jobId && cur.temp) fs.rmSync(cur.temp, { force: true });
-        if (!cancelled) { this.last = { name: item.name, ok: false, error: err.message, jobId: cur.jobId || null, at: Date.now() }; this.log('error', `upload ${item.name}: ${err.message}`); }
+        if (!cancelled) { this.last = { name: item.name, ok: false, error: err.message, jobId: cur.jobId || null, at: Date.now() }; this.failed = cur.jobId ? null : item; this.log('error', `upload ${item.name}: ${err.message}`); }
         after();
       },
     );

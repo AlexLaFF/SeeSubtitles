@@ -179,6 +179,11 @@ test('a status check or a download that fails is tried again: the server goes on
   gone.add({ base, dir, sourceLang: 'ja', targetLang: 'zh', jobId: 'j1' });
   const err = await new Promise((resolve) => gone.once('error', resolve));
   assert.match(err.error, /used up/);
+  // Try again asks for the same languages without the sheet, so a failure remembers them — and is no longer the news once tried again
+  assert.deepEqual([gone.status().last.ok, gone.status().last.sourceLang, gone.status().last.targetLang], [false, 'ja', 'zh']);
+  gone.cloud.getJob = () => new Promise(() => {}); // never answers: the retry is simply under way
+  gone.add({ base, dir, sourceLang: 'ja', targetLang: 'zh', jobId: 'j1' });
+  assert.equal(gone.status().last, null);
 });
 
 test('subtitles the server already made in the languages asked for, and the Mac never fetched, are fetched — not made a third time', async (t) => {

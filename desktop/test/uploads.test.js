@@ -227,3 +227,42 @@ test('sound that m4a cannot hold as it is gets encoded instead; a file with none
   assert.deepEqual(fs.readdirSync(path.join(dir, 'tmp')), []);
   assert.equal(cloud.calls.filter((c) => c[0] === 'create').length, 1, 'no job for a file with nothing to send');
 });
+
+test('Try again: an upload that failed before it had a job is added again as it was asked for', async (t) => {
+  const dir = tmp(t);
+  const f = path.join(dir, 'Lecture.mp4'); fs.writeFileSync(f, Buffer.alloc(5000));
+  const cloud = fakeCloud();
+  let down = true;
+  const create = cloud.createJob;
+  cloud.createJob = async (b) => { if (down) throw Object.assign(new Error('the file subtitling hours of this month are used up'), { status: 403 }); return create(b); };
+  const q = new UploadQueue({ cloud, ffmpeg: fakeFfmpeg(dir), tmpDir: path.join(dir, 'tmp'), retryMs: [1] });
+  const waiting = idle(q);
+  q.add({ file: f, sourceLang: 'en', targetLang: 'ja', audioOnly: true });
+  await waiting;
+  assert.equal(q.status().last.ok, false);
+  assert.deepEqual(fs.readdirSync(path.join(dir, 'tmp')), [], 'the sound taken out for nothing is not kept');
+  down = false;
+  assert.equal(q.retryLast(), true);
+  assert.equal(q.status().last, null, 'what went wrong is no longer the news once it is being tried again');
+  await done(q);
+  assert.deepEqual(cloud.calls[0], ['create', 'Lecture.m4a', 5, 'en', 'ja'], 'the same languages, and audio only again');
+  assert.equal(q.retryLast(), false, 'nothing failed since');
+});
+
+test('Try again: an upload the server has part of carries on — also one this app never wrote down, given the same file', async (t) => {
+  const dir = tmp(t);
+  const f = path.join(dir, 'talk.mp4'); fs.writeFileSync(f, Buffer.alloc(1000));
+  const other = path.join(dir, 'other.mp4'); fs.writeFileSync(other, Buffer.alloc(999));
+  const cloud = fakeCloud();
+  cloud.jobs.j7 = { id: 'j7', status: 'uploading', received: 620, size: 1000, filename: 'talk.mp4' }; // begun by an older build: 62% there, nothing written down here
+  const s = store();
+  const q = new UploadQueue({ cloud, retryMs: [1], ...s });
+  await assert.rejects(q.resume('j7'), (e) => e.code === 'need_file', 'without the file there is nothing to carry on with: the window asks for it');
+  await assert.rejects(q.resume('j7', other), (e) => e.code === 'not_the_file', 'and it has to be the file that was being sent');
+  assert.deepEqual(cloud.calls, []);
+  assert.equal(await q.resume('j7', f), true);
+  assert.equal((await done(q)).id, 'j7');
+  assert.deepEqual(cloud.calls, [['upload', 'j7', 'talk.mp4', 620]], 'from where the server got to, not from 0');
+  assert.deepEqual(s.map, {});
+  await assert.rejects(q.resume('j7', f), /arrived already/);
+});

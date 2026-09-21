@@ -72,6 +72,42 @@
     const p = await d.chooseFile();
     if (p) addPath(p);
   }
+  /** Whatever takes a while can fail, and says so where it happened with a way to try it again — never a dead end. */
+  function failure(text, again) {
+    const box = el('div', { class: 'fail' });
+    box.appendChild(el('span', {}, text));
+    if (again) {
+      const b = el('button', { class: 'small' }, t('files.tryAgain'));
+      b.addEventListener('click', async (e) => { e.stopPropagation(); b.disabled = true; try { await again(); } finally { b.disabled = false; } });
+      box.appendChild(b);
+    }
+    return box;
+  }
+  /** What last went wrong with a recording and has not been put right since: the re-subtitle, the MP4, the summary. */
+  function failuresOf(r) {
+    const s = Sub.status || {}; const rs = s.resubtitle || {}; const out = [];
+    const busy = (q) => (q.current && q.current.base === r.base) || (q.queue || []).includes(r.base);
+    if (rs.last && rs.last.base === r.base && !rs.last.ok && !busy(rs)) out.push(failure(t('files.fail.resub', { error: rs.last.error }), () => post('/api/recordings/resubtitle', { base: r.base, sourceLang: rs.last.sourceLang, targetLang: rs.last.targetLang })));
+    for (const [q, key, path] of [[s.mp4 || {}, 'files.fail.mp4', '/api/recordings/mp4'], [s.summary || {}, 'files.fail.summary', '/api/recordings/summary']]) {
+      const last = [...(q.done || [])].reverse().find((d) => d.base === r.base);
+      if (last && !last.ok && !busy(q)) out.push(failure(t(key, { error: last.error }), () => post(path, { base: r.base })));
+    }
+    return out;
+  }
+  /** An upload the server has part of carries on; when this app no longer knows where the file is, it is asked for again. */
+  async function retryUpload(jobId) {
+    let r = await Sub.post('/api/files/retry', { jobId });
+    if (r && r.code === 'need_file') {
+      const d = App.desktop();
+      if (!d || !d.chooseFile) return alert(t('files.addNeedsApp'));
+      if (!confirm(t('files.retry.chooseFile'))) return;
+      const p = await d.chooseFile();
+      if (!p) return;
+      r = await Sub.post('/api/files/retry', { jobId, path: p });
+    }
+    if (r && r.error) alert(r.code === 'not_the_file' ? t('files.retry.notTheFile') : I18n.err(r)); else loadJobs().then(renderRows);
+  }
+
   /** A file that is sound already has nothing but sound to send. */
   const SOUND = /\.(mp3|m4a|aac|wav|flac|ogg|oga|opus|wma|aiff?|amr)$/i;
   const LAST = 'files.addLast'; // what the last file was sent as: files follow one another more than they follow Live
@@ -173,7 +209,7 @@
         else if (r.resubtitled) subs.appendChild(el('span', { class: 'tag done' }, t('files.tag.complete')));
         else if (r.srtTarget || r.srtSource) { subs.appendChild(el('span', { class: 'tag live' }, t('files.tag.live'))); subs.appendChild(el('span', { class: 'muted', style: 'font-size:11px;margin-left:6px' }, t('files.fromTalk'))); }
         else subs.appendChild(el('span', { class: 'muted' }, t('files.tag.none')));
-        if (rs.last && rs.last.base === r.base && !rs.last.ok) subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px;color:var(--bad)' }, rs.last.error));
+        for (const f of failuresOf(r)) subs.appendChild(f);
         const mp4 = tr.appendChild(el('td'));
         if (r.mp4) mp4.textContent = '✓';
         else if (mp.current && mp.current.base === r.base) { mp4.appendChild(el('span', { class: 'tag busy' }, `${mp.current.percent}%`)); }
@@ -193,7 +229,12 @@
       } else if (it.job) {
         const j = it.job;
         if (j.status === 'done') subs.appendChild(el('span', { class: 'tag done' }, t('files.tag.cues', { n: j.cues })));
-        else if (j.status === 'failed') { subs.appendChild(el('span', { class: 'tag bad', title: j.error || '' }, t('files.tag.failed'))); if (/^upload /.test(j.error || '')) subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px;color:var(--bad)' }, t('files.uploadFailed'))); }
+        else if (j.status === 'failed') {
+          subs.appendChild(el('span', { class: 'tag bad' }, t('files.tag.failed')));
+          // what arrived of a failed upload is gone, so that one is added again; anything else the server can simply run again
+          if (/^upload /.test(j.error || '')) subs.appendChild(failure(t('files.uploadFailed')));
+          else subs.appendChild(failure(j.error || '', async () => { await post('/api/cloud/jobs/retry', { id: j.id }); await loadJobs(); renderRows(); }));
+        }
         else if (j.status === 'uploading') {
           const here = j.size ? ((j.received || 0) / j.size) * 100 : 0; // how much of it the server has
           if (it.upload) { subs.appendChild(el('span', { class: 'tag busy' }, t(it.upload.retrying ? 'files.tag.reconnecting' : 'files.tag.uploading', { pct: it.upload.percent }))); subs.appendChild(progress(it.upload.percent)); }
@@ -201,7 +242,7 @@
           else if (j.receiving) { subs.appendChild(el('span', { class: 'tag busy' }, t('files.tag.uploading', { pct: Math.round(here) }))); subs.appendChild(progress(here)); } // another device is sending it
           else { // nobody is: it carries on when its sender is back, and until then it says so
             subs.appendChild(el('span', { class: 'tag bad' }, t('files.tag.interrupted', { pct: Math.round(here) })));
-            subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px' }, up.last && !up.last.ok && up.last.jobId === j.id ? up.last.error : t('files.uploadInterrupted')));
+            subs.appendChild(failure(up.last && !up.last.ok && up.last.jobId === j.id ? up.last.error : t('files.uploadInterrupted'), () => retryUpload(j.id)));
           }
         }
         else { subs.appendChild(el('span', { class: 'tag busy' }, stageName(j.status))); subs.appendChild(progress(j.progress)); }
@@ -213,7 +254,7 @@
         del.addEventListener('click', async (e) => { e.stopPropagation(); if (!confirm(t('files.deleteJobConfirm', { name: j.filename }))) return; const r = await post('/api/cloud/jobs/delete', { id: j.id }); if (r && !r.error) { await loadJobs(); renderRows(); } });
         tr.addEventListener('click', () => { const c = Sub.status.cloud; if (c && c.url) App.openExternal(`${c.url}/jobs/${j.id}`); });
       } else {
-        if (it.failed) { subs.appendChild(el('span', { class: 'tag bad' }, t('files.tag.failed'))); subs.appendChild(el('div', { class: 'muted', style: 'font-size:11px;color:var(--bad)' }, it.failed.error)); }
+        if (it.failed) { subs.appendChild(el('span', { class: 'tag bad' }, t('files.tag.failed'))); subs.appendChild(failure(it.failed.error, async () => { const r = await post('/api/files/retry', {}); if (r && !r.error) { await loadJobs(); renderRows(); } })); }
         else if (it.queued) subs.appendChild(el('span', { class: 'tag busy' }, t('files.tag.queued')));
         else if (it.upload.stage === 'extracting') subs.appendChild(el('span', { class: 'tag busy' }, stageName('extracting')));
         else subs.appendChild(el('span', { class: 'tag busy' }, t('files.tag.uploading', { pct: it.upload.percent })));
@@ -306,6 +347,7 @@
     root.innerHTML = `
       <div class="top"><h1><a class="crumb" id="btnBack" href="#">${t('files.crumb')}</a> <span id="dTitle" style="cursor:text" title="${t('files.rename')}"></span></h1><div class="chips"><span id="dChip" class="chip"></span></div><div class="grow"></div>
         <button id="btnSummary" class="ghost">${t('files.aiSummary')}</button><button id="btnActions" class="ghost">${t('files.actions')}</button><button id="btnDownload" class="primary">${t('files.download')}</button></div>
+      <div id="dFail" style="padding:0 24px"></div>
       <div class="body">
         <div class="col scroll" style="flex:0 1 560px;min-width:340px">
           <div class="ui" style="padding:10px"><div class="stage-p" id="pstage"></div><audio id="audio" controls preload="metadata" style="width:100%;margin-top:8px"></audio>
@@ -412,6 +454,9 @@
       $('btnSummary').disabled = summarising() || !cues.length;
       $('btnSummary').hidden = !canSummarise();
       $('btnSummary').textContent = summarising() ? t('files.summaryBusy') : rec().summary ? t('files.regenSummary') : t('files.aiSummary');
+      // what went wrong here last, with a way to try it again: on the recording's own page too, where it may have been started
+      const fails = failuresOf(rec()); const failKey = fails.map((f) => f.textContent).join('|');
+      const box = $('dFail'); if (box && box.dataset.key !== failKey) { box.dataset.key = failKey; box.replaceChildren(...fails); }
       if (key === view.detailKey && $('dChip').dataset.done) return;
       const changed = view.detailKey && key !== view.detailKey && !busy; // something finished: reload files/cues
       view.detailKey = key;
