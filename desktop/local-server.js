@@ -209,9 +209,11 @@ async function createLocalServer(opts) {
       // by name, not by the recording's languages: re-subtitled into others, the talk's own subtitles are still its backups
       const backups = live.filter((f) => f.startsWith(r.base) && !/^\d/.test(f.slice(r.base.length)));
       const versions = listVersions(opts.recordingsDir, r.base);
+      let fromCloud = false; // an added file never had a talk: its subtitles were made on the server from the start
+      try { const m = JSON.parse(fs.readFileSync(names.filePath(opts.recordingsDir, r.base, 'manifest'), 'utf8')); fromCloud = !!(m && (m.job || m.importedFrom)); } catch { /* no manifest: a recording from before them, so from a talk */ }
       let durationMs = null;
       try { const cues = readCues(opts.recordingsDir, r.base); if (cues.length) durationMs = cues[cues.length - 1].end; } catch { /* none */ }
-      return { ...r, resubtitled: backups.some((b) => /\.srt$/.test(b)) || versions.length > 0, backups, versions, durationMs };
+      return { ...r, resubtitled: backups.some((b) => /\.srt$/.test(b)) || versions.length > 0 || fromCloud, backups, versions, durationMs };
     });
   }
   const savePresetsFile = () => fs.writeFile(PRESETS_FILE, JSON.stringify(userPresets, null, 2), (err) => { if (err) log('error', `saving presets: ${err.message}`); });

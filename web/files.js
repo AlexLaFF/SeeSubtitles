@@ -307,13 +307,13 @@
       <div class="top"><h1><a class="crumb" id="btnBack" href="#">${t('files.crumb')}</a> <span id="dTitle" style="cursor:text" title="${t('files.rename')}"></span></h1><div class="chips"><span id="dChip" class="chip"></span></div><div class="grow"></div>
         <button id="btnSummary" class="ghost">${t('files.aiSummary')}</button><button id="btnActions" class="ghost">${t('files.actions')}</button><button id="btnDownload" class="primary">${t('files.download')}</button></div>
       <div class="body">
-        <div class="col scroll" style="width:560px;flex:none">
+        <div class="col scroll" style="flex:0 1 560px;min-width:340px">
           <div class="ui" style="padding:10px"><div class="stage-p" id="pstage"></div><audio id="audio" controls preload="metadata" style="width:100%;margin-top:8px"></audio>
             <div class="row wide" style="margin:8px 0 0"><label>${t('files.showOriginal')}</label><div style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="showSrc"><span class="hint" style="margin:0">${t('files.showOriginalHint')}</span></div></div></div>
           <div class="ui"><h3>${t('files.talk')}</h3><div class="kv2" id="dTalk"></div></div>
           <div class="ui"><h3>${t('files.filesHeading')}</h3><div id="dFiles" class="flist"></div></div>
         </div>
-        <div class="col" style="flex:1;min-height:0">
+        <div class="col" style="flex:1 1 440px;min-width:0;min-height:0">
           <div class="ui" style="flex:1;display:flex;flex-direction:column;min-height:0">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="pills"><button class="pill on" id="tabSubs">${t('files.tab.subtitles')}</button><button class="pill" id="tabSum">${t('files.tab.summary')}</button></div><div class="grow"></div><span class="muted" id="dHint">${t('files.editHint')}</span></div>
             <div class="cues" id="cues"></div>

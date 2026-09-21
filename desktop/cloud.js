@@ -144,7 +144,7 @@ class CloudLink {
     const { pipeline } = require('node:stream/promises');
     const { Readable } = require('node:stream');
     const res = await fetch(`${this.cfg.url.replace(/\/$/, '')}/jobs/${id}/files/${encodeURIComponent(name)}`, { headers: { authorization: `Bearer ${this.cfg.token}` } });
-    if (!res.ok) throw new Error(`download ${name}: ${res.status} ${res.statusText}`);
+    if (!res.ok) throw Object.assign(new Error(`download ${name}: ${res.status} ${res.statusText}`), { status: res.status });
     await pipeline(Readable.fromWeb(res.body), fs.createWriteStream(`${dest}.part`));
     fs.renameSync(`${dest}.part`, dest);
     return dest;

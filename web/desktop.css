@@ -20,6 +20,13 @@ body.shell { margin: 0; padding: 0; background: var(--bg); color: var(--fg); fon
 .shell .top { display: flex; align-items: center; gap: 14px; padding: 14px 24px 6px; min-height: 52px; box-sizing: border-box; -webkit-app-region: drag; }
 .shell .top > * { -webkit-app-region: no-drag; }
 .shell .top h1 { margin: 0; font: 600 21px/1.2 var(--ui); letter-spacing: -.01em; white-space: nowrap; }
+/* A window too narrow for the row: the title is shortened first, then the status beside it; the buttons are never
+   the ones to go — they were, pushed off the right edge by a title that could not shrink. */
+.shell .top h1 { flex: 0 1000 auto; min-width: min-content; overflow: hidden; text-overflow: ellipsis; } /* "Live", "Files": a page's own title is short and is not cut */
+.shell .top h1:has(.crumb) { min-width: min(220px, 30%); } /* a recording's name is as long as its owner made it: that is what gives way, down to a stub that can still be read */
+.shell .top .chips { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+.shell .top .grow { min-width: 0; }
+.shell .top > button, .shell .top > .btns, .shell .top > select { flex: none; }
 .shell .top .crumb { color: var(--fg-3); font-weight: 400; }
 .shell .chips { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: var(--fg-2); font-size: 12.5px; }
 .shell .chip { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }

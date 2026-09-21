@@ -152,3 +152,57 @@ test('a file the server no longer has is sent again; a talk\'s own subtitles sti
   assert.deepEqual(listVersions(dir, base), [], 'the talk\'s own went to .live., so there is no version to make');
   assert.deepEqual(names2.languagesOf(dir, base), { source: 'yue', target: 'en' });
 });
+
+test('a status check or a download that fails is tried again: the server goes on with the work whether or not it is watched', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'resub-patient-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const base = '9月7号09点00分';
+  fs.writeFileSync(names2.filePath(dir, base, 'mp3'), 'audio');
+  fs.writeFileSync(path.join(dir, names2.fileName(base, 'manifest', 'cn')), JSON.stringify({ base, source: 'zh', target: 'zh', importedFrom: 'j1' }));
+  fs.writeFileSync(path.join(dir, names2.srtName(base, 'zh')), 'ZH v1');
+  let polls = 0; let downloads = 0;
+  const aborted = () => Object.assign(new Error('This operation was aborted'), { name: 'AbortError' }); // what a VPN that blinks looks like from here
+  const cloud = {
+    regenerateJob: async (id) => ({ id, status: 'queued' }),
+    getJob: async (id) => { polls++; if (polls === 3 || polls === 4) throw aborted(); return polls < 6 ? { id, status: 'translating', progress: 50, source_lang: 'zh', target_lang: 'zh' } : { id, status: 'done', source_lang: 'ja', target_lang: 'en', files: ['a.ja.srt', 'a.en.srt'] }; },
+    downloadJobFile: async (id, name, dest) => { if (++downloads === 1) throw new Error('fetch failed'); fs.writeFileSync(dest, name); },
+  };
+  const q = new ResubtitleQueue({ cloud, pollMs: 1 });
+  q.add({ base, dir, sourceLang: 'ja', targetLang: 'en', jobId: 'j1' });
+  await new Promise((resolve, reject) => { q.once('done', resolve); q.once('error', (e) => reject(new Error(e.error))); });
+  assert.ok(polls >= 6 && downloads === 3, `${polls} polls, ${downloads} downloads`);
+  assert.equal(fs.readFileSync(path.join(dir, names2.srtName(base, 'en')), 'utf8'), 'a.en.srt');
+  assert.deepEqual(names2.languagesOf(dir, base), { source: 'ja', target: 'en' });
+
+  // what the server refuses is an answer, not an outage
+  const gone = new ResubtitleQueue({ cloud: { ...cloud, getJob: async () => { throw Object.assign(new Error('no such job'), { status: 404 }); }, regenerateJob: async () => { throw new Error('never asked'); }, createJob: async () => { throw Object.assign(new Error('the file subtitling hours of this month are used up'), { status: 403 }); } }, pollMs: 1 });
+  gone.add({ base, dir, sourceLang: 'ja', targetLang: 'zh', jobId: 'j1' });
+  const err = await new Promise((resolve) => gone.once('error', resolve));
+  assert.match(err.error, /used up/);
+});
+
+test('subtitles the server already made in the languages asked for, and the Mac never fetched, are fetched — not made a third time', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'resub-fetch-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const base = 'SPSA 08';
+  fs.writeFileSync(names2.filePath(dir, base, 'mp3'), 'audio');
+  fs.writeFileSync(path.join(dir, names2.fileName(base, 'manifest', 'cn')), JSON.stringify({ base, source: 'zh', target: 'zh', importedFrom: 'c0ba' }));
+  fs.writeFileSync(path.join(dir, names2.srtName(base, 'zh')), 'ZH as imported');
+  const calls = [];
+  const cloud = {
+    regenerateJob: async (id, l) => { calls.push(`regenerate ${l.sourceLang}→${l.targetLang}`); return { id, status: 'queued' }; },
+    getJob: async (id) => ({ id, status: 'done', source_lang: 'ja', target_lang: 'en', files: ['v.ja.srt', 'v.en.srt'] }),
+    downloadJobFile: async (id, name, dest) => { calls.push(`download ${name}`); fs.writeFileSync(dest, name); },
+  };
+  const q = new ResubtitleQueue({ cloud, pollMs: 1 });
+  q.add({ base, dir, sourceLang: 'ja', targetLang: 'en', jobId: 'c0ba' });
+  await new Promise((resolve, reject) => { q.once('done', resolve); q.once('error', (e) => reject(new Error(e.error))); });
+  assert.deepEqual(calls, ['download v.ja.srt', 'download v.en.srt'], 'the server was not asked to make them again');
+  assert.deepEqual(names2.languagesOf(dir, base), { source: 'ja', target: 'en' });
+  assert.deepEqual(listVersions(dir, base).map((v) => `${v.n}:${v.source}→${v.target}`), ['1:zh→zh'], 'and what the Mac had is kept');
+
+  // now the Mac is where the server is: asking for the same languages again really does make them again
+  q.add({ base, dir, sourceLang: 'ja', targetLang: 'en', jobId: 'c0ba' });
+  await new Promise((resolve) => q.once('done', resolve));
+  assert.equal(calls.filter((c) => c.startsWith('regenerate')).length, 1);
+});

@@ -10,6 +10,11 @@
 // so has no `.live.` name to go to — moves into <base>旧版本/<n> <spoken>→<subtitles>/ with the MP4 made from it and
 // a copy of the summary. When the file is on the server already (it was added from there, or re-subtitled before:
 // the manifest's `job`), the server makes the subtitles again from its copy and nothing is uploaded.
+//
+// The server does the work whether or not the app is watching, so the app is as patient as the work is long: a status
+// check or a download that fails (a VPN that blinks, 2026-09-21) is tried again rather than ending the whole thing —
+// it used to, leaving the server with new subtitles the Mac never fetched. And when that has happened, asking again
+// fetches them instead of making a third set.
 const fs = require('node:fs');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
@@ -50,11 +55,12 @@ class ResubtitleQueue extends EventEmitter {
    * @param {object} o.cloud   CloudLink: createJob, uploadJob, regenerateJob, getJob, downloadJobFile, status()
    * @param {number} [o.pollMs]
    */
-  constructor({ cloud, log, pollMs = 2000 } = {}) {
+  constructor({ cloud, log, pollMs = 2000, patienceMs = 5 * 60_000 } = {}) {
     super();
     this.cloud = cloud;
     this.log = log || (() => {});
     this.pollMs = pollMs;
+    this.patienceMs = patienceMs; // how long the server may go unreachable before the app stops waiting for it
     this.queue = [];
     this.current = null;
     this.last = null;
@@ -66,6 +72,18 @@ class ResubtitleQueue extends EventEmitter {
       queue: this.queue.map((q) => q.base),
       last: this.last,
     };
+  }
+
+  /** A request to the server, tried again while the server cannot be reached; what it refuses (4xx) is an answer, not an outage. */
+  async _patiently(ask) {
+    const since = Date.now();
+    for (;;) {
+      try { return await ask(); } catch (err) {
+        if ((err.status >= 400 && err.status < 500) || /not logged in|URL is not set/.test(err.message) || Date.now() - since > this.patienceMs) throw err;
+        this.log('warn', `re-subtitle: ${err.message} — the server goes on with it; asking again`);
+        await new Promise((r) => setTimeout(r, Math.max(this.pollMs, 1)));
+      }
+    }
   }
 
   /** Queue a recording. jobId: the job that holds this recording's file on the server already, if one does. Returns false if it is already queued or running. */
@@ -100,7 +118,20 @@ class ResubtitleQueue extends EventEmitter {
     let job = null;
     if (jobId) {
       // the file is on the server already: it makes the subtitles again from its copy, keeping its own version of the old ones
-      try { job = await this.cloud.regenerateJob(jobId, { sourceLang, targetLang }); this.log('info', `re-subtitle ${base}: the server has the file already (job ${jobId}), nothing is uploaded`); } catch (err) {
+      try {
+        const there = await this._patiently(() => this.cloud.getJob(jobId));
+        const asked = there.source_lang === sourceLang && there.target_lang === targetLang;
+        const was = names.languagesOf(dir, base);
+        const behind = was.source !== sourceLang || was.target !== (targetLang !== 'none' ? targetLang : sourceLang);
+        if (asked && behind && there.status !== 'failed') {
+          // made already (or being made) in these languages, and never fetched — the app stopped watching last time
+          job = there;
+          this.log('info', `re-subtitle ${base}: the server ${there.status === 'done' ? 'already has' : 'is already making'} these subtitles (job ${jobId}); fetching them`);
+        } else {
+          job = await this.cloud.regenerateJob(jobId, { sourceLang, targetLang });
+          this.log('info', `re-subtitle ${base}: the server has the file already (job ${jobId}), nothing is uploaded`);
+        }
+      } catch (err) {
         if (err.status !== 404 && !/no longer on the server/.test(err.message)) throw err; // gone from there: send it again
       }
     }
@@ -115,8 +146,9 @@ class ResubtitleQueue extends EventEmitter {
     this.current.jobId = job.id;
     let j = job;
     for (;;) {
+      if (j.status === 'done') break;
       await new Promise((r) => setTimeout(r, this.pollMs));
-      j = await this.cloud.getJob(job.id);
+      j = await this._patiently(() => this.cloud.getJob(job.id));
       if (j.status === 'done') break;
       if (j.status === 'failed') throw new Error(j.error || 'the cloud job failed');
       this._set(j.status, Number(j.progress) || 0);
@@ -132,7 +164,7 @@ class ResubtitleQueue extends EventEmitter {
         const lang = slot === 'source' ? sourceLang : targetLang;
         if (!remote) throw new Error(`the cloud job produced no .${lang}.srt`);
         const dest = names.srtPath(dir, base, lang);
-        await this.cloud.downloadJobFile(job.id, remote, `${dest}.new`);
+        await this._patiently(() => this.cloud.downloadJobFile(job.id, remote, `${dest}.new`));
         arrived.push(dest);
       }
     } catch (err) { for (const d of arrived) fs.rmSync(`${d}.new`, { force: true }); throw err; }
