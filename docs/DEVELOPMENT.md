@@ -144,6 +144,9 @@ start with uncommitted changes, or while the server has carried a talk in the la
 - what a talk leaves behind: MP3, subtitles in both languages, plain text, the manifest, an AI summary; and the
   server's burnt-in MP4 for an uploaded file
 - uploads: a recording uploaded from the app comes back as subtitles and is imported as a recording
+- regenerate: the app's re-subtitle queue makes that recording's subtitles again in another language from the file
+  the server already has — no second job, no file time charged, the old subtitles kept to the byte as a version on
+  the Mac (`旧版本`) and on the server (`versions/1`, still downloadable, the MP4 made from them among its files)
 - languages, the update feed and every page; and last, that neither key appears in any response or any file written
 
 Subtitles are checked for Traditional characters, source lines for Cantonese ones.

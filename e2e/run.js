@@ -25,6 +25,7 @@ const { createLocalServer } = require(path.join(ROOT, 'desktop/local-server'));
 const { CloudLink } = require(path.join(ROOT, 'desktop/cloud'));
 const { UploadQueue } = require(path.join(ROOT, 'desktop/lib/uploads'));
 const { JobImporter } = require(path.join(ROOT, 'desktop/lib/import-job'));
+const { ResubtitleQueue, listVersions, versionsDir } = require(path.join(ROOT, 'desktop/lib/resubtitle'));
 const names = require('@subs/core/names');
 
 const args = process.argv.slice(2);
@@ -279,6 +280,7 @@ async function main() {
   let memberTalk = null;
   let ownerTalk = null;
   let job = null;
+  let imported = null; // the recording the finished upload became on the Mac
 
   try {
     // ---- accounts ------------------------------------------------------------------------------------------------
@@ -599,6 +601,7 @@ async function main() {
       for (const f of [names.fileName(base, 'mp3'), names.fileName(base, 'manifest'), names.srtName(base, job.target_lang)]) {
         must(fs.existsSync(path.join(member.rec, f)), `the import has no ${f}`);
       }
+      imported = base;
       return base;
     });
 
@@ -627,6 +630,54 @@ async function main() {
       must(kinds.includes('video') && kinds.includes('audio'), `the MP4 has ${kinds.join(' + ')}`);
       must(Math.abs(Number(p.format.duration) - clips.upload.seconds) < 3, `the MP4 is ${Number(p.format.duration).toFixed(1)} s for ${clips.upload.seconds} s of audio`);
       return `${Number(p.format.duration).toFixed(0)} s, ${(fs.statSync(dest).size / 1e6).toFixed(1)} MB`;
+    });
+
+    // A file is in its own languages, and the first guess can be wrong: the app makes the subtitles again in another,
+    // from the file the server already has. After the MP4 check on purpose — that video belongs to the old subtitles
+    // and has to be kept with them.
+    await check('regenerate: the app makes a file\'s subtitles again in another language — nothing uploaded, nothing recognised twice, everything made before kept', async () => {
+      must(job && imported, 'no imported upload to make again');
+      const base = imported;
+      const was = job.target_lang;
+      const other = was === 'en' ? 'ja' : 'en';
+      const used = async () => (await http(`${server.base}/api/me`, { token: tokens.member })).json.plan.used.fileSeconds;
+      const count = async () => (await http(`${server.base}/api/jobs`, { token: tokens.member })).json.length;
+      const before = { seconds: await used(), jobs: await count(), srt: fs.readFileSync(path.join(member.rec, names.srtName(base, was)), 'utf8') };
+      const manifest = JSON.parse(fs.readFileSync(path.join(member.rec, names.fileName(base, 'manifest')), 'utf8'));
+      must(manifest.importedFrom === job.id, 'the recording does not say which job it came from');
+
+      const again = new ResubtitleQueue({ cloud: member.cloud, log: () => {} });
+      again.add({ base, dir: member.rec, sourceLang: job.source_lang, targetLang: other, jobId: manifest.importedFrom });
+      await waitFor('the subtitles to be made again', () => again.last && (again.last.ok ? true : Promise.reject(new Error(again.last.error))), 10 * 60_000, 1000);
+
+      // on the Mac: the recording is in its new language, and the old subtitles are a version, to the byte
+      const cues = srtCues(fs.readFileSync(path.join(member.rec, names.srtName(base, other)), 'utf8'));
+      must(cues.length >= clips.upload.minCues, `only ${cues.length} subtitles in ${other}`);
+      if (other === 'en') must(/[A-Za-z]{3,}/.test(cues.join(' ')) && !/[\u4e00-\u9fff]{4,}/.test(cues.join('')), `these are not English: ${cues.slice(0, 2).join(' / ')}`);
+      must(names.languagesOf(member.rec, base).target === other, 'the recording does not say it is in the new language');
+      must(!fs.existsSync(path.join(member.rec, names.srtName(base, was))), `the ${was} subtitles are still beside the recording`);
+      const [v] = listVersions(member.rec, base);
+      must(v && v.target === was, `no version holding the ${was} subtitles on the Mac`);
+      must(fs.readFileSync(path.join(versionsDir(member.rec, base), v.folder, names.srtName(base, was)), 'utf8') === before.srt, 'the kept subtitles are not the ones that were there');
+
+      // on the server: the same job, its old outputs a version that can still be downloaded — the MP4 made from them too
+      const j = await member.cloud.getJob(job.id);
+      must(j.status === 'done' && j.target_lang === other, `the job is ${j.status}, ${j.source_lang} → ${j.target_lang}`);
+      must((j.versions || []).length === 1 && j.versions[0].targetLang === was, `the server kept ${JSON.stringify((j.versions || []).map((x) => x.targetLang))}`);
+      const kept = j.versions[0].files;
+      const oldSrt = kept.find((f) => f.endsWith(`.${was}.srt`));
+      must(oldSrt, `no ${was} subtitles in the server's version: ${kept.join(', ')}`);
+      must(!(j.files || []).some((f) => f.endsWith(`.${was}.srt`)), 'the old subtitles are still among the job\'s current files');
+      const file = await http(`${server.base}/jobs/${job.id}/versions/1/files/${encodeURIComponent(oldSrt)}`, { token: tokens.member });
+      must(file.status === 200 && srtCues(file.text).length >= clips.upload.minCues, `the kept subtitles do not download (${file.status})`);
+      const hadMp4 = kept.some((f) => f.endsWith('.mp4'));
+
+      // and nothing was sent or heard a second time
+      must(await count() === before.jobs, 'a second job was made: the file was uploaded again');
+      const charged = await used();
+      must(charged === before.seconds, `file time went from ${before.seconds} s to ${charged} s: the speech was recognised again`);
+      job = j;
+      return `${was} → ${other}: ${cues.length} subtitles; version 1 keeps ${kept.length} files${hadMp4 ? ', the MP4 among them' : ''}; no upload, no file time`;
     });
 
     await check('pages: every page of the site and the shared screen loads', async () => {
