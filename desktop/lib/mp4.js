@@ -26,7 +26,12 @@ function probeDuration(file, ffmpeg = 'ffmpeg') {
 }
 
 class Mp4Queue extends EventEmitter {
-  constructor({ dir, size = '1080x1920', fontSize = 64, show = 'target', fps = 15, encoder = 'libx264', lines = 60, ffmpeg = 'ffmpeg' } = {}) {
+  /**
+   * `quality` is h264_videotoolbox's constant-quality setting (1–100, higher is better and larger). The frames are
+   * near-static subtitle cards, so constant quality keeps an hour small where a fixed bitrate would not; 55 was
+   * picked by measuring e2e/mac.js's output on a real talk.
+   */
+  constructor({ dir, size = '1080x1920', fontSize = 64, show = 'target', fps = 15, quality = 55, lines = 60, ffmpeg = 'ffmpeg' } = {}) {
     super();
     this.dir = dir;
     const m = /^(\d+)x(\d+)$/.exec(size) || [null, 1080, 1920];
@@ -35,7 +40,7 @@ class Mp4Queue extends EventEmitter {
     this.fontSize = fontSize;
     this.show = show === 'both' ? 'both' : 'target';
     this.fps = fps;
-    this.encoder = encoder;
+    this.quality = Math.max(1, Math.min(100, Number(quality) || 55));
     this.lines = lines;
     this.ffmpeg = ffmpeg;
     this.queue = [];
@@ -117,8 +122,9 @@ class Mp4Queue extends EventEmitter {
       const ff = ['-y', '-hide_banner', '-loglevel', 'error', '-nostats', '-progress', 'pipe:1',
         '-f', 'concat', '-safe', '0', '-i', path.join(tmp, 'concat.txt'), '-i', mp3];
       ff.push('-map', '0:v', '-map', '1:a', '-sn', '-t', duration.toFixed(3), '-vf', `fps=${this.fps},format=yuv420p`);
-      if (this.encoder === 'h264_videotoolbox') ff.push('-c:v', 'h264_videotoolbox', '-b:v', '1500k');
-      else ff.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-tune', 'stillimage', '-g', String(this.fps * 10));
+      // The Mac's own H.264 encoder: every Apple-silicon Mac has it, and it keeps the shipped ffmpeg free of x264
+      // (GPL) — see scripts/build-ffmpeg.sh. A keyframe every ten seconds so seeking stays quick.
+      ff.push('-c:v', 'h264_videotoolbox', '-q:v', String(this.quality), '-g', String(this.fps * 10));
       ff.push('-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', '-f', 'mp4', part);
       await new Promise((resolve, reject) => {
         const p = spawn(this.ffmpeg, ff, { stdio: ['ignore', 'pipe', 'pipe'] });

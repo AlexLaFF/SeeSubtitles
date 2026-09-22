@@ -218,4 +218,4 @@ function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
   return { isAdmin, userRow, changePassword, listTokens, revokeTokens, team, setPlan, createInvite, deleteInvite, setRole, createReset, resetInfo, resetPassword, requestAccount, handleRequest, pendingRequests, getGlossary, putGlossary, teamView, addMember, memberReset, removeMember, setTeamName };
 }
 
-module.exports = { createAccount, cleanGlossary, hotwordsText, deviceName, RESET_TTL_MS, GLOSSARY_MAX };
+module.exports = { createAccount, cleanGlossary, hotwordsText, deviceName };

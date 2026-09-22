@@ -46,7 +46,7 @@ const DEFAULT_CONFIG = {
   summaryModel: 'deepseek-v4-flash', summaryLanguage: 'zh', summaryEffort: 'high', // Chinese models through TokenHub, reached through the account: no key on this Mac
   recordingsDir: path.join(app.getPath('videos'), 'See Subtitles'),
   demo: false, audioFile: '', edge: 'auto', bitrate: '128k', startPaused: true,
-  mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15, encoder: 'libx264' },
+  mp4: { auto: true, size: '1080x1920', fontSize: 64, show: 'target', fps: 15 }, // an `encoder` key from builds ≤ 0.8.3 is ignored: the hardware encoder is the only one
   cloud: { url: DEFAULT_CLOUD_URL, email: '', token: '', publish: false },
   glossary: [],        // [{term, weight, note}] → the pipeline's hotwords; synced with the account (Live › Glossary)
   firstRunDone: null,  // null = never decided (older configs): settled at start-up from what the config already holds
@@ -87,19 +87,13 @@ function resolveKeys(cfg) {
   return { source: 'manual', appid: cfg.appid, secretId: cfg.secretId, secretKey: decryptSecret(cfg.secretKeyEnc) };
 }
 /**
- * Summary generator settings. Logged in, the request goes through the hosted server, which adds its own
- * TokenHub key — so no summary key is kept on this Mac either. Logged out there is no key to use, and so no
- * summaries.
+ * Summary settings. The summary itself is written by the hosted server for the logged-in account (POST
+ * /api/summaries, the iPhone's route), so no model key is kept on this Mac; what the Mac chooses is the model.
+ * Logged out there is no account to write it for, and so no summaries.
  */
 function summaryConfig(cfg) {
-  const model = cfg.summaryModel && /^(deepseek|kimi|minimax|hy)/.test(cfg.summaryModel) ? cfg.summaryModel : 'deepseek-v4-flash';
-  const cloudCfg = cloudConfig(cfg);
-  if (cloudCfg.token) {
-    const base = String(cloudCfg.url || DEFAULT_CLOUD_URL).replace(/\/$/, '');
-    // the SDK insists on an apiKey and sends it as x-api-key; the server reads the bearer header instead
-    return { apiKey: 'sent-as-bearer', baseURL: `${base}/api/desktop/tokenhub`, headers: { authorization: `Bearer ${cloudCfg.token}` }, model };
-  }
-  return { apiKey: '', baseURL: 'https://tokenhub.tencentmaas.com', model };
+  const { SUMMARY_MODELS, DEFAULT_SUMMARY_MODEL } = require('@subs/core/summary');
+  return { model: SUMMARY_MODELS.includes(cfg.summaryModel) ? cfg.summaryModel : DEFAULT_SUMMARY_MODEL };
 }
 
 // ------------------------------------------------------------------ core (local pipeline server)
@@ -191,6 +185,7 @@ async function startCore() {
     trusted: routeTrust,
     credsError,
     summary: summaryConfig(cfg),
+    summarise: (req, handlers) => cloud.summarise(req, handlers),
     demo: cfg.demo,
     audioFile: cfg.audioFile || undefined,
     port,
@@ -206,7 +201,6 @@ async function startCore() {
       MP4_FONT_SIZE: String(cfg.mp4.fontSize),
       MP4_SHOW: cfg.mp4.show,
       MP4_FPS: String(cfg.mp4.fps),
-      MP4_ENCODER: cfg.mp4.encoder,
     },
     onOpenOverlay: () => { openOverlay(); return 'opened'; },
     onCloseOverlay: closeOverlay,

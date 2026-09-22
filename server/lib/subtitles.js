@@ -211,4 +211,4 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   return head + events.join('\n') + '\n';
 }
 
-module.exports = { buildCues, alignWords, toSrt, toVtt, toTxt, toAss, toStackedAss, isCjkText };
+module.exports = { buildCues, toSrt, toVtt, toTxt, toAss, toStackedAss, isCjkText };

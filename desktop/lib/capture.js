@@ -285,7 +285,7 @@ class FileCapture extends EventEmitter {
   status() { return { running: this.running, alive: this.running, device: `file:${this.file}`, restarts: 0, bytes: this.offset, lastDataAgoMs: 0, lastError: null }; }
 }
 
-module.exports = { AudioCapture, FileCapture, listDevices, listDevicesFfmpeg, ensureHelper, CHUNK_BYTES, CHUNK_MS };
+module.exports = { AudioCapture, FileCapture, listDevices, listDevicesFfmpeg, CHUNK_BYTES, CHUNK_MS };
 
 if (require.main === module) {
   if (process.argv.includes('--list')) {

@@ -9,15 +9,16 @@ shaped the way they are.
 Ported the local-tool commits after `3cff4b8` through `2be9fbc` (7 September 2026):
 
 - **AI learning summaries** with a concise synthesis prompt, progress reporting, Markdown viewing,
-  clickable recording timestamps and A4 PDF export. They run through Tencent TokenHub (DeepSeek V4
-  Flash by default; V4 Pro, Kimi K3 and MiniMax M3 selectable) using the key the server hands to
-  logged-in desktops, so no VPN is needed in mainland China and no key is typed. Effort maps to the
-  model's thinking budget, and timestamps beyond the recording's length are dropped. PDFs are rendered
-  with the app's bundled Chromium.
+  clickable recording timestamps and A4 PDF export. They ran through Tencent TokenHub (DeepSeek V4
+  Flash by default; V4 Pro, Kimi K3 and MiniMax M3 selectable) using a key the server handed to
+  logged-in desktops, so no VPN was needed in mainland China and no key was typed. That handing-over
+  ended with 0.7.0 (no app holds a key since; the keys were replaced), and since 0.8.4 the server writes
+  the summary itself for the account, as it does for the iPhone. Effort maps to the model's thinking
+  budget, and timestamps beyond the recording's length are dropped. PDFs are rendered with the app's
+  bundled Chromium.
 - **Chinese recording filenames**, with legacy recordings still discoverable and playable. New audio,
   subtitles, MP4s, summaries and PDFs follow the same scheme; existing files are never renamed
-  automatically. An optional migration previews the changes before applying them:
-  `npm run rename-recordings -w desktop -- /absolute/recordings/folder` (add `--apply`).
+  automatically. (A one-off migration script existed until 0.8.4; core/names.js still reads the old names.)
 - **A 字幕 menu-bar item** to open the controls, fill any display, reload or close the overlay, or
   quit. The overlay never takes keyboard focus from the presentation, and closing it leaves capture
   and recording running.

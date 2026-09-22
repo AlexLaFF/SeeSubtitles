@@ -51,11 +51,7 @@ const WEB_DIR = path.join(__dirname, '..', 'web');
 const SCHEMA_FILE = require.resolve('@subs/core/schema');
 const MAX_UPLOAD = (Number(process.env.MAX_UPLOAD_GB) || 8) * 1024 ** 3;
 
-const MIME = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8', '.srt': 'text/plain; charset=utf-8', '.vtt': 'text/vtt; charset=utf-8',
-  '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.m4a': 'audio/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm', '.mkv': 'video/x-matroska', '.wav': 'audio/wav',
-};
+const { MIME, send, readJson, openEvents: sse, serveFile: sendFile } = require('@subs/core/http');
 
 function log(level, text) {
   const ts = new Date().toISOString().slice(11, 19);
@@ -130,45 +126,15 @@ jobs.on('update', (j) => {
   for (const res of set) res.write(payload);
 });
 
-// ------------------------------------------------------------------ helpers
-function send(res, code, body, type = 'application/json; charset=utf-8', extra = {}) {
-  res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store', ...extra });
-  res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
-}
+// ------------------------------------------------------------------ helpers (the wire ones are @subs/core/http)
 const fail = (res, code, error, extra) => send(res, code, { error, ...(extra || {}) });
 /** A machine-readable code for the auth messages the pages translate (see web/locales.js err.*). */
 const errCode = (message) => (/closed/.test(message) ? 'signup_closed' : /invite/.test(message) ? 'bad_invite' : /already exists/.test(message) ? 'email_exists' : /at least 8/.test(message) ? 'password_short' : /invalid email/.test(message) ? 'bad_email' : undefined);
-function readJson(req, limit = 5e6) {
-  return new Promise((resolve, reject) => {
-    let b = '';
-    req.on('data', (d) => { b += d; if (b.length > limit) { req.destroy(); reject(new Error('body too large')); } });
-    req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(new Error('invalid JSON')); } });
-    req.on('error', reject);
-  });
-}
-function serveFile(req, res, file, download) {
-  if (!file || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return send(res, 404, 'not found', MIME['.txt']);
-  const size = fs.statSync(file).size;
-  const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
-  const headers = { 'content-type': type, 'accept-ranges': 'bytes', 'cache-control': 'no-store' };
-  if (download) headers['content-disposition'] = `attachment; filename*=UTF-8''${encodeURIComponent(path.basename(file))}`;
-  const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
-  if (m && (m[1] || m[2])) {
-    const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
-    let end = m[1] && m[2] ? Number(m[2]) : size - 1;
-    end = Math.min(end, size - 1);
-    if (start > end || start >= size) { res.writeHead(416, { 'content-range': `bytes */${size}` }); return res.end(); }
-    res.writeHead(206, { ...headers, 'content-length': end - start + 1, 'content-range': `bytes ${start}-${end}/${size}` });
-    return fs.createReadStream(file, { start, end }).pipe(res);
-  }
-  res.writeHead(200, { ...headers, 'content-length': size });
-  return fs.createReadStream(file).pipe(res);
-}
+const serveFile = (req, res, file, download) => sendFile(req, res, file, { download: !!download });
 function page(res, name, extra = {}) {
   return send(res, 200, fs.readFileSync(path.join(WEB_DIR, name)), MIME['.html'], extra);
 }
 function redirect(res, to) { res.writeHead(302, { location: to }); res.end(); }
-const sse = (res) => { res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' }); res.write(':ok\n\n'); };
 
 // ------------------------------------------------------------------ routes
 async function api(req, res, url, user) {
@@ -324,8 +290,8 @@ async function api(req, res, url, user) {
     Readable.fromWeb(upstream.body).pipe(res);
     return;
   }
-  // A learning summary made here: the iOS app sends a recording's cues and reads the Markdown as it is written.
-  // The prompt is core/summary.js, the same one the Mac uses; the key never leaves this process.
+  // A learning summary made here: the app (iPhone, or the Mac since 0.8.4) sends a recording's cues and reads the
+  // Markdown as it is written. The prompt is core/summary.js; the key never leaves this process.
   if (p === '/api/summaries' && req.method === 'POST') {
     if (!entitlements(user).limits.summaries) return fail(res, 403, 'AI summaries are not in this plan', { code: 'plan_summaries' });
     const key = (process.env.TOKENHUB_API_KEY || '').trim();

@@ -98,6 +98,47 @@ class CloudLink {
     } finally { clearTimeout(t); }
   }
 
+  /**
+   * A learning summary, written by the server from a recording's cues (POST /api/summaries — the route the iPhone
+   * uses, so no model key and no prompt live on this Mac). Resolves with the server's `done` event, { markdown, meta };
+   * onStage(stage) and onDelta(text) follow the summary as it is written. No overall timeout: a thinking model is
+   * silent for minutes and the server heartbeats every 15 s; `signal` gives it up.
+   */
+  async summarise(req, { onStage = () => {}, onDelta = () => {}, signal } = {}) {
+    if (!this.cfg.url) throw new Error('cloud server URL is not set');
+    if (!this.cfg.token) { const e = new Error('not logged in'); e.code = 'summary_login'; throw e; }
+    const res = await fetch(`${this.cfg.url.replace(/\/$/, '')}/api/summaries`, {
+      method: 'POST', headers: { authorization: `Bearer ${this.cfg.token}`, 'content-type': 'application/json' }, body: JSON.stringify(req), signal,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let json = null;
+      try { json = JSON.parse(text); } catch { /* non-JSON */ }
+      const err = new Error((json && json.error) || `${res.status} ${res.statusText}`); err.status = res.status; if (json && json.code) err.code = json.code; throw err;
+    }
+    // server-sent events: blocks of `event:` + `data:` lines, a blank line between; a bare `:` block is a heartbeat
+    let finished = null;
+    const block = (b) => {
+      const e = /^event: (.+)$/m.exec(b); const d = /^data: (.+)$/m.exec(b);
+      if (!e || !d) return;
+      const data = JSON.parse(d[1]);
+      if (e[1] === 'stage') onStage(data.stage);
+      else if (e[1] === 'delta') onDelta(data.text);
+      else if (e[1] === 'done') finished = data;
+      else if (e[1] === 'error') { const err = new Error(data.message || 'the summary failed'); err.code = data.code || 'summary_failed'; throw err; }
+    };
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for await (const chunk of res.body) {
+      buffer += decoder.decode(chunk, { stream: true });
+      let i;
+      while ((i = buffer.indexOf('\n\n')) >= 0) { block(buffer.slice(0, i)); buffer = buffer.slice(i + 2); }
+    }
+    if (buffer.trim()) block(buffer);
+    if (!finished) throw new Error('the connection closed before the summary was finished');
+    return finished;
+  }
+
   // ---- upload jobs (used by "Re-subtitle this recording")
   createJob({ filename, size, sourceLang, targetLang }) {
     return this._fetch('/api/jobs', { filename, size, sourceLang, targetLang });

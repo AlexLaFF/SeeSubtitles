@@ -208,4 +208,4 @@ function createAuth(db) {
     beginTotp, confirmTotp, disableTotp, resetRecoveryCodes, regenerateRecovery, totpStatus };
 }
 
-module.exports = { createAuth, createLimiter, hashPassword, verifyPassword, parseCookies, COOKIE, SIGNUP_MODES, RECOVERY_COUNT };
+module.exports = { createAuth, createLimiter, hashPassword, verifyPassword, SIGNUP_MODES, RECOVERY_COUNT };

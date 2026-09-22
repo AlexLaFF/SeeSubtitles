@@ -10,6 +10,7 @@
     "probe:languages": "node server/probe-languages.js",
     "probe:ab": "node server/probe-ab.js",
     "probe:file": "node server/probe-file.js",
+    "probe:translate": "node server/probe-translate.js",
     "e2e": "sh desktop/scripts/e2e-on-server.sh",
     "e2e:ios": "node ios/e2e/run.mjs",
     "e2e:ios:real": "sh ios/e2e/real-on-server.sh",

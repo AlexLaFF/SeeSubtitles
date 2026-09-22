@@ -5,6 +5,11 @@
 // Pure: no files, no network.
 
 const LANG_NAMES = { zh: '简体中文', en: 'English', yue: '粤语书面语' };
+// The models a summary may ask for, all on TokenHub's Anthropic-compatible endpoint: the Mac's Settings offer these
+// (web/settings-view.js, labelled by `summodel.*` in web/locales.js) and the server accepts no other name.
+const SUMMARY_MODELS = ['deepseek-v4-flash', 'deepseek-v4-pro', 'kimi-k3', 'minimax-m3'];
+const DEFAULT_SUMMARY_MODEL = 'deepseek-v4-flash';
+const SUMMARY_EFFORTS = ['low', 'medium', 'high'];
 
 const clock = (ms) => {
   const s = Math.floor(ms / 1000);
@@ -105,4 +110,4 @@ function sanitizeTimestamps(body, durationMs) {
   }).replace(/[ \t]+\n/g, '\n');
 }
 
-module.exports = { LANG_NAMES, clock, transcriptFromCues, lengthBudget, countChars, systemPrompt, userPrompt, condensePrompts, thinkingFor, sanitizeTimestamps };
+module.exports = { LANG_NAMES, SUMMARY_MODELS, DEFAULT_SUMMARY_MODEL, SUMMARY_EFFORTS, clock, transcriptFromCues, lengthBudget, countChars, systemPrompt, userPrompt, condensePrompts, thinkingFor, sanitizeTimestamps };

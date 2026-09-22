@@ -1,6 +1,8 @@
-// Renders <base>.summary.md; timestamps like [12:34] link to that moment in the playback page — in the app. The PDF
-// (?print) keeps them as plain text: a link there would point at this Mac's own server, on a port that changes with
-// every launch and behind the app's session key, so it opened "unauthorized" and meant nothing to anyone sent it.
+// Renders <base>.summary.md. In the app it sits in an iframe on the recording's page (web/files.js), whose player is
+// the parent's: a timestamp like [12:34] asks the parent to seek there (postMessage), and the "Playback" link opens
+// the recording's page itself. The PDF (?print) keeps timestamps as plain text: a link there would point at this
+// Mac's own server, on a port that changes with every launch and behind the app's session key, so it opened
+// "unauthorized" and meant nothing to anyone sent it.
 (function () {
   'use strict';
   const params = new URLSearchParams(location.search);
@@ -9,7 +11,17 @@
   const printing = params.has('print');
   if (printing) document.body.classList.add('print');
   if (!rec) { doc.textContent = 'missing ?rec=<recording>'; return; }
-  document.getElementById('playLink').href = `/playback?rec=${encodeURIComponent(rec)}`;
+  const page = `/files/${encodeURIComponent(rec)}`;
+  const playLink = document.getElementById('playLink');
+  playLink.href = page; playLink.target = '_top';
+  const framed = window.parent && window.parent !== window;
+  doc.addEventListener('click', (e) => {
+    const a = e.target.closest('a.ts[data-sec]');
+    if (!a) return;
+    e.preventDefault();
+    if (framed) window.parent.postMessage({ type: 'seek', rec, sec: Number(a.dataset.sec) }, location.origin);
+    else window.top.location.href = page;
+  });
 
   const esc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
   const toSec = (v) => v.split(':').map(Number).reduce((a, b) => a * 60 + b, 0);
@@ -18,7 +30,7 @@
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       .replace(/\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g, (m, ts) => (printing ? `<span class="ts">[${ts}]</span>`
-        : `<a class="ts" href="/playback?rec=${encodeURIComponent(rec)}&ts=${toSec(ts)}" target="playback">[${ts}]</a>`));
+        : `<a class="ts" href="${page}" data-sec="${toSec(ts)}" title="${ts}">[${ts}]</a>`));
   }
   function render(md) {
     const lines = md.replace(/<!--[\s\S]*?-->/g, '').split('\n');

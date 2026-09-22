@@ -14,7 +14,7 @@ release is cut.
 
 ```bash
 npm install                        # behind a VPN: ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
-npm run build:helpers -w desktop   # compiles helpers/*.swift, bundles static ffmpeg/ffprobe into resources/bin
+npm run build:helpers -w desktop   # compiles helpers/*.swift and puts the app's own ffmpeg into resources/bin (see below)
 npm start -w desktop               # run from source
 npm run dist -w desktop            # DMG in desktop/dist
 ```
@@ -36,14 +36,28 @@ touching your own configuration:
 npx electron . --user-data-dir=/tmp/scratch-profile
 ```
 
+### The app's ffmpeg
+
+The Mac app ships an ffmpeg built by `desktop/scripts/build-ffmpeg.sh` from the ffmpeg and LAME sources, with only
+the components the app calls: the recorder's MP3 encoder, the export's H.264 (VideoToolbox) and AAC, the microphone
+fallback, and the containers and audio codecs people's uploads come in. It is about 5 MB where the npm build was
+45 MB, and LGPL — no GPL component, no `--enable-nonfree`. The first `npm run build:helpers` downloads the two
+tarballs (checksums pinned in the script), builds for a few minutes and caches the result under
+`~/.cache/seesubtitles`; every later build copies it. `build-helpers.js` refuses any other ffmpeg. There is no
+ffprobe in the bundle: the app reads a file's duration with ffmpeg itself. The server is unaffected: it uses the
+distribution's ffmpeg and ffprobe (Homebrew's on a Mac), which have the subtitle filter burn-in needs.
+
+Third-party notices for what the bundle carries are in [THIRD-PARTY.md](../THIRD-PARTY.md).
+
 ## Run the server
 
 ```bash
 DATA_DIR=./data node server/server.js     # port 8080
 ```
 
-For MP4 burn-in on macOS point `FFMPEG` at an ffmpeg built with libass, e.g.
-`FFMPEG=desktop/resources/bin/ffmpeg`.
+MP4 burn-in needs an ffmpeg built with libass — Homebrew's `ffmpeg` on macOS, the distribution's on Linux — on
+`PATH`, or named with `FFMPEG` and `FFPROBE`. The app's own build in `desktop/resources/bin` will not do: it has no
+subtitle filter.
 
 ### Web-only preview
 
@@ -52,7 +66,7 @@ The whole hosted side runs without Electron. Create an account and start the ser
 ```bash
 export DATA_DIR=/private/tmp/subtitle-web-preview
 node server/cli.js add-user preview@local.test
-HOST=127.0.0.1 PORT=18081 FFMPEG="$PWD/desktop/resources/bin/ffmpeg" FFPROBE="$PWD/desktop/resources/bin/ffprobe" node server/server.js
+HOST=127.0.0.1 PORT=18081 node server/server.js
 ```
 
 Open `http://127.0.0.1:18081` and log in with the password the account command printed. Start with a
@@ -68,8 +82,11 @@ reach from the internet. Everything the preview writes stays under `DATA_DIR`.
 | `desktop/` | The macOS app (Electron): capture → Tencent → Display and Overlay windows, recording, MP4 export, AI summaries, the cloud link |
 | `server/` | The hosted server: accounts, the live-session mirror, upload jobs, the cue editor, plans and quotas |
 | `web/` | Every page, shared by both: the app shell, display, attendee view, account, job editor, and the public website |
-| `deploy/` | docker-compose and Caddy for any Linux box |
+| `deploy/` | docker-compose and Caddy for any Linux box; the deploy, backup and key-rotation scripts |
+| `ios/` | The iPhone and iPad app (Swift): see [IOS.md](IOS.md) |
+| `e2e/` | The Mac release test (`npm run e2e`), run on the server where the keys are |
 | `design/` | Design tokens, icons and the canvas sources behind the interface |
+| `docs/` | These documents |
 
 ## Tests
 
@@ -81,34 +98,43 @@ Three suites run: `core` (signing, the translator against a mock WebSocket, the 
 recorder), `server` (accounts, plans and quotas, two-factor authentication, exports, usage) and
 `desktop` (the local server, cue handling, updates, packaging, string catalogue).
 
-Two of them guard rules that are easy to break by accident:
+Three of them guard rules that are easy to break by accident:
 
 - **`desktop/test/i18n.test.js`** — every string the interface uses must exist in both English and
-  Simplified Chinese in `web/locales.js`, with matching placeholders. A half-translated screen fails
-  the build.
+  Simplified Chinese in `web/locales.js`, with matching placeholders, and every string in the catalogue
+  must be used by something: a half-translated screen fails the build, and so does a string nothing shows.
 - **`desktop/test/packaging.test.js`** — desktop code must reach the shared pipeline through
-  `@subs/core/…`, never a relative path. A relative require resolves when you run from source and
-  throws `Cannot find module` inside the packaged `app.asar`, which no source-run test can see.
+  `@subs/core/…`, never a relative path (a relative require resolves when you run from source and
+  throws `Cannot find module` inside the packaged `app.asar`, which no source-run test can see); and
+  everything the app's pages load must survive the filter in `electron-builder.yml` that keeps the
+  hosted site's pages out of the bundle.
+- **`desktop/test/ffmpeg-bundle.test.js`** — when `resources/bin/ffmpeg` is present it must be the
+  app's own build, and it is run through the recorder's encode, the export's mux, the duration probe and
+  an upload's audio extraction, so a component left out of the build fails here and not on someone's Mac.
 
 ## Releasing the desktop app
 
-1. Bump `version` in `desktop/package.json`.
-2. `npm run dist -w desktop` — produces the DMG, the zip, both blockmaps and `latest-mac.yml`.
-3. **Verify the packaged bundle, not just the tests.** Extract the archive and load anything you
-   changed the way the packaged app will:
+1. Bump `version` in `desktop/package.json`. **A version number names one set of contents, once:** any change
+   after a build of that number exists gets a new number; `desktop/scripts/release.sh` refuses to build a number
+   again from different code (`desktop/dist/built.json` says what each was built from).
+2. `npm run release -w desktop` — runs the release test on the server first (below), then builds, notarizes with
+   the keychain profile named in `~/.config/seesubtitles/notarize.env`, and refuses the build unless Gatekeeper
+   accepts it (`verify-release.js`). Never publish a build either step rejects.
+3. **Verify the packaged bundle, not just the tests.** Walk the window checklist release.sh prints, and when in
+   doubt extract the archive and load what you changed the way the packaged app will:
 
    ```bash
    npx @electron/asar extract "desktop/dist/mac-arm64/See Subtitles.app/Contents/Resources/app.asar" /tmp/asarcheck
    node -e "require('/tmp/asarcheck/lib/your-module.js')"
    ```
 
-4. Publish all five files into the server's update directory (`<DATA_DIR>/updates`) and remove the
-   previous version's. `/api/desktop/version` then reports the newest build, and the app offers it on
-   launch, every six hours, and from **Subtitles → Check for Updates…**.
+4. Publish the DMG, the zip, both blockmaps and `latest-mac.yml` into the server's update directory
+   (`<DATA_DIR>/updates`) and remove the previous version's. `/api/desktop/version` then reports the newest build,
+   and the app offers it on launch, every six hours, and from **See Subtitles → Check for Updates…**.
 
-To ship a DMG that opens without right-click → Open, create a *Developer ID Application* certificate
-in the Apple developer portal and set `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID`;
-electron-builder picks them up and notarizes the build.
+Notarization needs a *Developer ID Application* certificate in the login keychain and a notarytool keychain
+profile; `release.sh` explains what `notarize.env` must name. A build signed with a development certificate
+opens only on Macs registered to the team.
 
 ## Conventions
 
@@ -128,7 +154,7 @@ sent to Apple.
 beside the running service (capped at one core and 900 MB, so the service keeps its headroom) and runs it with the
 server's own `deploy/.env`. Inside, the test starts its own copy of the server — its own database and port, nothing
 shared with the live service — and makes throwaway accounts in it that disappear with the container. It refuses to
-start with uncommitted changes, or while the server has carried a talk in the last 15 minutes.
+start with uncommitted changes, or while the server is carrying a talk (`deploy/talks.sh` asks it).
 
 **What it checks.** It drives the app's own core (`desktop/local-server.js`, `desktop/cloud.js`, the queues in
 `desktop/lib`) against that server the way the Mac app does, with a recording standing in for the microphone:

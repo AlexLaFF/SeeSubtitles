@@ -24,7 +24,10 @@ const manifest = fs.readdirSync(dir).find((f) => f.endsWith(suffix));
 if (!manifest) fail('no recording came back from the server run');
 const base = manifest.slice(0, -suffix.length);
 
-const queue = new Mp4Queue({ dir, ffmpeg: require('ffmpeg-static') });
+// the ffmpeg that ships (scripts/build-helpers.js puts it here), so the test renders with exactly what the app has
+const FFMPEG = path.join(__dirname, '..', 'desktop', 'resources', 'bin', 'ffmpeg');
+if (!fs.existsSync(FFMPEG)) fail('no desktop/resources/bin/ffmpeg — run `npm run build:helpers -w desktop` first');
+const queue = new Mp4Queue({ dir, ffmpeg: FFMPEG });
 queue.on('log', () => {});
 const timer = setTimeout(() => fail('timed out after 5 minutes'), 5 * 60_000);
 new Promise((resolve, reject) => {

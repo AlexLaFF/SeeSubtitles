@@ -88,4 +88,4 @@ class UsageMonitor {
   }
 }
 
-module.exports = { UsageMonitor, parsePack, usageBetween, balance, cnDate, cnMonthStart, BIZ };
+module.exports = { UsageMonitor, parsePack, usageBetween, balance, cnDate, cnMonthStart };

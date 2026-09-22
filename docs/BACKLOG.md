@@ -5,7 +5,7 @@ Sized as a rough day count for one person.
 
 ## Decisions waiting
 
-- **Which live pipeline.** Decided: the split pipeline (0.8.0 on `live-split-pipeline`, not yet deployed); the
+- **Which live pipeline.** Decided and shipped: the split pipeline, the default since 0.8.0; the
   findings are in `docs/LIVE-PIPELINE-MEASUREMENTS.md`. Tuned the same way (pause 700 ms, cap 6 s) both pipelines
   hear the same words and break lines at the same moments; with `hy-mt2-pro` and context the split one was preferred
   in blind judging and rewrites less of what the audience has read. **Speed, settled 18 September:** both services report the

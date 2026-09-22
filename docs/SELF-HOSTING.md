@@ -69,23 +69,28 @@ for a share link.
 ## Plans and quotas
 
 `server/lib/plans.js` holds the plans and their monthly hours. `cli.js set-plan <email> <plan>`
-assigns one; administrators have no limits. Quotas are **cooperative** — the desktop app reports live
-seconds and pauses itself at the limit — so treat them as guidance for people you trust, not as a
-control. Server-side work (uploads, re-subtitling, summaries, MP4) is metered by the server itself.
+assigns one; administrators have no limits. Live hours are **metered by the server**: every app's audio
+goes through it (`server/lib/live-proxy.js`), it counts the seconds as they pass and refuses the next
+talk when the month is spent, and each plan caps how many talks run at once. Server-side work (uploads,
+re-subtitling, summaries, MP4) is metered the same way. The one exception is an account marked
+`directLive` in plans.js: its audio goes straight to Tencent on connections the server signs, so its
+hours are reported by the app — give that only to the account that pays the Tencent bill.
 
 ## Tencent services
 
 | Service | Used for | CAM policy |
 |---|---|---|
-| 实时语音翻译 | Live subtitles from the desktop app | speech translation |
+| 实时语音识别 | Live subtitles, the default (`split`) pipeline: recognition, relayed through this server | `QcloudASRFullAccess` |
+| 实时语音翻译 | Live subtitles on the `combined` pipeline (Tencent recognises and translates in one stream) | speech translation |
 | 录音文件识别 | Uploads and cloud re-subtitling | `QcloudASRFullAccess` |
-| TokenHub 混元翻译 | Translating recognised sentences | TokenHub API key |
+| TokenHub 混元翻译 | Translating recognised sentences, live and for uploads; the AI summaries (DeepSeek and others through the same key) | TokenHub API key |
 
 Translation runs on **TokenHub** (大模型服务平台): set `TOKENHUB_API_KEY` from
 console.cloud.tencent.com/tokenhub/apikey and pick a model with `TRANSLATION_MODEL`
-(`hy-mt2-pro` / `hy-mt2-plus` / `hy-mt2-lite`). The same key powers AI summaries. Without it the
-server falls back to the standalone Hunyuan API using the TC3 keys, which Tencent retires on
-2026-09-30. The older 机器翻译 (TMT) product is not used.
+(`hy-mt2-pro` / `hy-mt2-plus` / `hy-mt2-lite`), and switch the key to postpaid billing in the console
+(在线推理 › 开启后付费) — the free package runs out. The same key writes the AI summaries. Without it the
+relay falls back to the `combined` pipeline and uploads to the standalone Hunyuan API with the TC3 keys,
+which Tencent retires on 2026-09-30. Tencent is reached through its Guangzhou edge (`TENCENT_EDGE`, below).
 
 `npm run probe:batch -- --translate-only` checks the translation key; `npm run probe:batch -- clip.mp3`
 runs recognition and translation end to end.
@@ -97,13 +102,14 @@ already allows. With `TENCENT_PACK=<hours>h@<purchase date>` it also shows what 
 实时语音翻译 resource pack — Tencent has no API for a pack's remaining quota, so the pack size comes
 from you. `TENCENT_BILLING_SECRET_ID` / `TENCENT_BILLING_SECRET_KEY`, a **separate** key with
 `billing:DescribeAccountBalance` (preset `QcloudFinanceBillReadOnlyAccess`), adds the account balance.
-Keep it off the main key — that one is handed to desktop apps.
+Keep it off the speech key: one key, one job, so a leak of either costs less.
 
 ## Other settings
 
 | Variable | Purpose |
 |---|---|
 | `DOMAIN`, `BASE_URL` | Public hostname; Tencent fetches long uploads from `BASE_URL/media/<token>.mp3`, so the server must be reachable |
+| `TENCENT_EDGE` | Which Tencent edge live audio goes to: `cn` (Guangzhou, the default — the mainland rate, right while the people speaking are in mainland China), `auto`, or `system` (from a server abroad an overseas edge, billed 跨境 at about twice the price) |
 | `MAX_UPLOAD_GB` | Upload ceiling (default 8) |
 | `ADMIN_EMAIL` | The account promoted to administrator at first start |
 | `REQUEST_WEBHOOK_URL` | Discord or Slack webhook posted to when the website form receives an account request |

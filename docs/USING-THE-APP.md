@@ -7,7 +7,8 @@ recordings and anything you add, and **Settings**.
 
 Three cards, once:
 
-1. **Log in.** The app then fetches its Tencent keys from the server, so no keys are ever typed.
+1. **Log in.** Nothing else to type: the app never holds a key. Live audio goes through the server, which holds
+   them and counts your plan's hours as they pass.
 2. **Pick the microphone**, with a live level meter.
 3. **Choose the languages.**
 
@@ -116,10 +117,11 @@ With MP4 auto-export on, a fresh MP4 is rendered from the new subtitles automati
 
 ## AI summaries
 
-A concise summary of the talk with clickable timestamps, as Markdown or a printable A4 PDF. It runs
-on the summary key the server hands to logged-in apps, so nothing is typed and no VPN is needed in
-mainland China. Effort maps to the model's thinking budget — at the highest setting a five-minute talk
-can take a few minutes to come back.
+A concise summary of the talk with clickable timestamps, as Markdown or a printable A4 PDF. The server
+writes it for your account, the same way it does for the iPhone app, so nothing is typed, no key is on
+the Mac and no VPN is needed in mainland China. **Settings › AI summaries** chooses the model, the language
+and the effort; effort maps to the model's thinking budget, and at the highest setting a five-minute talk
+can take a few minutes to come back. Clicking a timestamp in the summary plays the recording from there.
 
 ## Recording files
 
@@ -133,13 +135,8 @@ Recordings are named in Chinese, and every file of one recording shares a base:
 9月5号14点33分AI总结.md / .pdf     the summary
 ```
 
-Older `2026-09-05_14-33-05` recordings stay discoverable and playable, and nothing is renamed behind
-your back. To migrate them, preview first and then apply:
-
-```bash
-npm run rename-recordings -w desktop -- /absolute/recordings/folder
-npm run rename-recordings -w desktop -- /absolute/recordings/folder --apply
-```
+Older `2026-09-05_14-33-05` recordings stay discoverable and playable as they are; nothing is renamed
+behind your back.
 
 ## Two-factor authentication
 

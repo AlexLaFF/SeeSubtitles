@@ -17,7 +17,11 @@ const { UploadQueue } = require('../lib/uploads');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const freePort = () => new Promise((res) => { const s = net.createServer(); s.listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => res(p)); }); });
-const FFMPEG = (() => { try { return require('ffmpeg-static'); } catch { return 'ffmpeg'; } })();
+// Two ffmpegs: a full one (Homebrew, on PATH) makes the test video — the app's own build has no video encoder —
+// and the app's build (resources/bin, when built) takes the sound out, exactly as the shipped app would.
+const FULL_FFMPEG = process.env.FFMPEG_FULL || 'ffmpeg';
+const BUNDLED = path.join(__dirname, '..', 'resources', 'bin', 'ffmpeg');
+const FFMPEG = fs.existsSync(BUNDLED) ? BUNDLED : FULL_FFMPEG;
 
 async function startServer(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'upload-resume-'));
@@ -123,11 +127,11 @@ test('a connection that goes dead without saying so is dropped, and a new one ca
 });
 
 test('a video sent as audio only arrives as its sound', async (t) => {
-  if (spawnSync(FFMPEG, ['-version']).status !== 0) return t.skip('no ffmpeg here');
+  if (spawnSync(FULL_FFMPEG, ['-version']).status !== 0) return t.skip('no ffmpeg here');
   const s = await startServer(t);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'upload-audio-')); t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const video = path.join(dir, 'Lecture 12.mp4');
-  const made = spawnSync(FFMPEG, ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc=size=640x360:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440', '-t', '4', '-c:v', 'mpeg4', '-q:v', '2', '-c:a', 'aac', '-shortest', video]);
+  const made = spawnSync(FULL_FFMPEG, ['-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc=size=640x360:rate=25', '-f', 'lavfi', '-i', 'sine=frequency=440', '-t', '4', '-c:v', 'mpeg4', '-q:v', '2', '-c:a', 'aac', '-shortest', video]);
   assert.equal(made.status, 0, String(made.stderr));
   const q = new UploadQueue({ cloud: link(s.port, s.token), ffmpeg: FFMPEG, tmpDir: path.join(dir, 'tmp'), retryMs: [50] });
   q.add({ file: video, sourceLang: 'zh', targetLang: 'zh', audioOnly: true });

@@ -171,7 +171,8 @@ async function openApp(server, who, token, clipFile) {
     trusted: () => (cloud.plan && cloud.plan.limits ? !!cloud.plan.limits.directLive : null),
     onLiveUsage: (s) => { reported.push(s); return cloud.reportLive(s); },
     cloudStatus: () => cloud.status(),
-    summary: { apiKey: 'sent-as-bearer', baseURL: `${server.base}/api/desktop/tokenhub`, headers: { authorization: `Bearer ${token}` }, model: 'deepseek-v4-flash' },
+    summary: { model: 'deepseek-v4-flash' },
+    summarise: (req, handlers) => cloud.summarise(req, handlers), // exactly as desktop/main.js wires it
     pdfRenderer: async () => ({ bytes: 0 }), // printing needs Electron: the PDF is on the window checklist
   });
   core.emitter.on('event', (ev, data) => cloud.onEvent(ev, data)); // exactly as desktop/main.js wires it
@@ -361,7 +362,7 @@ async function main() {
       const t = tokens.hobbyist;
       const share = await http(`${server.base}/api/sessions`, { method: 'POST', token: t, body: { name: 'e2e' } });
       must(share.status === 403 && share.json.code === 'plan_sharing', `sharing to screens was not refused (HTTP ${share.status})`);
-      const sum = await http(`${server.base}/api/desktop/tokenhub/v1/messages`, { method: 'POST', token: t, body: { model: 'deepseek-v4-flash', max_tokens: 8, messages: [{ role: 'user', content: 'hi' }] } });
+      const sum = await http(`${server.base}/api/summaries`, { method: 'POST', token: t, body: { name: 'e2e', language: 'zh', target: [] } });
       must(sum.status === 403 && sum.json.code === 'plan_summaries', `AI summaries were not refused (HTTP ${sum.status})`);
       const signed = await http(`${server.base}/api/desktop/live-url`, { method: 'POST', token: t, body: { source: 'yue', target: 'zh' } });
       must(signed.status === 403 && signed.json.code === 'not_trusted', 'a Hobbyist account was signed a direct connection');
@@ -551,7 +552,7 @@ async function main() {
       }
     }
 
-    await check('summary: an AI summary of the talk comes back through the server', async () => {
+    await check('summary: the app asks the server for an AI summary of the talk and writes it next to the recording', async () => {
       must(memberTalk && memberTalk.recording, 'no recording to summarise');
       const base = memberTalk.recording.base;
       const r = await http(`${member.core.base}/api/recordings/summary`, { method: 'POST', cookie: 'token=e2e', body: { base } });

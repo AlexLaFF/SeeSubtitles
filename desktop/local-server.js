@@ -17,28 +17,12 @@ const { AudioCapture, FileCapture, listDevices, listDevicesFfmpeg } = require('.
 const { Mp4Queue } = require('./lib/mp4');
 const { SummaryQueue } = require('./lib/summary');
 
-const MIME = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.woff2': 'font/woff2',
-  '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.txt': 'text/plain; charset=utf-8',
-};
-
-function send(res, code, body, type = 'application/json; charset=utf-8', extra = {}) {
-  res.writeHead(code, { 'content-type': type, 'cache-control': 'no-store', ...extra });
-  res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
-}
-
-function readJson(req) {
-  return new Promise((resolve, reject) => {
-    let b = '';
-    req.on('data', (d) => { b += d; if (b.length > 1e6) req.destroy(); });
-    req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(e); } });
-    req.on('error', reject);
-  });
-}
+const { MIME, send, readJson: readBody, openEvents, serveFile } = require('@subs/core/http');
+const readJson = (req) => readBody(req, 1e6); // a settings change or a recording's name, never a file
 
 /**
  * @param {object} opts
- * @param {string} opts.webDir           static pages (display, control, playback)
+ * @param {string} opts.webDir           the app's pages (display, the control/files/settings shell, summary, poster)
  * @param {string} opts.schemaFile       core/schema.js, served as /schema.js
  * @param {string} opts.dataDir          settings.json / presets.json
  * @param {string} opts.recordingsDir
@@ -68,7 +52,8 @@ function readJson(req) {
  * @param {function} [opts.displayStatus] () => {open, fullscreen}
  * @param {function} [opts.onOpenExternal] (url) => void
  * @param {function} [opts.onOpenFolder]  () => void
- * @param {object}   [opts.summary]       {apiKey, baseURL, model} for the summary generator (TokenHub)
+ * @param {object}   [opts.summary]       {model} — which model the server is asked to summarise with
+ * @param {function} [opts.summarise]     (req, {onStage, onDelta}) => Promise<{markdown, meta}> — CloudLink.summarise
  * @param {function} [opts.onTrash]       async (paths) => void — move files to the Trash (defaults to deleting them)
  * @param {string}   [opts.language]      'en' | 'zh' — sent to every page in `init`; setLanguage() switches live
  * @param {function} [opts.consoleLog]   (level, text) — defaults to console
@@ -272,7 +257,7 @@ async function createLocalServer(opts) {
     fontSize: Number(env.MP4_FONT_SIZE) || 64,
     show: env.MP4_SHOW || 'target',
     fps: Number(env.MP4_FPS) || 15,
-    encoder: env.MP4_ENCODER || 'libx264',
+    quality: Number(env.MP4_QUALITY) || undefined,
   });
   mp4.on('log', (t) => log('info', `mp4: ${t}`));
   mp4.on('status', () => broadcast('status', status()));
@@ -285,10 +270,9 @@ async function createLocalServer(opts) {
   }
   const summaries = new SummaryQueue({
     dir: opts.recordingsDir,
-    apiKey: ((opts.summary && opts.summary.apiKey) || '').trim(),
-    baseURL: (opts.summary && opts.summary.baseURL) || 'https://tokenhub.tencentmaas.com',
-    headers: (opts.summary && opts.summary.headers) || null,
-    model: (opts.summary && opts.summary.model) || 'deepseek-v4-flash',
+    summarise: opts.summarise || null, // CloudLink.summarise: the server writes it for the account
+    loggedIn: () => !!(opts.cloudStatus && opts.cloudStatus().loggedIn),
+    model: (opts.summary && opts.summary.model) || undefined,
     language: env.SUMMARY_LANGUAGE || 'zh',
     effort: env.SUMMARY_EFFORT || 'high',
     pdfRenderer: opts.pdfRenderer,
@@ -580,8 +564,7 @@ async function createLocalServer(opts) {
   const stateSnapshot = () => ({ serverId: SERVER_ID, language, settings, lines: transcript.recent(50), status: status(), devices, logs: logs.slice(-60), presets: presetsPayload() });
 
   function sse(req, res, url) {
-    res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive', 'x-accel-buffering': 'no' });
-    res.write(':ok\n\n');
+    openEvents(res);
     const client = { res, role: url.searchParams.get('role') || 'page' };
     clients.add(client);
     res.write(`event: init\ndata: ${JSON.stringify(stateSnapshot())}\n\n`);
@@ -644,7 +627,7 @@ async function createLocalServer(opts) {
       case '/api/recordings/summary': {
         const base = String(body.base || '');
         if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
-        if (!summaries.configured) return send(res, 400, { error: 'Add your Anthropic API key in Settings → AI summaries' });
+        if (!summaries.configured) return send(res, 400, { error: 'Log in under Settings: summaries are written by the server for the account', code: 'summary_login' });
         const queued = summaries.add(base);
         log('info', queued ? `AI summary requested for ${base}` : `AI summary for ${base} already in progress`);
         return send(res, 200, { ok: true, queued, summary: summaries.status() });
@@ -767,24 +750,8 @@ async function createLocalServer(opts) {
     }
   }
 
-  function serveRecording(req, res, name) {
-    const file = path.join(opts.recordingsDir, name);
-    if (!name || !fs.existsSync(file)) return send(res, 404, 'not found', MIME['.txt']);
-    const size = fs.statSync(file).size;
-    const ext = path.extname(file);
-    const type = ext === '.mp3' ? 'audio/mpeg' : ext === '.mp4' ? 'video/mp4' : ext === '.md' ? 'text/markdown; charset=utf-8' : ext === '.pdf' ? 'application/pdf' : 'text/plain; charset=utf-8';
-    const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
-    if (m && (m[1] || m[2])) {
-      const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
-      let end = m[1] && m[2] ? Number(m[2]) : size - 1;
-      end = Math.min(end, size - 1);
-      if (start > end || start >= size) { res.writeHead(416, { 'content-range': `bytes */${size}` }); return res.end(); }
-      res.writeHead(206, { 'content-type': type, 'content-length': end - start + 1, 'content-range': `bytes ${start}-${end}/${size}`, 'accept-ranges': 'bytes', 'cache-control': 'no-store' });
-      return fs.createReadStream(file, { start, end }).pipe(res);
-    }
-    res.writeHead(200, { 'content-type': type, 'content-length': size, 'accept-ranges': 'bytes', 'cache-control': 'no-store' });
-    return fs.createReadStream(file).pipe(res);
-  }
+  /** A recording's file (or one of an earlier version's), whole or the range the player asks for; `name` is already a bare name, not a path out of the folder. */
+  const serveRecording = (req, res, name) => (name ? serveFile(req, res, path.join(opts.recordingsDir, name)) : send(res, 404, 'not found', MIME['.txt']));
 
   const PAGES = { '/': 'index.html', '/control': 'desktop.html', '/files': 'desktop.html', '/settings': 'desktop.html', '/summary': 'summary.html', '/poster': 'poster.html' };
   function authorised(req, url) {

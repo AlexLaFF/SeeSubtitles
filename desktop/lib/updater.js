@@ -6,16 +6,7 @@
 //     offer to open the DMG for a manual drag-to-Applications.
 const { app, dialog, shell } = require('electron');
 const { t } = require('./i18n');
-
-function compareVersions(a, b) {
-  const pa = String(a || '0').split('-')[0].split('.').map((n) => Number(n) || 0);
-  const pb = String(b || '0').split('-')[0].split('.').map((n) => Number(n) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const d = (pa[i] || 0) - (pb[i] || 0);
-    if (d) return d > 0 ? 1 : -1;
-  }
-  return 0;
-}
+const { compareVersions } = require('@subs/core/versions');
 
 class Updater {
   /** @param {function} [o.beforeInstall] async () => void — the app's own orderly shutdown, run before the updater is told to quit */
@@ -113,4 +104,4 @@ class Updater {
   }
 }
 
-module.exports = { Updater, compareVersions };
+module.exports = { Updater };

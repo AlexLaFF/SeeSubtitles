@@ -63,7 +63,8 @@ change to the Mac app or the server is not finished until the phone has been con
   (`node ios/scripts/export-schema.mjs`); strings from web/locales.js (`ios.*` keys, `L("key")` in Swift,
   `node ios/scripts/check-strings.mjs`). Never type either out a second time in Swift.
 - **Shared by the server.** Anything both apps need that can live on the server does: summaries are
-  `/api/summaries` with the prompt in core/summary.js, used by the Mac too. Prefer this to a port.
+  `/api/summaries` with the prompt in core/summary.js, written by the server for both apps (the Mac since 0.8.4;
+  it sends the recording's cues and its chosen model). Prefer this to a port.
 
 **Before an iOS build goes to TestFlight: `npm run e2e:ios`** (ios/e2e/run.mjs — unit tests, the phone's networking
 code against the real server with stand-ins for Tencent and TokenHub, and the app driven in the Simulator; five
@@ -80,6 +81,10 @@ SeeSubtitles`; demo mode (`-demo YES`) runs a whole talk with no account or netw
 ## Other standing rules
 
 - Simplified Chinese only in every user-facing string; never Traditional.
+- **The Mac's ffmpeg is our own build** (desktop/scripts/build-ffmpeg.sh: the app's components only, LGPL, ~5 MB,
+  cached in ~/.cache/seesubtitles). Never bundle ffmpeg-static or a Homebrew binary — the npm build was 45 MB and
+  `--enable-nonfree`, which may not be redistributed; build-helpers.js refuses anything but ours. The MP4 export uses
+  the Mac's hardware H.264 encoder only (no x264), so a new ffmpeg call site must be a component that build lists.
 - The repository is **public** (AlexLaFF/SeeSubtitles, since 2026-09-10). Never force-push or rewrite history —
   clones and forks exist now, so a rewrite cannot recall anything and only breaks other people's checkouts.
   Never change visibility without an explicit instruction.

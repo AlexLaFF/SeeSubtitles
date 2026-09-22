@@ -16,9 +16,22 @@ files:
   - lib/**
   - assets/**
   - package.json
+# The app's pages only. web/ also holds the hosted site, its login, account and job pages: those are the server's
+# (server/server.js) and have no business inside a signed desktop bundle. desktop/test/packaging.test.js checks that
+# everything the app's pages load survives this filter.
 extraResources:
   - from: ../web
     to: web
+    filter:
+      - "**/*"
+      - "!.DS_Store"
+      - "!site.*"
+      - "!app.*"
+      - "!account.*"
+      - "!job.*"
+      - "!login.html"
+      - "!reset.html"
+      - "!usage-tiles.js"
   - from: resources/bin
     to: bin
 asar: true

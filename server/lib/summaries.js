@@ -1,13 +1,14 @@
 'use strict';
-// AI learning summaries made here, for a client that sends a recording's cues and gets Markdown back — the iOS
-// app, which holds no key and should not carry a copy of the prompt either. What is asked of the model is
-// core/summary.js, the same as the Mac's (desktop/lib/summary.js); this file is the conversation with the model:
-// one streamed request to TokenHub's Anthropic-compatible endpoint, a second cheap one when the answer is over its
-// length cap, and the clean-up. No SDK: the stream is server-sent events, read here line by line.
-const { transcriptFromCues, lengthBudget, countChars, systemPrompt, userPrompt, condensePrompts, thinkingFor, sanitizeTimestamps, LANG_NAMES } = require('@subs/core/summary');
+// AI learning summaries made here, for a client that sends a recording's cues and gets Markdown back: the iOS app
+// and, since 0.8.4, the Mac (desktop/lib/summary.js) — neither holds a key, and neither carries a copy of the
+// prompt, which is core/summary.js. This file is the conversation with the model: one streamed request to
+// TokenHub's Anthropic-compatible endpoint, a second cheap one when the answer is over its length cap, and the
+// clean-up. No SDK: the stream is server-sent events, read here line by line. A client may name one of the
+// models core/summary.js lists and an effort; anything else gets the server's defaults.
+const { transcriptFromCues, lengthBudget, countChars, systemPrompt, userPrompt, condensePrompts, thinkingFor, sanitizeTimestamps, LANG_NAMES, SUMMARY_MODELS, DEFAULT_SUMMARY_MODEL, SUMMARY_EFFORTS } = require('@subs/core/summary');
 
 const DEFAULT_BASE = 'https://tokenhub.tencentmaas.com';
-const DEFAULT_MODEL = 'deepseek-v4-flash';
+const DEFAULT_MODEL = DEFAULT_SUMMARY_MODEL;
 const MAX_CUES = 20_000; // ten hours of talk at a sentence every two seconds
 const MAX_TEXT = 2_000; // characters in one cue; a sentence is cut at 6 s, so this is only a guard
 
@@ -86,12 +87,15 @@ async function ask({ key, baseUrl = DEFAULT_BASE, body, onText = () => {}, onThi
 
 /**
  * Summarise one recording.
- * @param {object} req   { name, language, target: cues, source?: cues } — cues are { start, end, text } in ms
- * @param {object} o     { key, baseUrl?, model?, effort?, onStage?, onDelta?, signal?, fetchImpl? }
+ * @param {object} req   { name, language, target: cues, source?: cues, model?, effort? } — cues are { start, end, text }
+ *                       in ms; `model` and `effort` count only when core/summary.js lists them
+ * @param {object} o     { key, baseUrl?, model?, effort?, onStage?, onDelta?, signal?, fetchImpl? } — the server's defaults
  * @returns {Promise<{markdown:string, meta:object}>}
  */
-async function summarise(req, { key, baseUrl, model = DEFAULT_MODEL, effort = 'high', onStage = () => {}, onDelta = () => {}, signal, fetchImpl } = {}) {
+async function summarise(req, { key, baseUrl, model: defaultModel = DEFAULT_MODEL, effort: defaultEffort = 'high', onStage = () => {}, onDelta = () => {}, signal, fetchImpl } = {}) {
   if (!key) throw new SummaryError('no_key', 'the server has no TokenHub key configured', 503);
+  const model = SUMMARY_MODELS.includes(req && req.model) ? req.model : defaultModel;
+  const effort = SUMMARY_EFFORTS.includes(req && req.effort) ? req.effort : defaultEffort;
   const language = LANG_NAMES[req && req.language] ? req.language : 'zh';
   const name = String((req && req.name) || 'recording').replace(/[\r\n<>]/g, ' ').slice(0, 120);
   const transcript = (() => {

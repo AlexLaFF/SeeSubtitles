@@ -438,6 +438,13 @@
       else if (rr.summary) { const f = el('iframe', { src: `/summary?rec=${encodeURIComponent(base)}`, style: 'width:100%;height:100%;border:0;border-radius:8px;background:var(--surface-2)' }); box.appendChild(f); }
       else box.appendChild(el('div', { class: 'empty' }, t('files.noSummary')));
     }
+    // a timestamp clicked in the summary (web/summary.js, in the iframe above) plays the recording from there
+    const onSeek = (e) => {
+      if (mounted !== 'detail') return window.removeEventListener('message', onSeek);
+      if (e.origin !== location.origin || !e.data || e.data.type !== 'seek' || e.data.rec !== base || !Number.isFinite(e.data.sec)) return;
+      audio.currentTime = e.data.sec; audio.play().catch(() => {});
+    };
+    window.addEventListener('message', onSeek);
     const rec = () => recordings.find((x) => x.base === base) || r;
     const doRename = async () => { const nb = await renameRecording(rec()); if (nb) App.go('files', { base: nb }, { replace: true }); };
     $('dTitle').addEventListener('click', doRename);

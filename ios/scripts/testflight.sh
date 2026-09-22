@@ -101,4 +101,6 @@ if [ "$STEP" = all ] || [ "$STEP" = upload ]; then
   node "$ROOT/ios/scripts/asc.mjs" build com.algernonlabs.seesubtitles "$BUILD" || true
   echo "✓ See Subtitles $VERSION ($BUILD) is with App Store Connect. It appears under TestFlight once Apple has"
   echo "  processed it (usually 10–30 minutes, an email says when); add it to a tester group there."
+  # The archive stays (`upload` re-runs from it); the quarter-gigabyte of DerivedData behind it has no second use.
+  rm -rf "$OUT/DerivedData"
 fi

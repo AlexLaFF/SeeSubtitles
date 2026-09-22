@@ -77,6 +77,16 @@ test('a summary is asked with the shared prompt and the server key, streams, and
   assert.equal(out.meta.condensed, false);
 });
 
+test('a client may name a listed model and an effort; anything else gets the defaults', async (t) => {
+  const model = await fakeModel(t, [GOOD, GOOD]);
+  await summarise({ ...CUES, model: 'kimi-k3', effort: 'low' }, { key: 'k', baseUrl: model.baseUrl });
+  assert.equal(model.asked[0].body.model, 'kimi-k3');
+  assert.deepEqual(model.asked[0].body.thinking, { type: 'disabled' });
+  await summarise({ ...CUES, model: 'gpt-9', effort: 'maximum' }, { key: 'k', baseUrl: model.baseUrl, model: 'minimax-m3', effort: 'medium' });
+  assert.equal(model.asked[1].body.model, 'minimax-m3', 'a model not on the list is ignored, not sent');
+  assert.deepEqual(model.asked[1].body.thinking, { type: 'enabled', budget_tokens: 6000 });
+});
+
 test('a summary over its cap is condensed once, without the transcript', async (t) => {
   const long = `# 《长》\n${'这是一句很长的话。'.repeat(80)}`; // 640 counted characters against a cap of 450
   const model = await fakeModel(t, [long, '# 《短》\n## 一段话\n短。']);

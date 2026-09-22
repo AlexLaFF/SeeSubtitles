@@ -223,12 +223,6 @@ function pinnedOptions(ip) {
   };
 }
 
-function maskSecret(s) {
-  if (!s) return '';
-  if (s.length <= 8) return '****';
-  return `${s.slice(0, 4)}…${s.slice(-4)}`;
-}
-
 module.exports = {
   HOST,
   PATH_PREFIX,
@@ -238,8 +232,6 @@ module.exports = {
   hmacSha1Base64,
   buildConnection,
   buildRecognition,
-  RECOGNIZE_PREFIX,
-  maskSecret,
   resolveMainland,
   forgetMainland,
   isMainlandEdge,

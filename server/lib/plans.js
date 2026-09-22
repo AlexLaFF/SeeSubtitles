@@ -80,4 +80,4 @@ class Quotas {
   }
 }
 
-module.exports = { PLANS, ADMIN, IDS, Quotas, planOf, limitsOf, monthKey };
+module.exports = { PLANS, IDS, Quotas, planOf, limitsOf, monthKey };

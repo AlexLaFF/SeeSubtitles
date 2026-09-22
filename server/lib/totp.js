@@ -67,4 +67,4 @@ function otpauthUrl(secret, account, issuer = 'See Subtitles') {
   return `otpauth://totp/${label}?${q}`;
 }
 
-module.exports = { generateSecret, codeFor, verify, otpauthUrl, base32Encode, base32Decode, STEP_SECONDS, DIGITS };
+module.exports = { generateSecret, codeFor, verify, otpauthUrl, base32Encode, STEP_SECONDS };

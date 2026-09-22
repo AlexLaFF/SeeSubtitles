@@ -40,6 +40,18 @@ test('every key used by the pages and the main process is in the catalog', () =>
   assert.deepEqual(missing, [], `keys missing from web/locales.js: ${missing.map(([k, f]) => `${k} (${f})`).join(', ')}`);
 });
 
+// Keys whose names are put together at run time (`t(\`status.${job.status}\`)`), so no literal names them.
+const DYNAMIC = /^(field|err|status|settings\.sec|group|summodel|ctl\.bounds|files\.dlKind|plan|billing|preset|sumlang|effort|mp4size|mp4show|startup|demo)\./;
+test('every key in the catalog is used somewhere — a string nothing shows is deleted, not kept', () => {
+  // the pages and the main process as above, plus what else names a key: desktop/lib (error codes, stages), the
+  // server (its error codes reach the pages through err.*) — and the phone's keys, which ios/scripts/check-strings.mjs polices
+  const more = [];
+  for (const dir of ['desktop/lib', 'server', 'server/lib']) for (const f of fs.readdirSync(path.join(ROOT, dir))) if (f.endsWith('.js')) more.push(path.join(ROOT, dir, f));
+  const text = [...SOURCES, ...more].map((f) => fs.readFileSync(f, 'utf8')).join('\n');
+  const unused = Object.keys(LOCALES.strings).filter((k) => !k.startsWith('ios.') && !DYNAMIC.test(k) && !text.includes(`'${k}'`) && !text.includes(`"${k}"`) && !text.includes(`\`${k}\``));
+  assert.deepEqual(unused, [], `nothing uses these keys in web/locales.js: ${unused.join(', ')}`);
+});
+
 test('no page declares a variable named t (it would shadow the translation function)', () => {
   const offenders = [];
   for (const file of SOURCES) {

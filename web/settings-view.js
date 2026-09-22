@@ -153,8 +153,7 @@
     const mp4size = select([['1080x1920', t('mp4size.portrait')], ['1920x1080', t('mp4size.landscape')], ['720x1280', t('mp4size.small')]], cfg.mp4.size);
     const mp4font = el('input', { type: 'number', min: 24, max: 200, value: cfg.mp4.fontSize, style: 'width:80px' });
     const mp4show = select([['target', t('mp4show.target')], ['both', t('mp4show.both')]], cfg.mp4.show);
-    const mp4enc = select([['libx264', t('mp4enc.x264')], ['h264_videotoolbox', t('mp4enc.vt')]], cfg.mp4.encoder);
-    rec.append(row(t('settings.recDir'), dir, btnDir), row(t('settings.bitrate'), bitrate), row(t('settings.mp4auto'), mp4auto), row(t('settings.mp4size'), mp4size), row(t('settings.mp4font'), mp4font), row(t('settings.mp4show'), mp4show), row(t('settings.mp4enc'), mp4enc));
+    rec.append(row(t('settings.recDir'), dir, btnDir), row(t('settings.bitrate'), bitrate), row(t('settings.mp4auto'), mp4auto), row(t('settings.mp4size'), mp4size), row(t('settings.mp4font'), mp4font), row(t('settings.mp4show'), mp4show));
 
     // ---- Advanced
     const adv = sec('advanced');
@@ -179,7 +178,7 @@
         appid: appid.value, secretId: secretId.value, secretKey: secretKey.value, edge: edge.value,
         summaryModel: cloudModel.value, summaryLanguage: sumLang.value, summaryEffort: sumEffort.value,
         recordingsDir: dir.value, bitrate: bitrate.value,
-        mp4: { auto: mp4auto.value === '1', size: mp4size.value, fontSize: Number(mp4font.value) || 64, show: mp4show.value, encoder: mp4enc.value },
+        mp4: { auto: mp4auto.value === '1', size: mp4size.value, fontSize: Number(mp4font.value) || 64, show: mp4show.value },
         startPaused: startup.value === '1', demo: demo.value === '1',
       });
       secretKey.value = '';

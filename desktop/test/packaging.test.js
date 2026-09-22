@@ -29,6 +29,32 @@ test('nothing under desktop/ reaches the core package by a relative path', () =>
   assert.deepEqual(bad, [], `use @subs/core/… instead:\n${bad.join('\n')}`);
 });
 
+test('every file the app\'s pages load is still in the bundle after electron-builder.yml\'s filter on web/', () => {
+  const yml = fs.readFileSync(path.join(ROOT, 'electron-builder.yml'), 'utf8');
+  const filter = [...yml.matchAll(/^\s+- "!([^"]+)"/gm)].map((m) => m[1]);
+  assert.ok(filter.length >= 5, 'the web/ filter is in electron-builder.yml');
+  const excluded = (rel) => filter.some((glob) => new RegExp(`^${glob.replace(/\./g, '\\.').replace(/\*/g, '[^/]*')}$`).test(rel));
+  const WEB = path.join(ROOT, '..', 'web');
+  // the pages desktop/local-server.js serves (its PAGES map) and every asset they reference by URL
+  const pages = ['index.html', 'desktop.html', 'summary.html', 'poster.html'];
+  const needed = new Set(pages);
+  for (const p of pages) {
+    for (const m of fs.readFileSync(path.join(WEB, p), 'utf8').matchAll(/(?:src|href)="\/([\w./-]+)"/g)) if (m[1] !== 'schema.js' && !/^(control|playback|files)/.test(m[1])) needed.add(m[1]);
+  }
+  for (const css of [...needed].filter((f) => f.endsWith('.css'))) {
+    for (const m of fs.readFileSync(path.join(WEB, css), 'utf8').matchAll(/url\(\/([\w./-]+)\)/g)) needed.add(m[1]);
+  }
+  const lost = [...needed].filter((f) => excluded(f) || !fs.existsSync(path.join(WEB, f)));
+  assert.deepEqual(lost, [], `filtered out of the bundle or missing from web/: ${lost.join(', ')}`);
+  // every page-to-page link points at a page the local server has (PAGES in local-server.js, or /files/<base>)
+  const served = /^\/(control|files|settings|summary|poster|)(\/|\?|$)/;
+  for (const f of [...pages, 'summary.js']) {
+    for (const m of fs.readFileSync(path.join(WEB, f), 'utf8').matchAll(/href=["'`](\/[\w./-]*)/g)) if (!/\.\w+$/.test(m[1])) assert.match(m[1], served, `${f} links to ${m[1]}, which the app does not serve`);
+  }
+  // and the hosted-only pages are indeed left behind
+  for (const f of ['site.html', 'login.html', 'account.js', 'usage-tiles.js']) assert.ok(excluded(f), `${f} is the server's, not the app's`);
+});
+
 test('the core subpaths the desktop imports are really exported by the package', () => {
   const used = new Set();
   for (const file of sources(ROOT)) {
