@@ -75,7 +75,6 @@ if [ "$STEP" = all ] || [ "$STEP" = upload ]; then
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>method</key><string>app-store-connect</string>
-  <key>destination</key><string>export</string>
   <key>teamID</key><string>6DZ5Z54SPQ</string>
   <key>signingStyle</key><string>automatic</string>
   <key>uploadSymbols</key><true/>
@@ -83,8 +82,21 @@ if [ "$STEP" = all ] || [ "$STEP" = upload ]; then
 </dict></plist>
 EOF
   rm -rf "$OUT/export"
-  xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OUT/ExportOptions.plist" \
-    -exportPath "$OUT/export" -allowProvisioningUpdates $AUTH > "$OUT/export.log" 2>&1 || true
+  # Xcode's export once sat for a quarter of an hour after its version check with nothing on the wire (its App
+  # Store helper had crashed on a run before — ITunesSoftwareService, Xcode 27.0), so it gets ten minutes, then
+  # is killed and run once more: an export that works takes about one.
+  n=0
+  while :; do
+    xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OUT/ExportOptions.plist" \
+      -exportPath "$OUT/export" -allowProvisioningUpdates $AUTH > "$OUT/export.log" 2>&1 &
+    pid=$!; waited=0
+    while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 600 ]; do sleep 5; waited=$((waited + 5)); done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null; pkill -f ITunesSoftwareService 2>/dev/null; sleep 2
+      n=$((n + 1)); [ "$n" -lt 2 ] && { echo "· the export hung for ten minutes — Xcode's helper is stuck; once more"; continue; }
+    fi
+    break
+  done
   grep -E 'error:|EXPORT (SUCCEEDED|FAILED)' "$OUT/export.log" | sort -u
   IPA=$(ls "$OUT"/export/*.ipa 2>/dev/null | head -1 || true)
   if [ ! -f "$IPA" ]; then
@@ -104,6 +116,9 @@ EOF
   echo "   $(basename "$IPA") · $(du -h "$IPA" | cut -f1)"
 
   echo "── uploading to App Store Connect"
+  # altool finds the key by its id in ~/.appstoreconnect/private_keys (Apple's convention, the journal project's too).
+  mkdir -p "$HOME/.appstoreconnect/private_keys"
+  [ -e "$HOME/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY_ID.p8" ] || ln -s "$APPLE_API_KEY" "$HOME/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY_ID.p8"
   n=0
   until xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER" \
       > "$OUT/upload.log" 2>&1 && grep -q "UPLOAD SUCCEEDED\|No errors uploading" "$OUT/upload.log"; do
