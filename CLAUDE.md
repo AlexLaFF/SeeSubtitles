@@ -18,6 +18,14 @@ and our own line-cutting. Which languages go there is `MODELS` in dashscope.js �
 been compared the same way (`npm run probe:file`, server/probe-file.js: one recording, every candidate, side by
 side with the app's own subtitles). Live talks are untouched: they stay on Tencent's live engines.
 
+**Uploaded files are translated whole** (server/lib/whole-translate.js, since 2026-09-23): `deepseek-v4-flash` on the
+TokenHub key reads 120 numbered sentences a request with the 30 before them and their translations, so names and
+forms of address hold across the film and misheard words are read for what was meant. Alignment is never guessed —
+a window that comes back without every number is asked again, then done sentence by sentence with `hy-mt2-pro`, and
+so is any pair outside its 26 languages. Chosen on a Japanese transcript through four translators
+(`npm run probe:translate`); Alibaba's Qwen models were ruled out because their content filter refuses lines.
+`FILE_TRANSLATION_MODEL=off` restores sentence by sentence. Live talks stay line by line with `hy-mt2-pro`.
+
 Builds up to 0.6.9 downloaded and stored both keys, so both were replaced on 2026-09-15 and the old ones deleted —
 which lifted the blocker on accounts for other people. Opening sign-up is still Alex's decision: `SIGNUP_MODE` stays
 `closed` until they say otherwise. To replace the keys again: create the new ones in the console, run

@@ -96,6 +96,7 @@ if (process.env.TENCENT_PACK && !usage.pack) log('warn', `TENCENT_PACK "${proces
 const jobs = new JobRunner({
   db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe',
   dashscopeKey: process.env.DASHSCOPE_API_KEY || '', dashscopeBaseUrl: process.env.DASHSCOPE_BASE_URL || undefined,
+  fileModel: process.env.FILE_TRANSLATION_MODEL || '', tokenhubBaseUrl: process.env.TOKENHUB_BASE_URL || '',
   ...(Number(process.env.UPLOAD_IDLE_MS) > 0 ? { uploadIdleMs: Number(process.env.UPLOAD_IDLE_MS) } : {}),
   // the plan's file hours: refuse a file that does not fit in what is left this month, otherwise count it
   onDuration: (job, seconds) => {
@@ -117,6 +118,7 @@ function ensureAdmin() {
 }
 ensureAdmin();
 log(jobs.backend === 'tokenhub' ? 'info' : 'warn', `translation backend: ${jobs.backend} (${jobs.model})${jobs.backend === 'hunyuan-legacy' ? ' — the standalone Hunyuan API stops on 2026-09-30; set TOKENHUB_API_KEY' : ''}`);
+log('info', jobs.whole ? `file translation: whole files with ${jobs.whole.model}, sentence by sentence with ${jobs.model} for the rest` : `file translation: sentence by sentence with ${jobs.model}`);
 log(jobs.dashscopeKey ? 'info' : 'warn', jobs.dashscopeKey ? `file recognition: ${Object.entries(require('./lib/dashscope').MODELS).map(([l, m]) => `${l} at 百炼 ${m}`).join(', ')}, the rest at Tencent` : 'file recognition: every language at Tencent — set DASHSCOPE_API_KEY for 百炼 (Japanese hears far better there)');
 const jobClients = new Map(); // job id -> Set<res>
 jobs.on('update', (j) => {

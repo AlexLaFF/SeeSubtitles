@@ -12,6 +12,8 @@ const tokenhub = require('./tokenhub');
 const dashscope = require('./dashscope');
 const { buildCues, toSrt, toVtt, toTxt, toAss, toStackedAss, isCjkText } = require('./subtitles');
 const { translateSentences, distribute } = require('./translate');
+const { translateWhole, handles: wholeHandles } = require('./whole-translate');
+const summaries = require('./summaries');
 
 const MAX_DURATION_S = 5 * 3600;
 const INLINE_LIMIT = 4.5 * 1024 * 1024; // CreateRecTask base64 payload cap is 5 MB
@@ -103,8 +105,12 @@ class JobRunner extends EventEmitter {
    * @param {string} [o.dashscopeKey] 百炼 API key: the languages in dashscope.MODELS are recognised there instead of
    *                                  at Tencent (Japanese, since 2026-09-22); without it every language stays with Tencent
    * @param {string} [o.dashscopeBaseUrl] a stand-in for 百炼 (tests)
+   * @param {string} [o.fileModel]    the chat model that translates a file whole (whole-translate.js), on TokenHub with
+   *                                  the same key; default deepseek-v4-flash, 'off' for sentence by sentence only
+   * @param {Function} [o.wholeAsk]   override (tests): (body) → Promise<{text, stopReason}>, one request to that model
+   * @param {string} [o.tokenhubBaseUrl] a stand-in for TokenHub's chat endpoint (tests)
    */
-  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null, onDuration = null, uploadIdleMs = 120_000, uploadStaleMs = 24 * 3600_000, dashscopeKey = '', dashscopeBaseUrl = '' }) {
+  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null, onDuration = null, uploadIdleMs = 120_000, uploadStaleMs = 24 * 3600_000, dashscopeKey = '', dashscopeBaseUrl = '', fileModel = '', wholeAsk = null, tokenhubBaseUrl = '' }) {
     super();
     this.db = db;
     this.dashscopeKey = String(dashscopeKey || '').trim();
@@ -165,6 +171,12 @@ class JobRunner extends EventEmitter {
         return (c && c.Message && c.Message.Content) || '';
       };
     }
+    // Files are translated whole by a chat model where it writes the pair well (whole-translate.js); the sentence-by-
+    // sentence translator above stays for the other pairs, and for any window the model gets wrong.
+    const wholeModel = String(fileModel || 'deepseek-v4-flash').trim();
+    if (wholeModel !== 'off' && (wholeAsk || (tokenhubKey && !translate))) {
+      this.whole = { model: wholeModel, ask: wholeAsk || ((body) => summaries.ask({ key: tokenhubKey, baseUrl: tokenhubBaseUrl || undefined, body })) };
+    } else this.whole = null;
     this.current = null;
     this.renders = new Map(); // id -> {percent}
     fs.mkdirSync(dir, { recursive: true });
@@ -478,12 +490,22 @@ class JobRunner extends EventEmitter {
     }
     const list = [...groups.values()];
     const texts = list.map((g) => (isCjkText(g.map((c) => c.text).join('')) ? g.map((c) => c.text).join('') : g.map((c) => c.text).join(' ')));
-    const translations = await translateSentences(texts, {
-      call: this.translate,
-      source,
-      target,
-      onProgress: (done, total) => this._progress(id, 'translating', (done / total) * 100),
-    });
+    const onProgress = (done, total) => this._progress(id, 'translating', (done / total) * 100);
+    const bySentence = (items) => translateSentences(items, { call: this.translate, source, target });
+    let translations = null;
+    if (this.whole && wholeHandles(source, target)) {
+      const t0 = Date.now();
+      try {
+        const r = await translateWhole(texts, { ask: this.whole.ask, model: this.whole.model, source, target, fallback: bySentence, onProgress,
+          log: (m) => this.log('warn', `job ${id}: ${this.whole.model}: ${m}`) });
+        translations = r.translations;
+        this.log('info', `job ${id}: translated whole with ${this.whole.model} — ${texts.length} sentences in ${r.windows} windows, ${Math.round((Date.now() - t0) / 1000)} s`
+          + `${r.fellBack ? `, ${r.fellBack} window(s) sentence by sentence` : ''}${r.filled ? `, ${r.filled} sentence(s) filled in by ${this.model}` : ''}`);
+      } catch (err) {
+        this.log('warn', `job ${id}: whole-file translation with ${this.whole.model} failed (${err.message}) — sentence by sentence with ${this.model}`);
+      }
+    }
+    if (!translations) translations = await translateSentences(texts, { call: this.translate, source, target, onProgress });
     list.forEach((g, i) => {
       const parts = distribute(translations[i], g.map((c) => [...c.text].length));
       g.forEach((c, k) => { c.trans = parts[k] || ''; });
