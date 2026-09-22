@@ -134,6 +134,9 @@ class RecognizeStream extends EventEmitter {
       const row = { index: r.index, startMs: r.start_time, endMs: r.end_time, text: r.voice_text_str };
       this.emit(r.slice_type === 2 ? 'sentence' : 'partial', row);
     });
+    // 实时语音识别 answers nothing until audio reaches it, so an arm that waited for its first message before
+    // sending any would wait for ever. The open socket is the signal to start feeding it.
+    ws.on('open', () => this.emit('open'));
     ws.on('error', (err) => this.emit('error', err));
     ws.on('close', (code) => this.emit('close', code));
   }
@@ -282,7 +285,9 @@ function createArm(spec, ctx) {
 
   arm.ready = new Promise((res, rej) => {
     const t = setTimeout(() => rej(new Error(`${spec.id}: never became ready`)), 12_000);
-    stream.on('ready', () => { clearTimeout(t); arm.peer = stream.peer; arm.edgeId = stream.edgeId; res(); });
+    const up = () => { clearTimeout(t); arm.peer = stream.peer; arm.edgeId = stream.edgeId; res(); };
+    stream.on('ready', up);   // 百炼 says task-started before any audio
+    stream.on('open', up);    // Tencent says nothing until audio arrives
   });
   arm.start = () => stream.start();
   arm.push = (chunk) => stream.push(chunk);
