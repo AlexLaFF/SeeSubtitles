@@ -15,7 +15,7 @@ const DEFAULT_MODEL = 'fun-asr-realtime';
 
 class FunAsrStream extends EventEmitter {
   /**
-   * @param {{key:string, model?:string, lang?:string, vadSilenceTime?:number, vocabularyId?:string, url?:string}} opts
+   * @param {{key:string, model?:string, lang?:string, langs?:string[], vadSilenceTime?:number, vocabularyId?:string, url?:string}} opts
    */
   constructor(opts = {}) {
     super();
@@ -46,7 +46,9 @@ class FunAsrStream extends EventEmitter {
         task_group: 'audio', task: 'asr', function: 'recognition', model: this.model,
         parameters: {
           format: 'pcm', sample_rate: 16000,
-          ...(this.opts.lang ? { language_hints: [this.opts.lang] } : {}),
+          // no hint at all = the service detects the language itself; a list narrows it to the ones expected
+          ...(this.opts.langs && this.opts.langs.length ? { language_hints: this.opts.langs }
+            : this.opts.lang ? { language_hints: [this.opts.lang] } : {}),
           ...(this.opts.vadSilenceTime ? { max_sentence_silence: Math.round(this.opts.vadSilenceTime) } : {}),
           ...(this.opts.vocabularyId ? { vocabulary_id: this.opts.vocabularyId } : {}),
           semantic_punctuation_enabled: false,
@@ -68,7 +70,8 @@ class FunAsrStream extends EventEmitter {
       // sentence_id is not always there; a new sentence otherwise starts when the last one ended
       if (s.sentence_id != null) { if (s.sentence_id !== this.lastSentenceId) { this.lastSentenceId = s.sentence_id; this.index++; } }
       else if (!this.open) { this.open = true; this.index++; }
-      const row = { index: this.index, startMs: Number(s.begin_time) || 0, endMs: Number(s.end_time) || 0, text: String(s.text) };
+      const row = { index: this.index, startMs: Number(s.begin_time) || 0, endMs: Number(s.end_time) || 0, text: String(s.text),
+        ...(s.language || s.lang ? { lang: s.language || s.lang } : {}) };
       if (s.sentence_end) { this.open = false; this.emit('sentence', row); } else this.emit('partial', row);
     });
     ws.on('error', (err) => this.emit('error', err));

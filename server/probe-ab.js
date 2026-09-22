@@ -230,7 +230,9 @@ function createArm(spec, ctx) {
   }
 
   const stream = spec.kind === 'alibaba'
-    ? new FunAsrStream({ key: ctx.dashscopeKey, model: spec.model || undefined, lang: spec.lang || 'zh', vadSilenceTime: spec.vadSilenceTime, vocabularyId: spec.vocabularyId })
+    // lang 'auto' sends no language_hints at all: the service decides, which is what a multilingual talk needs.
+    // `langs` names the ones to expect, which usually beats free detection over a hundred languages.
+    ? new FunAsrStream({ key: ctx.dashscopeKey, model: spec.model || undefined, lang: spec.lang === 'auto' ? '' : (spec.lang || 'zh'), langs: spec.langs, vadSilenceTime: spec.vadSilenceTime, vocabularyId: spec.vocabularyId })
     : new RecognizeStream(ctx.creds, {
       engine: spec.engine, hotwords: spec.hotwords, ip: ctx.ip,
       maxSpeakTime: spec.maxSpeakTime, vadSilenceTime: spec.vadSilenceTime,
