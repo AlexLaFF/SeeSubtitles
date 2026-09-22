@@ -19,11 +19,14 @@
 //
 // An arm is {id, kind, ...}. kind 'translate' is 实时语音翻译 (recognises and translates in one stream);
 // 'recognize' is 实时语音识别 alone, for comparing what engines hear without paying to translate it;
-// 'split' is 实时语音识别 followed by our own 混元翻译 call. Every arm may carry hotwords.
+// 'split' is 实时语音识别 followed by our own 混元翻译 call; 'alibaba' is 百炼's live recogniser (fun-asr-realtime)
+// in place of Tencent's, to see whether a live talk hears as well there for a quarter of the price. Every
+// Tencent arm may carry hotwords.
 //
 //   {"id":"A", "kind":"translate", "source":"yue", "target":"zh", "transModel":"hunyuan-translation-lite"}
 //   {"id":"yue-hot", "kind":"recognize", "engine":"16k_yue", "hotwords":"巨噬细胞|10,松果菊|10"}
 //   {"id":"B", "kind":"split", "engine":"16k_yue", "model":"hy-mt2-lite", "rollMs":900}
+//   {"id":"ali", "kind":"alibaba", "model":"fun-asr-realtime", "lang":"zh", "vadSilenceTime":700}
 //
 // rollMs on a split arm translates the sentence *while it is still being spoken*, every rollMs, so the
 // caption rolls the way 实时语音翻译's does instead of appearing all at once when the speaker stops.
@@ -36,6 +39,7 @@ const { EventEmitter } = require('node:events');
 const WebSocket = require('ws');
 const { loadEnv, getCredentials, TranslationStream, resolveMainland, pinnedOptions, hotwordList } = require('@subs/core');
 const { median, speechClock, signTest, decompose, endAgreement } = require('./lib/ab-stats');
+const { FunAsrStream } = require('./lib/dashscope-stream');
 
 const HOST = 'asr.cloud.tencent.com';
 const CHUNK_MS = 200;
@@ -222,11 +226,13 @@ function createArm(spec, ctx) {
     return arm;
   }
 
-  const stream = new RecognizeStream(ctx.creds, {
-    engine: spec.engine, hotwords: spec.hotwords, ip: ctx.ip,
-    maxSpeakTime: spec.maxSpeakTime, vadSilenceTime: spec.vadSilenceTime,
-  });
-  const split = spec.kind === 'split';
+  const stream = spec.kind === 'alibaba'
+    ? new FunAsrStream({ key: ctx.dashscopeKey, model: spec.model || undefined, lang: spec.lang || 'zh', vadSilenceTime: spec.vadSilenceTime, vocabularyId: spec.vocabularyId })
+    : new RecognizeStream(ctx.creds, {
+      engine: spec.engine, hotwords: spec.hotwords, ip: ctx.ip,
+      maxSpeakTime: spec.maxSpeakTime, vadSilenceTime: spec.vadSilenceTime,
+    });
+  const split = spec.kind === 'split'; // an 'alibaba' arm recognises only, as 'recognize' does
   const model = spec.model || 'hy-mt2-lite';
   let rolling = null; // the sentence being spoken right now, when rollMs is on
 
@@ -281,6 +287,7 @@ function createArm(spec, ctx) {
   arm.start = () => stream.start();
   arm.push = (chunk) => stream.push(chunk);
   arm.audio = () => ({ sent: stream.sent, dropped: stream.dropped });
+  if (spec.kind === 'alibaba') arm.peerName = spec.model || 'fun-asr-realtime';
   arm.end = () => stream.end();
   arm.stop = () => stream.stop();
   // 实时语音识别 counts from the first byte it received, which includes the silence sent while the other
@@ -380,8 +387,10 @@ async function run(file, opts) {
   const creds = getCredentials();
   const key = (process.env.TOKENHUB_API_KEY || '').trim();
   const specs = opts.armsFile ? JSON.parse(fs.readFileSync(opts.armsFile, 'utf8')) : DEFAULT_ARMS;
-  if (!key && specs.some((s) => s.kind !== 'recognize')) throw new Error('TOKENHUB_API_KEY is not set');
+  if (!key && specs.some((s) => !['recognize', 'alibaba'].includes(s.kind))) throw new Error('TOKENHUB_API_KEY is not set');
   const ip = opts.cn ? await resolveMainland({}) : null;
+  const dashscopeKey = (process.env.DASHSCOPE_API_KEY || '').trim();
+  if (specs.some((x) => x.kind === 'alibaba') && !dashscopeKey) throw new Error('an alibaba arm needs DASHSCOPE_API_KEY');
   if (ip) console.log(`# mainland edge ${ip}`);
 
   const pcm = opts.pcm || await decode(file, opts.seconds);
@@ -391,7 +400,7 @@ async function run(file, opts) {
 
   // the same recording, so the same clock: both arms are scored against where the speaker really stopped
   const clock = opts.clock || speechClock(pcm);
-  const ctx = { creds, key, ip, source: opts.source, target: opts.target, audioStart: 0, clock };
+  const ctx = { creds, key, ip, dashscopeKey, source: opts.source, target: opts.target, audioStart: 0, clock };
   const arms = specs.map((s) => createArm(s, ctx));
   for (const a of arms) a.start();
 
