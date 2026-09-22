@@ -4,7 +4,8 @@
 //   PORT (8080) HOST (0.0.0.0) DATA_DIR (../data) BASE_URL (public https URL, needed for long uploads)
 //   TENCENT_APPID / TENCENT_SECRET_ID / TENCENT_SECRET_KEY   TOKENHUB_API_KEY + TRANSLATION_MODEL (hy-mt2-pro)   FFMPEG / FFPROBE (binaries; MP4 burn-in needs libass)
 //   SUMMARY_MODEL (deepseek-v4-flash) SUMMARY_EFFORT (high): the model behind /api/summaries   IOS_APP_IDS: apps that may open this server's links
-//   TENCENT_WS_URL / TOKENHUB_BASE_URL / LIVE_METER_MS: stand-ins and a faster meter, for tests only (ios/e2e)
+//   DASHSCOPE_API_KEY: Alibaba 百炼, which recognises Japanese uploads (fun-asr) far better than Tencent
+//   TENCENT_WS_URL / TOKENHUB_BASE_URL / DASHSCOPE_BASE_URL / LIVE_METER_MS: stand-ins and a faster meter, for tests only (ios/e2e)
 //   UPLOAD_IDLE_MS (120000): an upload connection that says nothing for this long is closed; the sender carries on from what arrived
 const http = require('node:http');
 const fs = require('node:fs');
@@ -98,6 +99,7 @@ const usage = new UsageMonitor({ creds, billingCreds, pack: parsePack(process.en
 if (process.env.TENCENT_PACK && !usage.pack) log('warn', `TENCENT_PACK "${process.env.TENCENT_PACK}" is not <hours>h@<YYYY-MM-DD>; the dashboard shows usage without the pack`);
 const jobs = new JobRunner({
   db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe',
+  dashscopeKey: process.env.DASHSCOPE_API_KEY || '', dashscopeBaseUrl: process.env.DASHSCOPE_BASE_URL || undefined,
   ...(Number(process.env.UPLOAD_IDLE_MS) > 0 ? { uploadIdleMs: Number(process.env.UPLOAD_IDLE_MS) } : {}),
   // the plan's file hours: refuse a file that does not fit in what is left this month, otherwise count it
   onDuration: (job, seconds) => {
@@ -119,6 +121,7 @@ function ensureAdmin() {
 }
 ensureAdmin();
 log(jobs.backend === 'tokenhub' ? 'info' : 'warn', `translation backend: ${jobs.backend} (${jobs.model})${jobs.backend === 'hunyuan-legacy' ? ' — the standalone Hunyuan API stops on 2026-09-30; set TOKENHUB_API_KEY' : ''}`);
+log(jobs.dashscopeKey ? 'info' : 'warn', jobs.dashscopeKey ? `file recognition: ${Object.entries(require('./lib/dashscope').MODELS).map(([l, m]) => `${l} at 百炼 ${m}`).join(', ')}, the rest at Tencent` : 'file recognition: every language at Tencent — set DASHSCOPE_API_KEY for 百炼 (Japanese hears far better there)');
 const jobClients = new Map(); // job id -> Set<res>
 jobs.on('update', (j) => {
   const set = jobClients.get(j.id);

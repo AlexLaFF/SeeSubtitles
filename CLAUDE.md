@@ -11,6 +11,13 @@ account is, never by what failed (core/route-stream.js). **The direct route exis
 server and every account is relayed. STS is impossible here — the speech WebSocket has no parameter
 for a session token. Alex declined keeping a key on their own Mac, even as an outage backup.
 
+**Japanese uploads are recognised at Alibaba 百炼** (`fun-asr`, server/lib/dashscope.js; key `DASHSCOPE_API_KEY` in
+`deploy/.env`, same rule: no app holds it). On two Japanese recordings (2026-09-22) Tencent's `16k_ja` lost about
+half the speech `fun-asr` heard and mangled terms; ElevenLabs Scribe v2 was as accurate but needs a paid plan
+and our own line-cutting. Which languages go there is `MODELS` in dashscope.js — Japanese only until Chinese has
+been compared the same way (`npm run probe:file`, server/probe-file.js: one recording, every candidate, side by
+side with the app's own subtitles). Live talks are untouched: they stay on Tencent's live engines.
+
 Builds up to 0.6.9 downloaded and stored both keys, so both were replaced on 2026-09-15 and the old ones deleted —
 which lifted the blocker on accounts for other people. Opening sign-up is still Alex's decision: `SIGNUP_MODE` stays
 `closed` until they say otherwise. To replace the keys again: create the new ones in the console, run

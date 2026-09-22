@@ -9,6 +9,7 @@ const { spawn, execFile } = require('node:child_process');
 const { fromTexts } = require('@subs/core/plain-text');
 const { asr, hunyuan } = require('./tc3');
 const tokenhub = require('./tokenhub');
+const dashscope = require('./dashscope');
 const { buildCues, toSrt, toVtt, toTxt, toAss, toStackedAss, isCjkText } = require('./subtitles');
 const { translateSentences, distribute } = require('./translate');
 
@@ -21,6 +22,7 @@ const POLL_MS = 5000;
 // Every engine below was submitted to 录音文件识别 on the live account and came back `success`
 // (server/probe-languages.js --engines, last run 2026-09-10) — the list is what the account can really run,
 // not what the documentation advertises. `hunyuan: ''` means "let the translator detect the language".
+// A language in dashscope.MODELS is recognised at 百炼 instead when the server has that key (engineFor).
 const ENGINES = {
   yue: { engine: '16k_yue', hunyuan: 'yue', label: '粤语 Cantonese' },
   zh: { engine: '16k_zh', hunyuan: 'zh', label: '普通话 Mandarin' },
@@ -98,10 +100,15 @@ class JobRunner extends EventEmitter {
    * @param {string} [o.tokenhubKey]  TokenHub API key (Bearer)
    * @param {string} [o.model]        translation model for the chosen backend
    * @param {Function} [o.translate]  override (tests): ({text, source, target}) → Promise<string>
+   * @param {string} [o.dashscopeKey] 百炼 API key: the languages in dashscope.MODELS are recognised there instead of
+   *                                  at Tencent (Japanese, since 2026-09-22); without it every language stays with Tencent
+   * @param {string} [o.dashscopeBaseUrl] a stand-in for 百炼 (tests)
    */
-  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null, onDuration = null, uploadIdleMs = 120_000, uploadStaleMs = 24 * 3600_000 }) {
+  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null, onDuration = null, uploadIdleMs = 120_000, uploadStaleMs = 24 * 3600_000, dashscopeKey = '', dashscopeBaseUrl = '' }) {
     super();
     this.db = db;
+    this.dashscopeKey = String(dashscopeKey || '').trim();
+    this.dashscopeBaseUrl = dashscopeBaseUrl || dashscope.BASE;
     this.uploadIdleMs = uploadIdleMs; // a connection that says nothing for this long has lost its sender
     this.uploadStaleMs = uploadStaleMs; // and a file nobody has sent a byte of for this long is not coming
     this.uploads = new Map(); // id -> {stop(why), closed}, for each upload arriving now
@@ -164,6 +171,8 @@ class JobRunner extends EventEmitter {
   }
 
   jobDir(id) { return path.join(this.dir, id); }
+  /** Which recogniser listens to a language: 百炼 where it hears better and the key is here, else Tencent. */
+  engineFor(sourceLang) { return (this.dashscopeKey && dashscope.MODELS[sourceLang]) || ENGINES[sourceLang].engine; }
   get(id) { return this.db.get('SELECT * FROM jobs WHERE id = ?', id); }
   list(userId) { return this.db.all('SELECT * FROM jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT 200', userId).map((j) => this.view(j)); }
   view(j) {
@@ -187,7 +196,7 @@ class JobRunner extends EventEmitter {
     const id = crypto.randomBytes(8).toString('hex');
     const now = Date.now();
     this.db.run('INSERT INTO jobs(id, user_id, filename, size, source_lang, target_lang, engine, status, media_token, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-      id, userId, String(filename || 'video').slice(0, 200), Number(size) || null, sourceLang, targetLang, ENGINES[sourceLang].engine, 'uploading', crypto.randomBytes(16).toString('hex'), now, now);
+      id, userId, String(filename || 'video').slice(0, 200), Number(size) || null, sourceLang, targetLang, this.engineFor(sourceLang), 'uploading', crypto.randomBytes(16).toString('hex'), now, now);
     fs.mkdirSync(this.jobDir(id), { recursive: true });
     return this.get(id);
   }
@@ -303,7 +312,7 @@ class JobRunner extends EventEmitter {
       this.log('info', `job ${id}: ${job.source_lang} → ${job.target_lang} kept as version ${n} (${made.length} files)`);
     }
     if (sourceLang !== job.source_lang) fs.rmSync(path.join(dir, 'asr.json'), { force: true }); // heard as another language, it has to be heard again
-    this._update(id, { source_lang: sourceLang, target_lang: targetLang, engine: ENGINES[sourceLang].engine, status: 'queued', progress: 0, error: null, cues: 0, task_id: null });
+    this._update(id, { source_lang: sourceLang, target_lang: targetLang, engine: this.engineFor(sourceLang), status: 'queued', progress: 0, error: null, cues: 0, task_id: null });
     this.kick();
     return this.get(id);
   }
@@ -389,7 +398,17 @@ class JobRunner extends EventEmitter {
       taskId = null;
     }
 
-    // 2. batch recognition
+    // 2. batch recognition — at 百炼 for the languages it hears better (job.engine names the service), else Tencent
+    const alibaba = dashscope.isAlibaba(job.engine);
+    const ds = { baseUrl: this.dashscopeBaseUrl };
+    if (!heard && !taskId && alibaba) {
+      this._progress(id, 'recognizing', 0);
+      if (!this.dashscopeKey) throw new Error(`recognition with ${job.engine} needs DASHSCOPE_API_KEY on the server`);
+      const url = await dashscope.upload(this.dashscopeKey, job.engine, audio, ds);
+      taskId = await dashscope.submit(this.dashscopeKey, { model: job.engine, url, lang: job.source_lang, ...ds });
+      this._update(id, { task_id: taskId });
+      this.log('info', `job ${id}: 百炼 ${job.engine} task ${taskId} (${(fs.statSync(audio).size / 1e6).toFixed(1)} MB)`);
+    }
     if (!heard && !taskId) {
       this._progress(id, 'recognizing', 0);
       const size = fs.statSync(audio).size;
@@ -412,10 +431,16 @@ class JobRunner extends EventEmitter {
     let result = heard ? JSON.parse(fs.readFileSync(asrFile, 'utf8')) : null;
     while (!result) {
       await sleep(POLL_MS);
-      const r = await asr(this.creds, 'DescribeTaskStatus', { TaskId: taskId });
-      const st = r.Data || {};
-      if (st.Status === 2) { result = st; break; }
-      if (st.Status === 3) throw new Error(`recognition failed: ${st.ErrorMsg || 'unknown error'}`);
+      if (alibaba) {
+        const st = await dashscope.status(this.dashscopeKey, taskId, ds);
+        if (st.status === 'SUCCEEDED') { result = { ResultDetail: dashscope.toResultDetail(st.sentences), Engine: job.engine }; break; }
+        if (st.status === 'FAILED' || st.status === 'CANCELED' || st.status === 'UNKNOWN') throw new Error(`recognition failed: ${st.message || st.status}`);
+      } else {
+        const r = await asr(this.creds, 'DescribeTaskStatus', { TaskId: taskId });
+        const st = r.Data || {};
+        if (st.Status === 2) { result = st; break; }
+        if (st.Status === 3) throw new Error(`recognition failed: ${st.ErrorMsg || 'unknown error'}`);
+      }
       this._progress(id, 'recognizing', Math.min(95, ((Date.now() - t0) / expectedMs) * 100));
     }
     if (!heard) fs.writeFileSync(asrFile, JSON.stringify(result));
@@ -545,4 +570,4 @@ class JobRunner extends EventEmitter {
   }
 }
 
-module.exports = { JobRunner, ENGINES, TARGETS, safeName };
+module.exports = { JobRunner, ENGINES, TARGETS };
