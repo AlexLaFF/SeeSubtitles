@@ -59,13 +59,22 @@ struct TalkLiveActivity: Widget {
   }
 
   /// A teleprompter: the running text laid out in full and pinned to its last line, so the newest words are always
-  /// at the bottom right and older ones leave by the top, fading as they go.
+  /// at the bottom right and older ones leave by the top, fading as they go. It must read like the app's own
+  /// transcript, only smaller: the words simply change. Every update of an activity is animated by the system
+  /// otherwise — the old text fades out and the new one in, which at one update a second is a flicker, so both the
+  /// content transition and the animation are turned off here.
   private func sentence(_ state: TalkActivityAttributes.ContentState, lines: Int) -> some View {
     VStack(alignment: .leading, spacing: 3) {
       prompter(state.text.isEmpty ? "…" : state.text, size: 17, weight: .semibold, lines: lines, colour: ink)
       // one line: the end of the words as spoken, cut at the front so the line is always full
-      if !state.original.isEmpty { Text(state.original).font(.system(size: 12)).foregroundStyle(ink.opacity(0.6)).lineLimit(1).truncationMode(.head) }
+      if !state.original.isEmpty {
+        Text(state.original).font(.system(size: 12)).foregroundStyle(ink.opacity(0.6)).lineLimit(1).truncationMode(.head)
+          .contentTransition(.identity)
+      }
     }
+    .animation(nil, value: state.text)
+    .animation(nil, value: state.original)
+    .transaction { $0.animation = nil }
   }
 
   private func prompter(_ text: String, size: CGFloat, weight: Font.Weight, lines: Int, colour: Color) -> some View {
@@ -73,6 +82,7 @@ struct TalkLiveActivity: Widget {
     return Text(text)
       .font(.system(size: size, weight: weight))
       .foregroundStyle(colour)
+      .contentTransition(.identity)
       .fixedSize(horizontal: false, vertical: true)
       .frame(maxWidth: .infinity, minHeight: lineHeight * CGFloat(lines), maxHeight: lineHeight * CGFloat(lines), alignment: .bottomLeading)
       .clipped()
