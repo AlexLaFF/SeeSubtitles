@@ -13,21 +13,21 @@ struct SeeSubtitlesWidgets: WidgetBundle {
 struct TalkLiveActivity: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: TalkActivityAttributes.self) { context in
-      VStack(alignment: .leading, spacing: 6) {
+      // The lock screen gives an activity 160 points and no more, so everything but the words is one line: the
+      // languages, the state, the clock and Stop share the header, and the rest is text — four lines of it, or
+      // five when the words as spoken are not shown under them.
+      VStack(alignment: .leading, spacing: 5) {
         HStack(spacing: 8) {
-          MarkView(size: 18)
-          Text(context.attributes.pair).font(.caption.weight(.semibold)).foregroundStyle(ink.opacity(0.75)).lineLimit(1)
-          Spacer(minLength: 4)
+          MarkView(size: 16)
+          Text(context.attributes.pair).font(.caption2.weight(.semibold)).foregroundStyle(ink.opacity(0.75)).lineLimit(1).layoutPriority(-1)
+          Spacer(minLength: 2)
           status(context)
+          Button(intent: StopTalkIntent()) { Label { Text(context.attributes.stopLabel) } icon: { RoundedRectangle(cornerRadius: 2).fill(rec).frame(width: 9, height: 9) } }
+            .font(.caption2.weight(.semibold)).buttonStyle(.bordered).tint(ink).controlSize(.mini)
         }
-        sentence(context.state, lines: context.state.original.isEmpty ? 3 : 2)
-        HStack {
-          Spacer()
-          Button(intent: StopTalkIntent()) { Label { Text(context.attributes.stopLabel) } icon: { RoundedRectangle(cornerRadius: 2).fill(rec).frame(width: 10, height: 10) } }
-            .font(.footnote.weight(.semibold)).buttonStyle(.bordered).tint(ink).controlSize(.small)
-        }
+        sentence(context.state, lines: context.state.original.isEmpty ? 6 : 5)
       }
-      .padding(.horizontal, 14).padding(.vertical, 12)
+      .padding(.horizontal, 14).padding(.vertical, 10)
       .foregroundStyle(ink)
       .activityBackgroundTint(Color(red: 0x21 / 255, green: 0x20 / 255, blue: 0x1d / 255))
       .activitySystemActionForegroundColor(ink)
@@ -35,7 +35,7 @@ struct TalkLiveActivity: Widget {
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) { dot(context.state).padding(.leading, 6) }
         DynamicIslandExpandedRegion(.trailing) { timer(context).padding(.trailing, 6) }
-        DynamicIslandExpandedRegion(.bottom) { sentence(context.state, lines: 2).padding(.horizontal, 6) }
+        DynamicIslandExpandedRegion(.bottom) { sentence(context.state, lines: 3).padding(.horizontal, 6) }
       } compactLeading: { dot(context.state) } compactTrailing: { timer(context).frame(maxWidth: 52) } minimal: { dot(context.state) }
         .keylineTint(rec)
     }
@@ -51,11 +51,17 @@ struct TalkLiveActivity: Widget {
   private func dot(_ state: TalkActivityAttributes.ContentState) -> some View { Circle().fill(tone(state)).frame(width: 9, height: 9) }
 
   private func timer(_ context: ActivityViewContext<TalkActivityAttributes>) -> some View {
-    Text(timerInterval: context.attributes.startedAt...Date.distantFuture, countsDown: false).font(.footnote.monospacedDigit().weight(.semibold)).multilineTextAlignment(.trailing)
+    Text(timerInterval: context.attributes.startedAt...Date.distantFuture, countsDown: false).font(.caption2.monospacedDigit().weight(.semibold)).multilineTextAlignment(.trailing)
   }
 
+  /// The state in the header: the dot always, the clock always, the word for it only when something is wrong —
+  /// "listening" beside a running clock says nothing the dot does not, and the room is needed for the words.
   private func status(_ context: ActivityViewContext<TalkActivityAttributes>) -> some View {
-    HStack(spacing: 6) { dot(context.state); Text(context.state.status).font(.caption).foregroundStyle(ink.opacity(0.7)); timer(context).frame(maxWidth: 58) }
+    HStack(spacing: 5) {
+      dot(context.state)
+      if context.state.tone == 2 { Text(context.state.status).font(.caption2).foregroundStyle(ink.opacity(0.7)).lineLimit(1) }
+      timer(context).frame(maxWidth: 46)
+    }
   }
 
   /// A teleprompter: the running text laid out in full and pinned to its last line, so the newest words are always
@@ -86,6 +92,7 @@ struct TalkLiveActivity: Widget {
       .fixedSize(horizontal: false, vertical: true)
       .frame(maxWidth: .infinity, minHeight: lineHeight * CGFloat(lines), maxHeight: lineHeight * CGFloat(lines), alignment: .bottomLeading)
       .clipped()
-      .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: lines > 1 ? 0.35 : 0)], startPoint: .top, endPoint: .bottom))
+      // the line leaving at the top fades over its own height, not over a third of the block
+      .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: lines > 1 ? 0.8 / CGFloat(lines) : 0)], startPoint: .top, endPoint: .bottom))
   }
 }
