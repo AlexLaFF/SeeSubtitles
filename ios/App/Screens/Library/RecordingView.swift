@@ -37,6 +37,15 @@ struct RecordingView: View {
     .navigationTitle(model?.recording.title ?? recording.title)
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
+      // The title is the name: tap it to change it, as a click on the Mac's recording page does (web/files.js).
+      // The menu keeps its Rename too, for whoever looks there first.
+      ToolbarItem(placement: .principal) {
+        Button { newTitle = model?.recording.title ?? recording.title; renaming = true } label: {
+          Text(model?.recording.title ?? recording.title).font(.headline).foregroundStyle(.primary).lineLimit(1)
+        }
+        .accessibilityHint(L("ios.rec.rename"))
+        .accessibilityIdentifier("recordingTitle")
+      }
       ToolbarItem(placement: .topBarTrailing) {
         Menu {
           Button { textSheet = true } label: { Label(L("ios.text.title"), systemImage: "textformat.size") }

@@ -115,11 +115,15 @@ page does, and the login card gives way to it.
 
 A list of the phone's recordings, newest first, with a search field. Each row is the stack: the name on top
 ("9月5号14点33分" as the Mac names it, renamable), and underneath "粤语 → 中文 · 47:12 · 5 Sep" with small badges
-for summary, MP4, re-subtitled, and joined. Swipe for share and delete; long press for the same plus rename. A
+for summary, MP4, re-subtitled, and joined. Swipe for share and delete; long press for the same plus rename; inside
+a recording, a tap on its title renames it too, as a click on the title does on the Mac (web/files.js). A
 footer shows space used and a link to Settings › Storage. On iPad the list is the sidebar and the recording opens
 beside it.
 
 Empty state: one sentence and the Start button.
+
+Japanese files are recognised at Alibaba 百炼 since 2026-09-22 (server/lib/dashscope.js): a server change, so the
+phone's re-subtitling gets it with nothing to port.
 
 Files added for subtitling (the Mac's "Add file…", the web's upload) are not listed here — the Library is the
 phone's own recordings — so deleting one from the list, and the sheet that asks a file's languages and whether to
