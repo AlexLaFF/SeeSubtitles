@@ -96,16 +96,21 @@ if [ "$STEP" = all ] || [ "$STEP" = upload ]; then
     fi
   }
   [ -x "$TRANSPORTER" ] && echo "   with Transporter" || echo "   with altool (install Transporter from the Mac App Store for a sturdier upload)"
+  # Twenty minutes an attempt: Transporter took two on a good link and had not finished in eight on a bad one.
+  # Every kill ends in `|| true` — `set -e` and a pkill that matches nothing ended the script mid-retry once.
   n=0
   while :; do
     n=$((n + 1))
     upload_once &
     pid=$!; waited=0
-    while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 480 ]; do sleep 5; waited=$((waited + 5)); done
-    if kill -0 "$pid" 2>/dev/null; then pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null; pkill -f 'log stream --predicate process contains "altool"' 2>/dev/null; echo "· upload attempt $n: no answer in eight minutes";
+    while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 1200 ]; do sleep 5; waited=$((waited + 5)); done
+    if kill -0 "$pid" 2>/dev/null; then
+      pkill -P "$pid" 2>/dev/null || true; kill "$pid" 2>/dev/null || true
+      pkill -f 'log stream --predicate process contains "altool"' 2>/dev/null || true
+      echo "· upload attempt $n: no answer in twenty minutes";
     elif grep -q "UPLOAD SUCCEEDED\|No errors uploading\|uploaded successfully" "$OUT/upload.log"; then break
     else echo "· upload attempt $n failed: $(grep -iE 'error' "$OUT/upload.log" | sed -E 's/UserInfo=.*//' | head -1 | cut -c1-160)"; fi
-    [ "$n" -ge 6 ] && { echo "✖ the upload failed six times — $OUT/upload.log; the .ipa is kept, run \`upload\` again" >&2; exit 1; }
+    [ "$n" -ge 4 ] && { echo "✖ the upload failed four times — $OUT/upload.log; the .ipa is kept, run \`upload\` again" >&2; exit 1; }
     sleep 10
   done
   # Confirmed with App Store Connect itself rather than trusted from the log — Xcode's Organizer never shows an
