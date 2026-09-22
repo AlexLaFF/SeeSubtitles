@@ -232,7 +232,9 @@ function createArm(spec, ctx) {
   const stream = spec.kind === 'alibaba'
     // lang 'auto' sends no language_hints at all: the service decides, which is what a multilingual talk needs.
     // `langs` names the ones to expect, which usually beats free detection over a hundred languages.
-    ? new FunAsrStream({ key: ctx.dashscopeKey, model: spec.model || undefined, lang: spec.lang === 'auto' ? '' : (spec.lang || 'zh'), langs: spec.langs, vadSilenceTime: spec.vadSilenceTime, vocabularyId: spec.vocabularyId })
+    ? new FunAsrStream({ key: ctx.dashscopeKey, model: spec.model || undefined,
+      lang: /^gummy/.test(spec.model || '') ? (spec.lang || 'auto') : (spec.lang === 'auto' ? '' : (spec.lang || 'zh')),
+      langs: spec.langs, target: spec.translateTo, vadSilenceTime: spec.vadSilenceTime, vocabularyId: spec.vocabularyId })
     : new RecognizeStream(ctx.creds, {
       engine: spec.engine, hotwords: spec.hotwords, ip: ctx.ip,
       maxSpeakTime: spec.maxSpeakTime, vadSilenceTime: spec.vadSilenceTime,
@@ -274,6 +276,11 @@ function createArm(spec, ctx) {
   });
   stream.on('sentence', (s) => {
     const now = Date.now();
+    if (s.target) { // gummy translated it in the same stream — nothing else to call
+      rows.push({ index: s.index, startMs: s.startMs, endMs: s.endMs, source: s.text, target: s.target, lang: s.lang || null,
+        seen: [], firstTargetAt: now, finalAt: now, sentenceAt: now });
+      return;
+    }
     let row = rolling && rolling.index === s.index && rolling.row ? rolling.row : null;
     if (!row) { row = { index: s.index, startMs: s.startMs, endMs: s.endMs, source: '', target: '', seen: [], firstTargetAt: null, finalAt: null, sentenceAt: null }; rows.push(row); }
     rolling = null;

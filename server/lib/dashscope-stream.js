@@ -6,6 +6,11 @@
 //
 // The protocol is DashScope's duplex WebSocket: a run-task instruction, then binary PCM, then finish-task.
 // Sentences arrive as `result-generated` events, one per change, with `sentence_end` marking the settled one.
+//
+// Two models, two shapes. `fun-asr-realtime` recognises, and is told the language by `language_hints` (or told
+// nothing, and decides for itself). `gummy-realtime-v1` recognises *and* translates in the same stream, takes
+// `source_language: 'auto'` over 14 languages including Cantonese, and answers with both texts — which is what a
+// talk where several people answer each other in different languages needs from one connection.
 const crypto = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const WebSocket = require('ws');
@@ -15,7 +20,8 @@ const DEFAULT_MODEL = 'fun-asr-realtime';
 
 class FunAsrStream extends EventEmitter {
   /**
-   * @param {{key:string, model?:string, lang?:string, langs?:string[], vadSilenceTime?:number, vocabularyId?:string, url?:string}} opts
+   * @param {{key:string, model?:string, lang?:string, langs?:string[], target?:string, vadSilenceTime?:number,
+   *          vocabularyId?:string, url?:string}} opts  `target` turns on gummy's translation into that language
    */
   constructor(opts = {}) {
     super();
@@ -29,6 +35,7 @@ class FunAsrStream extends EventEmitter {
     this.dropped = 0;
     this.index = 0;
     this.lastSentenceId = null;
+    this.gummy = /^gummy/.test(this.model);
   }
 
   start() {
@@ -44,7 +51,14 @@ class FunAsrStream extends EventEmitter {
       header: { action: 'run-task', task_id: this.taskId, streaming: 'duplex' },
       payload: {
         task_group: 'audio', task: 'asr', function: 'recognition', model: this.model,
-        parameters: {
+        parameters: this.gummy ? {
+          format: 'pcm', sample_rate: 16000,
+          source_language: this.opts.lang || 'auto', // 'auto' = decide per sentence, which a mixed talk needs
+          transcription_enabled: true,
+          ...(this.opts.target ? { translation_enabled: true, translation_target_languages: [this.opts.target] } : {}),
+          ...(this.opts.vadSilenceTime ? { max_end_silence: Math.round(this.opts.vadSilenceTime) } : {}),
+          ...(this.opts.vocabularyId ? { vocabulary_id: this.opts.vocabularyId } : {}),
+        } : {
           format: 'pcm', sample_rate: 16000,
           // no hint at all = the service detects the language itself; a list narrows it to the ones expected
           ...(this.opts.langs && this.opts.langs.length ? { language_hints: this.opts.langs }
@@ -65,13 +79,17 @@ class FunAsrStream extends EventEmitter {
       if (ev === 'task-failed') return this.emit('error', new Error(`${msg.header.error_code || '?'}: ${msg.header.error_message || 'failed'}`));
       if (ev === 'task-finished') return this.emit('finished');
       if (ev !== 'result-generated') return;
-      const s = msg.payload && msg.payload.output && msg.payload.output.sentence;
+      const out = (msg.payload && msg.payload.output) || {};
+      // gummy carries the recognised sentence under `transcription`, and its translation beside it
+      const s = this.gummy ? out.transcription : out.sentence;
+      const translated = this.gummy && Array.isArray(out.translations) ? out.translations[0] : null;
       if (!s || !s.text) return;
       // sentence_id is not always there; a new sentence otherwise starts when the last one ended
       if (s.sentence_id != null) { if (s.sentence_id !== this.lastSentenceId) { this.lastSentenceId = s.sentence_id; this.index++; } }
       else if (!this.open) { this.open = true; this.index++; }
       const row = { index: this.index, startMs: Number(s.begin_time) || 0, endMs: Number(s.end_time) || 0, text: String(s.text),
-        ...(s.language || s.lang ? { lang: s.language || s.lang } : {}) };
+        ...(s.language || s.lang ? { lang: s.language || s.lang } : {}),
+        ...(translated && translated.text ? { target: String(translated.text) } : {}) };
       if (s.sentence_end) { this.open = false; this.emit('sentence', row); } else this.emit('partial', row);
     });
     ws.on('error', (err) => this.emit('error', err));
