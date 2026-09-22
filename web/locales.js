@@ -916,7 +916,7 @@
     'live.speak.status': ['{spoken} sentences spoken · {skipped} skipped to keep up', '已朗读 {spoken} 句 · 为跟上进度跳过 {skipped} 句'],
     'live.speak.sameLanguage': ['Nothing to speak: the subtitles are the words as spoken.', '无需朗读：字幕就是讲者的原话。'],
     'live.speak.unsupported': ['This system has no voice to speak with.', '此系统没有可用的朗读语音。'],
-    'live.speak.betterVoice': ['This is the basic voice. A far more natural one is a download away: System Settings › Accessibility › Spoken Content › System Voice › Manage Voices, tick a Premium or Enhanced voice for the language — it is used from the next sentence.', '当前为基础语音。更自然的声音只需下载：系统设置 › 辅助功能 › 朗读内容 › 系统声音 › 管理声音，勾选该语言的“高级”或“增强”语音，下一句起即生效。'],
+    'live.speak.betterVoice': ['This is the basic voice. A far more natural one is a free download: System Settings › Accessibility › Read & Speak (Spoken Content on macOS 26 and earlier) › System voice, and add a Premium or Enhanced voice for the language. It is used from the next sentence.', '当前为基础语音。更自然的语音可免费下载：打开“系统设置”，搜索“朗读”，进入辅助功能里的朗读设置 › 系统声音，添加该语言的“高级”或“增强”语音，下一句起即生效。'],
     'disp.remote.listen': ['Listen', '收听'],
     'disp.remote.listenTitle': ['hear the translation in your headphones, read by your own device', '用耳机收听译文，由你自己的设备朗读'],
 
@@ -1152,7 +1152,7 @@
     'ios.listen.noVoice': ['This device has no voice for {language}. Add one in Settings › Accessibility › Spoken Content › Voices.', '本机没有{language}的语音。请在“设置 › 辅助功能 › 朗读内容 › 声音”中添加。'],
     'ios.listen.voice': ['Voice', '语音'],
     'ios.listen.enhanced': ['enhanced', '增强'],
-    'ios.listen.betterVoice': ['This is iOS’s basic voice. A far more natural one is a download away: Settings › Accessibility › Spoken Content › Voices › {language}, choose one marked Enhanced or Premium — it is used from the next sentence.', '当前为 iOS 的基础语音。更自然的声音只需下载：设置 › 辅助功能 › 朗读内容 › 声音 › {language}，选择标有“增强”或“高级”的语音，下一句起即生效。'],
+    'ios.listen.betterVoice': ['This is iOS\u2019s basic voice. A far more natural one is a free download: Settings › Accessibility › Read & Speak (Spoken Content on iOS 26 and earlier) › Voices › {language}, then a voice marked Enhanced or Premium. It is used from the next sentence.', '当前为 iOS 的基础语音。更自然的语音可免费下载：打开“设置”，在顶部搜索“朗读”，进入辅助功能里的朗读设置 › 声音 › {language}，下载标有“增强”或“高级”的语音，下一句起即生效。'],
     'ios.listen.speed': ['Speed', '语速'],
     'ios.listen.speedHint': ['It speaks faster by itself when a sentence is waiting, and skips to the newest rather than fall behind.', '有句子在等待时会自动加快；宁可跳到最新一句，也不落后。'],
     'ios.listen.headphones': ['Headphones only', '仅限耳机'],

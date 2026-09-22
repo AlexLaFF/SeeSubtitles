@@ -1231,13 +1231,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This is iOS’s basic voice. A far more natural one is a download away: Settings › Accessibility › Spoken Content › Voices › {language}, choose one marked Enhanced or Premium — it is used from the next sentence."
+            "value": "This is iOS’s basic voice. A far more natural one is a free download: Settings › Accessibility › Read & Speak (Spoken Content on iOS 26 and earlier) › Voices › {language}, then a voice marked Enhanced or Premium. It is used from the next sentence."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "当前为 iOS 的基础语音。更自然的声音只需下载：设置 › 辅助功能 › 朗读内容 › 声音 › {language}，选择标有“增强”或“高级”的语音，下一句起即生效。"
+            "value": "当前为 iOS 的基础语音。更自然的语音可免费下载：打开“设置”，在顶部搜索“朗读”，进入辅助功能里的朗读设置 › 声音 › {language}，下载标有“增强”或“高级”的语音，下一句起即生效。"
           }
         }
       }

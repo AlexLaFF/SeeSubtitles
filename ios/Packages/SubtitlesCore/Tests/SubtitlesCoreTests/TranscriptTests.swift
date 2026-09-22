@@ -114,3 +114,17 @@ import Testing
     #expect(o.pipeline == "split" && o.transModel == "hy-mt2-pro" && s.targets(for: "yue").contains(o.target))
   }
 }
+
+@Suite struct RunningTextTests {
+  @Test("the lock screen's running text: newest last, Chinese run on, English spaced, empty drafts skipped, long talks cut at the front")
+  func join() {
+    #expect(RunningText.join(["大家好。", "欢迎来到", ""]) == "大家好。欢迎来到")
+    #expect(RunningText.join(["Good evening.", "Welcome to"]) == "Good evening. Welcome to")
+    #expect(RunningText.join(["今天讲 AI", "and why it matters."]) == "今天讲 AI and why it matters.")
+    #expect(RunningText.join(["What is AI?", "人工智能是什么？"]) == "What is AI?人工智能是什么？")
+    let long = (1...200).map { "第\($0)句。" }
+    let text = RunningText.join(long)
+    #expect(text.hasSuffix("第200句。") && text.count >= 240 && text.count < 300, "the newest sentence is always there; the oldest fall away")
+    #expect(!text.contains("第1句。"))
+  }
+}
