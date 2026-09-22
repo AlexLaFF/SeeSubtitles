@@ -67,6 +67,8 @@
     }
     const q = speaker.queue;
     row.appendChild(el('span', { class: 'hint', style: 'display:block;margin:6px 0 0' }, speaker.on ? t('live.speak.status', { spoken: q.spoken, skipped: q.skipped }) : t('live.speak.hint')));
+    // macOS ships the compact voices; the natural ones are a download in System Settings, which a page cannot start
+    if (voices.length && !voices.some((v) => /premium|enhanced|natural/i.test(v.name))) row.appendChild(el('span', { class: 'hint', style: 'display:block;margin:6px 0 0' }, t('live.speak.betterVoice')));
   }
   if (typeof speechSynthesis === 'object' && speechSynthesis) speechSynthesis.addEventListener('voiceschanged', () => { if (mounted) renderSpeak(); });
   Sub.on('clear', () => { preview.length = 0; previewById.clear(); if (mounted) renderPreview(); });

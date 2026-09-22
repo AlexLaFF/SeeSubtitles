@@ -916,6 +916,7 @@
     'reset.loggedInAs': ['Logged in as {email}.', '已登录：{email}。'],
     'reset.openOverview': ['Open the overview', '打开概览'],
     'reset.login': ['Log in', '登录'],
+    'live.speak.betterVoice': ['This is the basic voice. A far more natural one is a download away: System Settings › Accessibility › Spoken Content › System Voice › Manage Voices, tick a Premium or Enhanced voice for the language — it is used from the next sentence.', '当前为基础语音。更自然的声音只需下载：系统设置 › 辅助功能 › 朗读内容 › 系统声音 › 管理声音，勾选该语言的“高级”或“增强”语音，下一句起即生效。'],
 
     // ---- QR poster page (the sheet itself is bilingual by design)
     'poster.title': ['QR poster', '二维码海报'],
@@ -1151,6 +1152,7 @@
     'ios.glossary.title': ['Glossary', '词汇表'],
     'ios.glossary.count': ['{n} terms', '{n} 个词'],
     'ios.glossary.add': ['Add a term', '添加词条'],
+    'ios.listen.betterVoice': ['This is iOS’s basic voice. A far more natural one is a download away: Settings › Accessibility › Spoken Content › Voices › {language}, choose one marked Enhanced or Premium — it is used from the next sentence.', '当前为 iOS 的基础语音。更自然的声音只需下载：设置 › 辅助功能 › 朗读内容 › 声音 › {language}，选择标有“增强”或“高级”的语音，下一句起即生效。'],
     'ios.glossary.term': ['Term', '词条'],
     'ios.glossary.note': ['Note (optional)', '备注（可选）'],
     'ios.glossary.weight': ['Weight', '权重'],

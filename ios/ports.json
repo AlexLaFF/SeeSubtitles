@@ -8,7 +8,7 @@
   "design/tokens/marquee.css": "d5f7834667764e4a",
   "desktop/helpers/render-subs.swift": "6341393697e20108",
   "server/lib/live-proxy.js": "1878d5e5dc3248ac",
-  "server/lib/live.js": "d585c3ae648a261a",
-  "server/lib/summaries.js": "fd3f034eae121866",
+  "server/lib/live.js": "56b92147a39d7170",
+  "server/lib/summaries.js": "43f571c2b8a46aa6",
   "web/speak.js": "32232fd3d6e54083"
 }

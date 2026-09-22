@@ -24,6 +24,11 @@ struct ListenSheet: View {
         Picker(L("ios.listen.voice"), selection: Binding(get: { prefs.voiceIds[spoken.language] ?? voices[0].id }, set: { prefs.voiceIds[spoken.language] = $0 })) {
           ForEach(voices) { v in Text(v.quality > 0 ? "\(v.name) · \(L("ios.listen.enhanced"))" : v.name).tag(v.id) }
         }
+        // The phone ships with the compact voice only; the natural ones are a download in Settings, which an app
+        // cannot start. Said once here, where the voice is chosen, until a better one is installed.
+        if !voices.contains(where: { $0.quality > 0 }) {
+          StatusLabel(.neutral, L("ios.listen.betterVoice", ["language": LiveSchema.shared.name(of: spoken.language).native]))
+        }
         Picker(L("ios.listen.speed"), selection: $prefs.speechRate) { Text("1×").tag(1.0); Text("1.1×").tag(1.1); Text("1.25×").tag(1.25) }.pickerStyle(.segmented)
         Text(L("ios.listen.speedHint")).font(.mqHint).foregroundStyle(Color.mqText3)
       }

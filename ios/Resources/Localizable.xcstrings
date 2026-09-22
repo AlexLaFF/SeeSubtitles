@@ -1225,6 +1225,23 @@
         }
       }
     },
+    "ios.listen.betterVoice": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is iOS’s basic voice. A far more natural one is a download away: Settings › Accessibility › Spoken Content › Voices › {language}, choose one marked Enhanced or Premium — it is used from the next sentence."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前为 iOS 的基础语音。更自然的声音只需下载：设置 › 辅助功能 › 朗读内容 › 声音 › {language}，选择标有“增强”或“高级”的语音，下一句起即生效。"
+          }
+        }
+      }
+    },
     "ios.listen.connect": {
       "extractionState": "manual",
       "localizations": {

@@ -10,6 +10,12 @@ const crypto = require('node:crypto');
 const MAX_LINES = 300;
 const INIT_LINES = 50;
 
+// What a viewer at /d/<code> is told of the host's settings: how the subtitles look and which languages they are
+// in — nothing of the host's own (the microphone, the pipeline, the hotwords, thresholds). Those stay on the host's
+// machine; a phone that scanned the code shows the talk, not its controls.
+const VIEWER_KEYS = ['fontSize', 'fontWeight', 'fontFamily', 'fontColor', 'lineSpacing', 'lineGap', 'paddingX', 'paddingY', 'paddingTop', 'align', 'bgColor', 'bgOpacity', 'textShadow', 'topFade', 'showMode', 'visibleLines', 'showStatus', 'streaming', 'source', 'target'];
+const forViewers = (settings) => Object.fromEntries(VIEWER_KEYS.filter((k) => settings && settings[k] !== undefined).map((k) => [k, settings[k]]));
+
 class LiveSessions {
   constructor({ db, dir, log }) {
     this.db = db;
@@ -80,7 +86,7 @@ class LiveSessions {
     if (ev === 'settings') {
       if (!data || typeof data.settings !== 'object') return false;
       st.settings = data.settings;
-      if (broadcast) this._broadcast(st, 'settings', { settings: st.settings, changed: [], from: 'desktop' });
+      if (broadcast) this._broadcast(st, 'settings', { settings: forViewers(st.settings), changed: [], from: 'desktop' });
       return true;
     }
     if (ev === 'line') {
@@ -131,7 +137,7 @@ class LiveSessions {
     st.total += 1;
     st.peak = Math.max(st.peak, st.clients.size);
     this.db.run('UPDATE live_sessions SET peak_viewers = ?, total_viewers = ? WHERE id = ?', st.peak, st.total, st.id);
-    const init = { serverId: `remote-${st.id}`, remote: true, session: { code: st.code, name: st.name }, settings: { ...defaults, ...(st.settings || {}) }, lines: st.lines.slice(-INIT_LINES), status: this._status(st) };
+    const init = { serverId: `remote-${st.id}`, remote: true, session: { code: st.code, name: st.name }, settings: forViewers({ ...defaults, ...(st.settings || {}) }), lines: st.lines.slice(-INIT_LINES), status: this._status(st) };
     res.write(`event: init\ndata: ${JSON.stringify(init)}\n\n`);
     const hb = setInterval(() => { res.write(':hb\n\n'); }, 15_000);
     const statusTimer = setInterval(() => res.write(`event: status\ndata: ${JSON.stringify(this._status(st))}\n\n`), 5000);

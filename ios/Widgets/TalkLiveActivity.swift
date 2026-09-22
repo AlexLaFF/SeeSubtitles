@@ -59,10 +59,12 @@ struct TalkLiveActivity: Widget {
     HStack(spacing: 6) { dot(context.state); Text(context.state.status).font(.caption).foregroundStyle(ink.opacity(0.7)); timer(context).frame(maxWidth: 58) }
   }
 
+  /// What matters is the end of the sentence — the words just said — so a sentence too long for its lines loses
+  /// its beginning, not its end.
   private func sentence(_ state: TalkActivityAttributes.ContentState) -> some View {
     VStack(alignment: .leading, spacing: 3) {
-      Text(state.text.isEmpty ? "…" : state.text).font(.body.weight(.semibold)).lineLimit(3)
-      if !state.original.isEmpty { Text(state.original).font(.caption).foregroundStyle(ink.opacity(0.6)).lineLimit(2) }
+      Text(state.text.isEmpty ? "…" : state.text).font(.body.weight(.semibold)).lineLimit(3).truncationMode(.head)
+      if !state.original.isEmpty { Text(state.original).font(.caption).foregroundStyle(ink.opacity(0.6)).lineLimit(2).truncationMode(.head) }
     }
   }
 }

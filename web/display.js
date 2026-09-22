@@ -146,9 +146,8 @@
   }
 
   // ---- wiring
-  Controls.render($('panelControls'));
-  Controls.renderShortcuts($('kbd'));
-  if (Sub.remote) for (const id of ['btnClear', 'btnPause', 'btnReconnect', 'btnRec', 'btnControl']) $(id).hidden = true;
+  if (!Sub.remote) { Controls.render($('panelControls')); Controls.renderShortcuts($('kbd')); }
+  else { panel.remove(); for (const id of ['btnClear', 'btnPause', 'btnReconnect', 'btnRec', 'btnControl']) $(id).hidden = true; }
   $('btnClear').addEventListener('click', () => Sub.post('/api/clear'));
   $('btnPause').addEventListener('click', () => Sub.update({ streaming: !Sub.settings.streaming }));
   $('btnReconnect').addEventListener('click', () => Sub.post('/api/reconnect'));
@@ -165,14 +164,16 @@
     closeBtn.hidden = false;
     closeBtn.addEventListener('click', () => Sub.post('/api/overlay/close'));
   }
-  $('stage').addEventListener('dblclick', () => togglePanel());
+  // The panel is the host's: on the attendee page a double tap (or C) opens nothing, and the host's settings are
+  // never drawn there — what an attendee may change is on the bar below (size, what is shown, Listen).
+  if (!Sub.remote) $('stage').addEventListener('dblclick', () => togglePanel());
   if (isOverlay || isPreview) hint.hidden = true; // nothing but subtitles on the venue screen / in the preview
   else setTimeout(() => hint.classList.add('fade'), 6000);
 
   document.addEventListener('keydown', (e) => {
     if (Sub.isTyping(e)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === 'c' || e.key === 'C') { togglePanel(); e.preventDefault(); return; }
+    if ((e.key === 'c' || e.key === 'C') && !Sub.remote) { togglePanel(); e.preventDefault(); return; }
     if (e.key === 'Escape') { togglePanel(false); return; }
     if (e.key === 'f' || e.key === 'F') { toggleFullscreen(); e.preventDefault(); return; }
     if (Sub.keyAction(e)) e.preventDefault();
