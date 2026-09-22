@@ -105,6 +105,10 @@ function probe(ffprobe, file) {
   });
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** The engine a kept transcript was heard by, or null when it does not say (or there is none). */
+function heardByOf(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')).Engine || null; } catch { return null; }
+}
 
 class JobRunner extends EventEmitter {
   /**
@@ -338,8 +342,15 @@ class JobRunner extends EventEmitter {
       fs.writeFileSync(path.join(to, 'version.json'), JSON.stringify({ sourceLang: job.source_lang, targetLang: job.target_lang, engine: job.engine, cues: job.cues, madeAt: job.updated_at, keptAt: Date.now() }));
       this.log('info', `job ${id}: ${job.source_lang} → ${job.target_lang} kept as version ${n} (${made.length} files)`);
     }
-    if (sourceLang !== job.source_lang) fs.rmSync(path.join(dir, 'asr.json'), { force: true }); // heard as another language, it has to be heard again
-    this._update(id, { source_lang: sourceLang, target_lang: targetLang, engine: this.engineFor(sourceLang), status: 'queued', progress: 0, error: null, cues: 0, task_id: null });
+    // What was heard is kept only if the same recogniser would hear it again: heard as another language, or by an
+    // engine this language no longer uses (Japanese moved from Tencent 16k_ja to 百炼 fun-asr on 2026-09-22, and a
+    // re-subtitled Japanese file kept Tencent's half-deaf transcript), it has to be heard again.
+    // The transcript says which engine made it; one from before that (every file until 2026-09-22) was Tencent's.
+    const engine = this.engineFor(sourceLang);
+    const heardBy = heardByOf(path.join(dir, 'asr.json'));
+    const stale = heardBy ? heardBy !== engine : dashscope.isAlibaba(engine);
+    if (sourceLang !== job.source_lang || stale) fs.rmSync(path.join(dir, 'asr.json'), { force: true });
+    this._update(id, { source_lang: sourceLang, target_lang: targetLang, engine, status: 'queued', progress: 0, error: null, cues: 0, task_id: null });
     this.kick();
     return this.get(id);
   }
@@ -470,7 +481,7 @@ class JobRunner extends EventEmitter {
       }
       this._progress(id, 'recognizing', Math.min(95, ((Date.now() - t0) / expectedMs) * 100));
     }
-    if (!heard) fs.writeFileSync(asrFile, JSON.stringify(result));
+    if (!heard) fs.writeFileSync(asrFile, JSON.stringify({ ...result, Engine: result.Engine || job.engine })); // who heard it, for regenerate
 
     // 3. cues
     this._progress(id, 'segmenting', 100);
