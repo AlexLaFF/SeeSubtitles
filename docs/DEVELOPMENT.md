@@ -201,11 +201,15 @@ holding one. Three stages, about five minutes, **no keys and no cost** — nothi
 Each stage gets a server of its own, because the server allows twenty sign-ins a quarter of an hour from one address
 and a test run should not need that loosened. `node ios/e2e/run.mjs core` or `ui` runs one half.
 
-**To TestFlight: `sh ios/scripts/testflight.sh`** — the release test, then an App Store archive, then the upload,
-all under the Apple ID signed in to Xcode (no key on disk: the archive registers the app's identifiers and profiles
-on the account by itself). The build number is the commit count, so a build always says which commit it is and no
+**To TestFlight: `sh ios/scripts/testflight.sh`** — the release test, an App Store archive, the export to an .ipa,
+the upload, and a confirmation from App Store Connect that the build arrived. Apple is reached with the App Store
+Connect API key named in `~/.config/seesubtitles/notarize.env` (`APPLE_API_KEY_ID`, `APPLE_API_ISSUER`; the .p8
+beside it) — the same key that notarizes the Mac app — never the Apple ID signed in to Xcode, whose sign-in goes
+through developer.apple.com and fails from Alex's Mac ("No Accounts with App Store Connect Access", the journal
+project's experience too). The build number is the commit count, so a build always says which commit it is and no
 number is ever reused for different code; it refuses a tree with uncommitted changes under ios/, core/ or web/.
-The App Store Connect record is made once by hand. `archive` and `upload` run one half each.
+The App Store Connect record is made once by hand. `archive` and `upload` run one half each; a failed upload keeps
+the .ipa, so `upload` again costs nothing.
 
 **With real keys: `npm run e2e:ios:real`** (ios/e2e/real-on-server.sh). Stage 2 again, against real recognition,
 real translation, a real summary and real whole-file recognition — the phone's counterpart of `npm run e2e`, at about

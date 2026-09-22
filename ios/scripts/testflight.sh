@@ -1,8 +1,8 @@
 #!/bin/sh
 # Build the iPhone app for TestFlight and send it to App Store Connect. The phone's counterpart of
-# desktop/scripts/release.sh, and like it, run from the Mac with the Apple ID of team 6DZ5Z54SPQ signed in to
-# Xcode (Xcode › Settings › Accounts): the archive lets Xcode register the app's identifiers and make its
-# profiles on the account, and the upload goes out under the same login, so nothing here needs a key on disk.
+# desktop/scripts/release.sh, and like it, reaching Apple with the App Store Connect API key that notarize.env
+# names — the same key that notarizes the Mac app. The archive registers the app's identifiers and makes its
+# profiles on the account through it; the upload and the confirmation go out through it too.
 #
 #   sh ios/scripts/testflight.sh            # test, archive, upload
 #   sh ios/scripts/testflight.sh archive    # only build the archive
@@ -65,27 +65,83 @@ fi
 
 if [ "$STEP" = all ] || [ "$STEP" = upload ]; then
   [ -d "$ARCHIVE" ] || { echo "✖ no archive at $ARCHIVE — run the archive step first" >&2; exit 1; }
+  [ -n "$AUTH" ] || { echo "✖ uploading needs the API key: set APPLE_API_KEY_ID and APPLE_API_ISSUER in $ENV_FILE" >&2; exit 1; }
+  BUILD=$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleVersion' "$ARCHIVE/Info.plist")
+  # The archive is development-signed; this re-signs it for the App Store into an .ipa. Two steps rather than
+  # xcodebuild's own upload, so an upload that dies on the network leaves the .ipa to send again for nothing.
+  echo "── exporting build $BUILD for the App Store"
   cat > "$OUT/ExportOptions.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>method</key><string>app-store-connect</string>
-  <key>destination</key><string>upload</string>
+  <key>destination</key><string>export</string>
   <key>teamID</key><string>6DZ5Z54SPQ</string>
   <key>signingStyle</key><string>automatic</string>
   <key>uploadSymbols</key><true/>
   <key>manageAppVersionAndBuildNumber</key><false/>
 </dict></plist>
 EOF
-  echo "── uploading $(basename "$ARCHIVE") to App Store Connect"
-  # Apple's upload servers are slow to answer from here: three tries before giving up, the archive kept either way.
+  rm -rf "$OUT/export"
+  xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OUT/ExportOptions.plist" \
+    -exportPath "$OUT/export" -allowProvisioningUpdates $AUTH > "$OUT/export.log" 2>&1 || true
+  grep -E 'error:|EXPORT (SUCCEEDED|FAILED)' "$OUT/export.log" | sort -u
+  IPA=$(ls "$OUT"/export/*.ipa 2>/dev/null | head -1 || true)
+  if [ ! -f "$IPA" ]; then
+    # The two failures everyone meets first, named, because Apple's lines for them do not say what to do.
+    if grep -q "Cloud signing permission error" "$OUT/export.log"; then
+      echo "✖ the key may not make provisioning profiles. A key with the Developer role uploads builds but cannot" >&2
+      echo "  create the App Store profiles the export needs. Make one with the App Manager role at" >&2
+      echo "  https://appstoreconnect.apple.com/access/integrations/api (+, name it, App Manager, Generate, Download)," >&2
+      echo "  put the .p8 beside $ENV_FILE and set APPLE_API_KEY_ID to its id." >&2
+    elif ! security find-identity -v -p codesigning 2>/dev/null | grep -q "Apple Distribution"; then
+      echo "✖ no Apple Distribution certificate on this Mac: Xcode › Settings › Accounts › Manage Certificates › + › Apple Distribution" >&2
+    else
+      echo "✖ no .ipa was exported — $OUT/export.log" >&2
+    fi
+    exit 1
+  fi
+  echo "   $(basename "$IPA") · $(du -h "$IPA" | cut -f1)"
+
+  echo "── uploading to App Store Connect"
   n=0
-  until xcodebuild -exportArchive -archivePath "$ARCHIVE" -exportOptionsPlist "$OUT/ExportOptions.plist" \
-      -exportPath "$OUT/export" -allowProvisioningUpdates $AUTH 2>&1 | tee "$OUT/upload.log" | grep -E 'error:|Upload|EXPORT (SUCCEEDED|FAILED)'; do
-    n=$((n + 1)); [ "$n" -ge 3 ] && break
+  until xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER" \
+      > "$OUT/upload.log" 2>&1 && grep -q "UPLOAD SUCCEEDED\|No errors uploading" "$OUT/upload.log"; do
+    n=$((n + 1))
+    grep -iE "error|warn" "$OUT/upload.log" | head -3
+    [ "$n" -ge 3 ] && { echo "✖ the upload failed three times — $OUT/upload.log; the .ipa is kept, run \`upload\` again" >&2; exit 1; }
     echo "· upload attempt $n failed, trying again"
   done
-  grep -q 'EXPORT SUCCEEDED' "$OUT/upload.log" || { echo "✖ the upload failed — $OUT/upload.log" >&2; exit 1; }
+  # Confirmed with App Store Connect itself rather than trusted from the log — Xcode's Organizer never shows an
+  # upload it did not make. The API is asked with a short-lived token signed by the same key (node, no packages).
+  echo "── confirming with App Store Connect"
+  APPLE_API_KEY="$APPLE_API_KEY" node - "$APPLE_API_KEY_ID" "$APPLE_API_ISSUER" "$BUILD" <<'NODE' || echo "   (not confirmed yet — Apple may still be processing; check TestFlight)"
+const { createSign, createPrivateKey } = require('node:crypto');
+const [keyId, issuer, build] = process.argv.slice(2);
+const b64 = (o) => Buffer.from(typeof o === 'string' ? o : JSON.stringify(o)).toString('base64url');
+const now = Math.floor(Date.now() / 1000);
+const head = b64({ alg: 'ES256', kid: keyId, typ: 'JWT' }), body = b64({ iss: issuer, iat: now, exp: now + 600, aud: 'appstoreconnect-v1' });
+const key = createPrivateKey(require('node:fs').readFileSync(process.env.APPLE_API_KEY));
+const sig = createSign('SHA256').update(`${head}.${body}`).sign({ key, dsaEncoding: 'ieee-p1363' }).toString('base64url');
+const token = `${head}.${body}.${sig}`;
+const get = async (path) => {
+  const r = await fetch(`https://api.appstoreconnect.apple.com/v1/${path}`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
+  if (!r.ok) throw new Error(`${path}: ${r.status} ${(await r.text()).slice(0, 200)}`);
+  return r.json();
+};
+(async () => {
+  const apps = await get('apps?filter[bundleId]=com.algernonlabs.seesubtitles');
+  if (!apps.data.length) { console.log('   App Store Connect has no app record for com.algernonlabs.seesubtitles yet — make it at https://appstoreconnect.apple.com/apps'); process.exit(1); }
+  // The builds list lags behind Apple by minutes; the prerelease version's own builds show a build as soon as it arrives.
+  for (let i = 0; i < 10; i++) {
+    const v = await get(`preReleaseVersions?filter[app]=${apps.data[0].id}&limit=3&include=builds`);
+    const hit = (v.included || []).find((b) => b.type === 'builds' && b.attributes.version === build);
+    if (hit) { console.log(`   Apple has build ${build}: ${hit.attributes.processingState}`); return; }
+    await new Promise((r) => setTimeout(r, 20000));
+  }
+  console.log(`   build ${build} is not listed yet — still on its way; check TestFlight in a few minutes`); process.exit(1);
+})().catch((e) => { console.log(`   could not ask App Store Connect: ${e.message}`); process.exit(1); });
+NODE
   echo "✓ See Subtitles $VERSION ($BUILD) is with App Store Connect. It appears under TestFlight once Apple has"
   echo "  processed it (usually 10–30 minutes, an email says when); add it to a tester group there."
 fi
