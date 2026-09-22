@@ -92,6 +92,11 @@ console.cloud.tencent.com/tokenhub/apikey and pick a model with `TRANSLATION_MOD
 relay falls back to the `combined` pipeline and uploads to the standalone Hunyuan API with the TC3 keys,
 which Tencent retires on 2026-09-30. Tencent is reached through its Guangzhou edge (`TENCENT_EDGE`, below).
 
+An uploaded file is translated **whole** instead: `FILE_TRANSLATION_MODEL` (default `deepseek-v4-flash`, on the
+same TokenHub key) reads it in windows of 120 sentences, each with the 30 before it and their translations, so
+names and terms hold across a film; `TRANSLATION_MODEL` covers the language pairs it is not asked for and any
+window it gets wrong. `FILE_TRANSLATION_MODEL=off` translates uploads sentence by sentence as live talks are.
+
 `npm run probe:batch -- --translate-only` checks the translation key; `npm run probe:batch -- clip.mp3`
 runs recognition and translation end to end.
 

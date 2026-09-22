@@ -18,6 +18,7 @@ const summaries = require('./summaries');
 const MAX_DURATION_S = 5 * 3600;
 const INLINE_LIMIT = 4.5 * 1024 * 1024; // CreateRecTask base64 payload cap is 5 MB
 const POLL_MS = 5000;
+const WHOLE_TIMEOUT_MS = 10 * 60_000; // one window of a file's translation; a window is minutes, not seconds
 
 // Spoken language → Tencent batch engine, and the 混元翻译 (Hunyuan) source code. Hunyuan knows Cantonese
 // (yue) as its own language, so Cantonese transcripts are no longer translated "as Mandarin".
@@ -175,7 +176,9 @@ class JobRunner extends EventEmitter {
     // sentence translator above stays for the other pairs, and for any window the model gets wrong.
     const wholeModel = String(fileModel || 'deepseek-v4-flash').trim();
     if (wholeModel !== 'off' && (wholeAsk || (tokenhubKey && !translate))) {
-      this.whole = { model: wholeModel, ask: wholeAsk || ((body) => summaries.ask({ key: tokenhubKey, baseUrl: tokenhubBaseUrl || undefined, body })) };
+      // a window that never answers would hold the one job slot for ever: give up on it and let the window be
+      // asked again, then translated sentence by sentence
+      this.whole = { model: wholeModel, ask: wholeAsk || ((body) => summaries.ask({ key: tokenhubKey, baseUrl: tokenhubBaseUrl || undefined, body, signal: AbortSignal.timeout(WHOLE_TIMEOUT_MS) })) };
     } else this.whole = null;
     this.current = null;
     this.renders = new Map(); // id -> {percent}
