@@ -202,16 +202,23 @@ repository, with two local Swift packages:
 ```
 ios/
   SeeSubtitles.xcodeproj
-  App/                     the SwiftUI app: scenes, screens, view models, Live Activity widget
+  App/                     the SwiftUI app: scenes, screens, view models
+  Shared/, Widgets/        the Live Activity: its attributes, and the widget extension that draws it
   Packages/
-    SubtitlesCore/         no UI: relay client, audio sources, decimator, recorder, library, cues, names, API client
+    SubtitlesCore/         no UI: relay client, audio sources, decimator, recorder, library, cues, names, API client;
+                           its Tests/ are the unit tests
     SubtitlesDesign/       the Marquee tokens as Swift: colours, type, spacing; the stack row; status dot
-  Resources/               Localizable.xcstrings (generated), demo recording, fonts
+  Resources/               Localizable.xcstrings and InfoPlist.xcstrings, both generated from web/locales.js
+  Config/                  Info.plist, entitlements
+  UITests/                 drive the built app in the Simulator, a file as the microphone
+  e2e/                     the release test (npm run e2e:ios) and its server harness
   scripts/
-    export-strings.mjs     web/locales.js → Localizable.xcstrings
-    check-strings.mjs      every L("key") in Swift exists in the catalogue (the iOS half of desktop/test/i18n.test.js)
+    export-strings.mjs     web/locales.js → the .xcstrings (an Xcode build phase; strings.mjs is the shared part)
+    check-strings.mjs      every L("key") in Swift exists in the catalogue, and every ios.* key is used
     export-schema.mjs      core/schema.js → the languages, pipelines and tuning the app offers; the decimator fixture
-  Tests/                   unit tests for SubtitlesCore; UI tests that drive the app with a file as the microphone
+    ports.mjs              the Mac originals each Swift port follows, and whether one has changed since (--check / --accept)
+    testflight.sh          the release test, an archive, the export (export-ipa.sh, asc.mjs) and the upload
+    make-icon.swift        draws the app icon from the mark's geometry (design/canvas/icons.mjs) — by hand, once
 ```
 
 Bundle id `com.algernonlabs.seesubtitles`, next to the Mac's. Versioning starts at 1.0 on its own line; the Mac's
@@ -253,8 +260,8 @@ after another with no index to finish, so a file cut short by a crash, a dead ba
 the last frame written. When the talk stops the stream is wrapped into `录音.m4a` without encoding it again, which
 takes a moment even for an hour; a stream left behind by a talk that never stopped is wrapped at the next launch
 and the recording is marked recovered. (A plain m4a would not do: it is unplayable until it is closed.) AAC rather
-than the Mac's MP3 is the one deliberate difference: iOS has no MP3 encoder, and bundling one would need LAME under
-the LGPL. The server's upload jobs already accept any container ffmpeg reads, so re-subtitling and the web app
+than the Mac's MP3 is the one deliberate difference: iOS has no MP3 encoder, and bundling one would mean carrying
+LAME, as the Mac does inside its own ffmpeg build (LGPL; THIRD-PARTY.md). The server's upload jobs already accept any container ffmpeg reads, so re-subtitling and the web app
 open the file unchanged. core/names.js knows the `.m4a` suffix, so a recording's files keep the same Chinese base
 name on both platforms.
 
@@ -273,11 +280,16 @@ finishes one started at the end of a talk if the user leaves. Nothing goes to th
 
 ### 4.6 · Summaries
 
-A new server endpoint, `POST /api/summaries`, takes the transcript cues and the languages and streams back the
-Markdown, with the prompt and ordering moved from desktop/lib/summary.js into server/lib/summaries.js so the two
-apps share one implementation and the model choice is a server setting. The phone renders Markdown natively and
-makes the PDF with `UIGraphicsPDFRenderer`. The Mac switches to the endpoint in a later release; until then both
-paths exist on the server.
+A server endpoint, `POST /api/summaries`, takes the transcript cues and the languages and streams back the
+Markdown, with the prompt in core/summary.js and the conversation with the model in server/lib/summaries.js, so
+the two apps share one implementation. The phone renders Markdown natively and makes the PDF with
+`UIGraphicsPDFRenderer`. **Since the Mac's 0.8.4 both apps use it**: the Mac sends its chosen model and effort with
+the request (`model`, `effort`; core/summary.js `SUMMARY_MODELS`) and the phone sends neither, so it gets the
+server's defaults — a model row in the phone's Settings would be a small addition, nothing on the server. The
+older Mac route through an Anthropic SDK proxy (`/api/desktop/tokenhub`) goes in the next server change after
+0.8.4 has reached the Macs. Also Mac-only in 0.8.4, with nothing for the phone: its ffmpeg is now the app's own
+LGPL build (the phone has no ffmpeg — AAC and AVFoundation), and its MP4 export uses the hardware encoder alone, as
+the phone's always has.
 
 ### 4.7 · Joined talks
 
@@ -337,7 +349,7 @@ Sized for one person with Claude; each phase leaves something that runs. State o
 | 4 | **Live** | done and run in the simulator: login, first run, every Live state, recording, Text, Reply, held up, the Live Activity with Stop on the lock screen. |
 | 5 | **Library and Recording** | done and run: Library, player, transcript, summary with PDF, files, MP4 made on the device, Save to Files. Re-subtitling is tested against a stub of the server's job API, not yet against real recognition. iCloud Drive is not done. |
 | 6 | **Join and Settings** | done and tested against the real server: typed code, the joined-talk reader, the account and its devices, every Settings group, demo mode. Scanning a code needs a real camera. |
-| 7 | **Release** | the release test is done (`npm run e2e:ios`: unit, the core against the real server, the app in the Simulator — docs/DEVELOPMENT.md). Not started: a talk against the hosted server with real keys (costs Tencent time — quote first), iPad, TestFlight, App Review. |
+| 7 | **Release** | the release test is done (`npm run e2e:ios`: unit, the core against the real server, the app in the Simulator — docs/DEVELOPMENT.md). Real keys: `npm run e2e:ios:real` passed 2026-09-20. **TestFlight: build 1.0 (145) uploaded 2026-09-22** with `sh ios/scripts/testflight.sh` (the same setup as the journal project: the App Store Connect API key, `altool`, confirmed through the API; the export is ours because Xcode's hung — docs/DEVELOPMENT.md). Not started: a real iPhone in a real room, iPad, App Review. |
 
 To build and run: `xcodebuild -project ios/SeeSubtitles.xcodeproj -scheme SeeSubtitles -destination 'platform=iOS
 Simulator,name=iPhone 17 Pro' build`, or open the project in Xcode. `-demo YES -firstRunDone YES` as launch
