@@ -21,7 +21,7 @@ const DEFAULT_MODEL = 'fun-asr-realtime';
 class FunAsrStream extends EventEmitter {
   /**
    * @param {{key:string, model?:string, lang?:string, langs?:string[], target?:string, vadSilenceTime?:number,
-   *          vocabularyId?:string, url?:string}} opts  `target` turns on gummy's translation into that language
+   *          vocabularyId?:string, semantic?:boolean, url?:string}} opts  `target` turns on gummy's translation
    */
   constructor(opts = {}) {
     super();
@@ -65,7 +65,9 @@ class FunAsrStream extends EventEmitter {
             : this.opts.lang ? { language_hints: [this.opts.lang] } : {}),
           ...(this.opts.vadSilenceTime ? { max_sentence_silence: Math.round(this.opts.vadSilenceTime) } : {}),
           ...(this.opts.vocabularyId ? { vocabulary_id: this.opts.vocabularyId } : {}),
-          semantic_punctuation_enabled: false,
+          // semantic: end a sentence where the meaning ends rather than where the speaker pauses — the cure, if any,
+          // for fun-asr running several speakers' turns into one line
+          semantic_punctuation_enabled: !!this.opts.semantic,
         },
         input: {},
       },
