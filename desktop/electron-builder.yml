@@ -1,4 +1,8 @@
-appId: com.alexlaff.subtitles
+# Algernon Labs's since 0.8.4; com.alexlaff.subtitles up to 0.8.3. Squirrel.Mac checks an update against the running
+# app's designated requirement, which names the identifier, so a 0.8.3 cannot update itself into this: the one
+# installed copy (Alex's) was moved over by hand from the DMG. macOS keys its permissions to the identifier too —
+# the microphone is asked for again on first launch. The login and settings survive: they live under the product name.
+appId: com.algernonlabs.subtitles
 productName: See Subtitles
 copyright: MIT
 directories:
