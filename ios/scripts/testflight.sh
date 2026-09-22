@@ -38,7 +38,7 @@ STEP="${1:-all}"
 # number is the count of commits behind HEAD, so every build says which commit it is and App Store Connect never
 # sees the same number twice for different code. A tree with the phone's inputs changed is not a commit: refuse.
 DIRTY=$(git -C "$ROOT" status --porcelain -- ios core web | grep -v '^?? ios/build/' || true)
-if [ -n "$DIRTY" ]; then
+if [ -n "$DIRTY" ] && [ "$STEP" != upload ]; then # `upload` sends what was archived; the tree since is beside the point
   echo "✖ uncommitted changes under ios/, core/ or web/ — the phone is built from these; commit first:" >&2
   echo "$DIRTY" >&2
   exit 1
