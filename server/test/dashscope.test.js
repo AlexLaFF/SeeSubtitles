@@ -97,3 +97,28 @@ test('Japanese goes to 百炼 only when the server has the key', () => {
   assert.equal(dashscope.isAlibaba('fun-asr'), true);
   assert.equal(dashscope.isAlibaba('16k_ja'), false);
 });
+
+test('a connection that drops mid-poll is tried again rather than failing the file', async () => {
+  let polls = 0;
+  const server = http.createServer((req, res) => {
+    polls++;
+    if (polls <= 2) return req.socket.destroy(); // the link drops, twice
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ output: { task_status: 'RUNNING' } }));
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const st = await dashscope.status('k', 't', { baseUrl: `http://127.0.0.1:${server.address().port}`, retryMs: 5 });
+    assert.equal(st.status, 'RUNNING');
+    assert.equal(polls, 3);
+  } finally { server.close(); }
+});
+
+test('a link that stays down is an error with status 0, which the job rides out a while longer', async () => {
+  const server = http.createServer((req) => req.socket.destroy());
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    await assert.rejects(dashscope.status('k', 't', { baseUrl: `http://127.0.0.1:${server.address().port}`, retryMs: 5 }),
+      (err) => err.status === 0 && /^poll: fetch failed/.test(err.message));
+  } finally { server.close(); }
+});

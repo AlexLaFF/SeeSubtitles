@@ -467,10 +467,21 @@ class JobRunner extends EventEmitter {
     const t0 = Date.now();
     const expectedMs = Math.max(15_000, (meta.duration / 25) * 1000);
     let result = heard ? JSON.parse(fs.readFileSync(asrFile, 'utf8')) : null;
+    let unreachable = 0; // polls in a row that could not reach 百炼 at all
     while (!result) {
       await sleep(POLL_MS);
       if (alibaba) {
-        const st = await dashscope.status(this.dashscopeKey, taskId, ds);
+        let st;
+        try {
+          st = await dashscope.status(this.dashscopeKey, taskId, ds);
+          unreachable = 0;
+        } catch (err) {
+          // the task goes on at 百炼 whether or not we can see it: ride out a link that is down for a while
+          // (each poll already tried four times), and give up only after about two minutes of nothing
+          if (err.status !== 0 && !(err.status >= 500) || ++unreachable >= 12) throw err;
+          this.log('warn', `job ${id}: 百炼 poll ${unreachable}: ${err.message}`);
+          continue;
+        }
         if (st.status === 'SUCCEEDED') { result = { ResultDetail: dashscope.toResultDetail(st.sentences), Engine: job.engine }; break; }
         if (st.status === 'FAILED' || st.status === 'CANCELED' || st.status === 'UNKNOWN') throw new Error(`recognition failed: ${st.message || st.status}`);
       } else {
