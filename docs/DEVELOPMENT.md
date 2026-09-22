@@ -202,14 +202,22 @@ Each stage gets a server of its own, because the server allows twenty sign-ins a
 and a test run should not need that loosened. `node ios/e2e/run.mjs core` or `ui` runs one half.
 
 **To TestFlight: `sh ios/scripts/testflight.sh`** — the release test, an App Store archive, the export to an .ipa,
-the upload, and a confirmation from App Store Connect that the build arrived. Apple is reached with the App Store
-Connect API key named in `~/.config/seesubtitles/notarize.env` (`APPLE_API_KEY_ID`, `APPLE_API_ISSUER`; the .p8
-beside it) — the same key that notarizes the Mac app — never the Apple ID signed in to Xcode, whose sign-in goes
-through developer.apple.com and fails from Alex's Mac ("No Accounts with App Store Connect Access", the journal
-project's experience too). The build number is the commit count, so a build always says which commit it is and no
-number is ever reused for different code; it refuses a tree with uncommitted changes under ios/, core/ or web/.
-The App Store Connect record is made once by hand. `archive` and `upload` run one half each; a failed upload keeps
-the .ipa, so `upload` again costs nothing.
+the upload, and a confirmation from App Store Connect that the build arrived. Apple is reached only with the App
+Store Connect API key named in `~/.config/seesubtitles/notarize.env` (`APPLE_API_KEY_ID`, `APPLE_API_ISSUER`; the
+.p8 beside it), never the Apple ID signed in to Xcode, whose sign-in goes through developer.apple.com and fails from
+Alex's Mac ("No Accounts with App Store Connect Access" — the journal project's experience too). The key must have
+the App Manager or Admin role: a Developer one uploads builds but may not make provisioning profiles (403).
+
+The export is ours, not Xcode's: `ios/scripts/export-ipa.sh` asks App Store Connect for the App Store profiles of
+the app and its widget extension (`ios/scripts/asc.mjs` registers an identifier and makes a profile when there is
+none), replaces the archive's development signature with the distribution one, keeping the app's own entitlements
+with get-task-allow off, and zips the .ipa; `xcodebuild -exportArchive` did the same until it hung twice in a row on
+this Mac (Xcode 27.0's App Store helper, ITunesSoftwareService, once crashed and once stuck before its first request).
+The upload is `altool`, three tries, because the link to Apple drops connections; a failed upload keeps the .ipa.
+`asc.mjs build` then asks the API whether Apple has the build — Xcode's Organizer never shows an upload it did not
+make. The build number is the commit count, so a build always says which commit it is and no number is ever reused
+for different code; it refuses a tree with uncommitted changes under ios/, core/ or web/. The App Store Connect
+record is made once by hand. `archive` and `upload` run one half each.
 
 **With real keys: `npm run e2e:ios:real`** (ios/e2e/real-on-server.sh). Stage 2 again, against real recognition,
 real translation, a real summary and real whole-file recognition — the phone's counterpart of `npm run e2e`, at about
