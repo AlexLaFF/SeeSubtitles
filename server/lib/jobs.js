@@ -28,15 +28,19 @@ const WHOLE_TIMEOUT_MS = 10 * 60_000; // one window of a file's translation; a w
 // translator detect the language".
 // A language in dashscope.MODELS is recognised at 百炼 instead when the server has that key (engineFor).
 //
-// Cantonese and Mandarin files go to `16k_zh_large`, the engine live talks have used since 0.8.0: measured over
-// four lectures (docs/LIVE-PIPELINE-MEASUREMENTS.md), it returns verbatim Cantonese and heard 42 of a talk's 43
-// terms where `16k_yue` heard 17 — and `16k_yue` ignores a glossary entirely, which matters here the day a file
-// job starts sending one (CreateRecTask takes a HotwordId; it does not send one yet). `16k_zh_en_2.0` (the
-// 中文大模型 option) rewrites Cantonese into Mandarin while recognising, so the 粤语字幕 export from it is not
-// Cantonese; it stays available for anyone who wants that, and is the one to pick for mixed Chinese and English.
+// Cantonese files stay on `16k_yue`, though live talks use `16k_zh_large`: the two services are not the same
+// engine behind the same name. Live, `16k_yue` ignores `hotword_list` and heard 17 of a talk's 43 terms against
+// 42; in 录音文件识别, measured on seven minutes of a lecture (2026-09-23, `npm run probe:file --arms
+// tencent,tencent-yue,tencent-2.0`), the two return the same Cantonese — 131 Cantonese-only characters against
+// 128, 75 lines each — and `16k_yue` keeps clauses `16k_zh_large` drops, at ¥1.75 an hour against ¥2.40. The
+// glossary is the thing that would change this: CreateRecTask takes a HotwordId and no job sends one yet.
+// `16k_multi_lang` (大模型2.0, ¥0.80/h, the cheapest tier) detects the language itself and returned Korean and
+// Vietnamese nonsense for Cantonese — it is for files whose language is unknown, not for a cheaper Cantonese.
+// `16k_zh_en_2.0` (the 中文大模型 option) rewrites Cantonese into Mandarin while recognising, so the 粤语字幕
+// export from it is not Cantonese; it stays for anyone who wants that, and for mixed Chinese and English.
 const ENGINES = {
-  yue: { engine: '16k_zh_large', hunyuan: 'yue', label: '粤语 Cantonese' },
-  zh: { engine: '16k_zh_large', hunyuan: 'zh', label: '普通话 Mandarin' },
+  yue: { engine: '16k_yue', hunyuan: 'yue', label: '粤语 Cantonese' },
+  zh: { engine: '16k_zh', hunyuan: 'zh', label: '普通话 Mandarin' },
   mixed: { engine: '16k_zh-PY', hunyuan: 'zh', label: '中英粤混合 Mandarin + English + Cantonese' },
   zh_large: { engine: '16k_zh_en_2.0', hunyuan: 'zh', label: '中文大模型 Chinese large model (Mandarin, Cantonese, English, dialects)' },
   'zh-TW': { engine: '16k_zh-TW', hunyuan: 'zh', label: '繁體中文 Chinese (Traditional)' },

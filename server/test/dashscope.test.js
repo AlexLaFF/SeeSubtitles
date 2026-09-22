@@ -93,7 +93,7 @@ test('Japanese goes to 百炼 only when the server has the key', () => {
   const without = new JobRunner({ db, dir, creds: null, log() {}, translate: async () => '' });
   assert.equal(withKey.engineFor('ja'), 'fun-asr');
   assert.equal(without.engineFor('ja'), '16k_ja');
-  assert.equal(withKey.engineFor('zh'), '16k_zh_large', 'Chinese stays with Tencent until it has been compared');
+  assert.equal(withKey.engineFor('zh'), '16k_zh', 'Chinese stays with Tencent — measured, its file engines are a wash');
   assert.equal(dashscope.isAlibaba('fun-asr'), true);
   assert.equal(dashscope.isAlibaba('16k_ja'), false);
 });
