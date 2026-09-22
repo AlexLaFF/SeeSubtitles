@@ -166,6 +166,6 @@ test('/api/summaries without a TokenHub key says so; the universal-link file nam
   assert.equal(aasa.status, 200);
   assert.match(aasa.headers.get('content-type'), /application\/json/);
   const details = (await aasa.json()).applinks.details[0];
-  assert.deepEqual(details.appIDs, ['6DZ5Z54SPQ.com.alexlaff.subtitles.ios']);
+  assert.deepEqual(details.appIDs, ['6DZ5Z54SPQ.com.algernonlabs.seesubtitles']);
   assert.deepEqual(details.components.map((c) => c['/']), ['/d/*']);
 });

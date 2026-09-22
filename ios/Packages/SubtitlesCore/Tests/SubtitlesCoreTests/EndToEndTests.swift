@@ -311,7 +311,7 @@ extension Array where Element: Hashable { func uniqued() -> [Element] { var seen
   func universalLinks() async throws {
     let (data, response) = try await URLSession.shared.data(from: E2E.server!.appendingPathComponent(".well-known/apple-app-site-association"))
     #expect((response as? HTTPURLResponse)?.statusCode == 200)
-    #expect(String(decoding: data, as: UTF8.self).contains("com.alexlaff.subtitles.ios"))
+    #expect(String(decoding: data, as: UTF8.self).contains("com.algernonlabs.seesubtitles"))
   }
 }
 

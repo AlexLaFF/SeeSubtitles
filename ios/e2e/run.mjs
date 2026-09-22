@@ -39,7 +39,7 @@ const args = process.argv.slice(2);
 const real = args.includes('--real');
 const only = args.find((a) => a === 'core' || a === 'ui');
 const DEVICE = process.env.E2E_SIMULATOR || 'iPhone 17 Pro';
-const BUNDLE = 'com.alexlaff.subtitles.ios';
+const BUNDLE = 'com.algernonlabs.seesubtitles';
 
 function run(title, cmd, cmdArgs, { cwd, env = {}, filter = null } = {}) {
   return new Promise((resolve) => {

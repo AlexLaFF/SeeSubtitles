@@ -9,7 +9,7 @@
 #   sh ios/scripts/testflight.sh upload     # send the last archive
 #   SKIP_E2E=1 sh ios/scripts/testflight.sh # when `npm run e2e:ios` has just passed on this very tree
 #
-# The App Store Connect record ("See Subtitles", bundle com.alexlaff.subtitles.ios) is made once by hand at
+# The App Store Connect record ("See Subtitles", bundle com.algernonlabs.seesubtitles) is made once by hand at
 # https://appstoreconnect.apple.com/apps — the upload names it when it is missing.
 set -e
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

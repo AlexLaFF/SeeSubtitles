@@ -214,7 +214,7 @@ ios/
   Tests/                   unit tests for SubtitlesCore; UI tests that drive the app with a file as the microphone
 ```
 
-Bundle id `com.alexlaff.subtitles.ios`, next to the Mac's. Versioning starts at 1.0 on its own line; the Mac's
+Bundle id `com.algernonlabs.seesubtitles`, next to the Mac's. Versioning starts at 1.0 on its own line; the Mac's
 `/api/desktop/version` is not used, the App Store updates the app.
 
 ### 4.2 · Audio

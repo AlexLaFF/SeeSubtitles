@@ -462,7 +462,7 @@ const server = http.createServer(async (req, res) => {
     // Universal links: lets the iOS app open /d/<code> share links itself, so the Camera's scan of a talk's QR
     // code lands in the app's reader. Apple fetches this file when the app is installed; it grants nothing else.
     if (p === '/.well-known/apple-app-site-association') {
-      const appIDs = (process.env.IOS_APP_IDS || '6DZ5Z54SPQ.com.alexlaff.subtitles.ios').split(',').map((v) => v.trim()).filter(Boolean);
+      const appIDs = (process.env.IOS_APP_IDS || '6DZ5Z54SPQ.com.algernonlabs.seesubtitles').split(',').map((v) => v.trim()).filter(Boolean);
       return send(res, 200, { applinks: { details: [{ appIDs, components: [{ '/': '/d/*', comment: 'a talk\'s share link' }] }] } });
     }
     // pages that need a login; the front page is the website for everyone else

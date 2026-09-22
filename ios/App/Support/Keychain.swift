@@ -4,7 +4,7 @@ import Security
 /// The account's bearer token, kept in the Keychain: the one secret this app holds. It is the server's token for
 /// this device, revocable from any other (Settings › Devices); the Tencent and TokenHub keys never come here.
 enum Keychain {
-  private static let service = "com.alexlaff.subtitles.ios"
+  private static let service = "com.algernonlabs.seesubtitles"
 
   static func read(_ account: String) -> String? {
     let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account, kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne]
