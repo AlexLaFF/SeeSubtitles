@@ -300,6 +300,31 @@ strongest model whatever runs live.
   with two lines of context while the account carries about one talk at a time, `hy-mt2-plus` if more talks must run
   at once; **no folding**; retry a failed final once; reconnect on `4008`. Recordings and exports stay on pro.
 
+## Alibaba 百炼 beside Tencent, live and for files (23 September)
+
+Ten minutes of a Cantonese lecture and ten of a Mandarin one, both services fed the same audio on the same
+clock (`npm run probe:ab -- … --arms` with a `{"kind":"alibaba"}` arm, server/lib/dashscope-stream.js):
+
+| arm | lines | characters | 自停顿 median | average line | lines over 10 s |
+|---|---|---|---|---|---|
+| `16k_zh_large` (¥4.80/h) | 102 | 2,356 | −0.4 s | 6.0 s | 0 |
+| `fun-asr-realtime` (¥1.19/h) | 35 | 2,347 | +0.9 … +1.2 s | 15.7 s | 28 of 35 |
+
+**The words are a tie; the cadence is not.** 百炼 hears as much — the same character count, better punctuation,
+and it keeps clauses Tencent trails off (「譬如长期食消炎药、抗生素咧」) — but at `max_sentence_silence` 700 it
+runs sentences of 15.7 s on average, which no audience can read as live subtitles, and settles 1.3 s later.
+A quarter of the price is not worth that unless a setting cuts its lines to about six seconds; whether one does
+is what the next run asks (its own quota, so free).
+
+**Files, same day.** 录音文件识别 serves all 26 engines on this account (`probe-languages --engines`), so the
+Cantonese default was re-examined: on seven minutes, `16k_yue` (¥1.75/h) and `16k_zh_large` (¥2.40/h) return the
+same Cantonese — 75 lines each, 131 Cantonese-only characters against 128 — and `16k_yue` keeps clauses the
+large model drops. The live finding that condemned `16k_yue` was measured with a glossary, which file jobs do
+not send; `CreateRecTask` takes a `HotwordId` and none is set. `16k_multi_lang` (大模型2.0, ¥0.80/h) detects the
+language itself and answered Cantonese in Korean and Vietnamese. Alibaba's `fun-asr` file model hears Chinese
+about as well as Tencent and hallucinated one sentence outright (「等于10000元。哇，生子近我！」), so Chinese
+files stay with Tencent; Japanese files moved to `fun-asr` on 22 September, where the gap was not close.
+
 ## Languages the split pipeline could offer (checked against the account, 16 September)
 
 **Spoken (17).** Every engine that opens for us *and* is a translation source: Cantonese, Mandarin, Mandarin with
