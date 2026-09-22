@@ -79,13 +79,21 @@ if [ "$STEP" = all ] || [ "$STEP" = upload ]; then
   # altool finds the key by its id in ~/.appstoreconnect/private_keys (Apple's convention, the journal project's too).
   mkdir -p "$HOME/.appstoreconnect/private_keys"
   [ -e "$HOME/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY_ID.p8" ] || ln -s "$APPLE_API_KEY" "$HOME/.appstoreconnect/private_keys/AuthKey_$APPLE_API_KEY_ID.p8"
+  # altool on this Mac is unreliable in two ways, both worth another go: it crashes at start now and then (a
+  # Foundation URL-parsing fault inside ContentDelivery's own initialisation — altool-*.ips), and when the link
+  # drops mid-upload it gives up and then spends half an hour collecting diagnostics. So: up to six tries, each
+  # allowed eight minutes — a good one takes about one for this .ipa — and killed past that.
   n=0
-  until xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER" \
-      > "$OUT/upload.log" 2>&1 && grep -q "UPLOAD SUCCEEDED\|No errors uploading" "$OUT/upload.log"; do
+  while :; do
     n=$((n + 1))
-    grep -iE "error|warn" "$OUT/upload.log" | head -3
-    [ "$n" -ge 3 ] && { echo "✖ the upload failed three times — $OUT/upload.log; the .ipa is kept, run \`upload\` again" >&2; exit 1; }
-    echo "· upload attempt $n failed, trying again"
+    xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$APPLE_API_KEY_ID" --apiIssuer "$APPLE_API_ISSUER" > "$OUT/upload.log" 2>&1 &
+    pid=$!; waited=0
+    while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt 480 ]; do sleep 5; waited=$((waited + 5)); done
+    if kill -0 "$pid" 2>/dev/null; then kill "$pid" 2>/dev/null; pkill -f 'log stream --predicate process contains "altool"' 2>/dev/null; echo "· upload attempt $n: no answer in eight minutes"; 
+    elif grep -q "UPLOAD SUCCEEDED\|No errors uploading" "$OUT/upload.log"; then break
+    else echo "· upload attempt $n failed: $(grep -iE 'error' "$OUT/upload.log" | sed -E 's/UserInfo=.*//' | head -1 | cut -c1-160)"; fi
+    [ "$n" -ge 6 ] && { echo "✖ the upload failed six times — $OUT/upload.log; the .ipa is kept, run \`upload\` again" >&2; exit 1; }
+    sleep 10
   done
   # Confirmed with App Store Connect itself rather than trusted from the log — Xcode's Organizer never shows an
   # upload it did not make.
