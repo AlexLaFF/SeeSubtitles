@@ -8,6 +8,9 @@
 //   node server/probe-file.js talk.mp3 --lang ja --start 600 --seconds 900 --baseline talk.ja.srt --out run1
 //
 // Arms (--arms, comma-separated; default: every one whose key is in .env):
+//   tencent     16k_zh_large (大模型1.0, ¥2.40/h)  Tencent, TENCENT_* keys — server only
+//   tencent-yue 16k_yue (标准版, ¥1.75/h)           what a Cantonese file used until 2026-09-23
+//   tencent-2.0 16k_multi_lang (大模型2.0, ¥0.80/h)  the cheapest tier, and a large model
 //   qwen        qwen3-asr-flash-filetrans       百炼, DASHSCOPE_API_KEY      up to 12 h a file, sentence times
 //   fun         fun-asr                         百炼, DASHSCOPE_API_KEY      the same API, hotwords
 //   qwen-audio  qwen-audio-3.1-asr-flash-filetrans  百炼, DASHSCOPE_API_KEY
@@ -23,7 +26,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
-const { loadEnv } = require('@subs/core');
+const { loadEnv, getCredentials } = require('@subs/core');
+const { asr } = require('./lib/tc3');
 const PlainText = require('../core/plain-text');
 
 const args = process.argv.slice(2);
@@ -43,10 +47,10 @@ function ffmpeg(a) {
 }
 const cut = (start, seconds) => [...(start ? ['-ss', String(start)] : []), ...(seconds ? ['-t', String(seconds)] : [])];
 
-/** The stretch as 16 kHz mono WAV: what every service accepts, and nothing lost that the recording still had. */
-async function wavOf(file, start, seconds, out) {
-  const dst = path.join(out, 'stretch.wav');
-  await ffmpeg([...cut(start, seconds), '-i', file, '-ac', '1', '-ar', '16000', dst]);
+/** The stretch as 16 kHz mono MP3 — what the server itself uploads for a job, and small enough to survive a bad link. */
+async function audioOf(file, start, seconds, out) {
+  const dst = path.join(out, 'stretch.mp3');
+  await ffmpeg([...cut(start, seconds), '-i', file, '-vn', '-ac', '1', '-ar', '16000', '-b:a', '64k', dst]);
   return dst;
 }
 async function durationOf(wav) {
@@ -131,6 +135,29 @@ async function dashTranscribe(key, model, file, lang, log) {
     if (i % 6 === 5) log(`still ${status || 'pending'} after ${(i + 1) * 5} s`);
   }
   throw new Error(`${model}: gave up after an hour`);
+}
+
+/**
+ * Tencent 录音文件识别, the way a job does it: the audio inline (the base64 cap is 5 MB, so ten minutes at 64 kb/s
+ * fits), then poll. The engine is the point of the arm — the tiers are priced differently and hear differently.
+ */
+async function tencentFile(creds, engine, file, log) {
+  const data = fs.readFileSync(file);
+  if (data.length > 4.5 * 1024 * 1024) throw new Error(`${engine}: ${(data.length / 1e6).toFixed(1)} MB is past the inline cap — use a shorter stretch`);
+  const created = await asr(creds, 'CreateRecTask', { EngineModelType: engine, ChannelNum: 1, ResTextFormat: 1, SourceType: 1, Data: data.toString('base64'), DataLen: data.length });
+  const taskId = created.Data.TaskId;
+  log(`task ${taskId}`);
+  for (let i = 0; i < 360; i++) {
+    await sleep(5000);
+    const r = await asr(creds, 'DescribeTaskStatus', { TaskId: taskId });
+    const st = r.Data || {};
+    if (st.Status === 2) {
+      return (st.ResultDetail || []).map((x) => ({ startMs: Number(x.StartMs) || 0, endMs: Number(x.EndMs) || 0, text: PlainText.clean(x.FinalSentence || '') })).filter((x) => x.text);
+    }
+    if (st.Status === 3) throw new Error(`${engine}: ${st.ErrorMsg || 'recognition failed'}`);
+    if (i % 6 === 5) log(`still ${st.StatusStr || 'waiting'} after ${(i + 1) * 5} s`);
+  }
+  throw new Error(`${engine}: gave up after half an hour`);
 }
 
 /** ElevenLabs Scribe: word times, gathered into lines at sentence punctuation or a pause of 700 ms, as the app cuts. */
@@ -218,10 +245,15 @@ const statsOf = (id, rows, totalMs, ms) => ({
 async function main() {
   loadEnv();
   const file = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
-  if (!file) throw new Error('usage: probe-file.js talk.mp3 --lang ja --out dir [--start s] [--seconds s] [--arms qwen,fun,qwen-audio,scribe,openai] [--baseline app.ja.srt]');
+  if (!file) throw new Error('usage: probe-file.js talk.mp3 --lang ja --out dir [--start s] [--seconds s] [--arms tencent,tencent-yue,tencent-2.0,qwen,fun,qwen-audio,scribe,openai] [--baseline app.srt]');
   const keys = { dash: (process.env.DASHSCOPE_API_KEY || '').trim(), eleven: (process.env.ELEVENLABS_API_KEY || '').trim(), openai: (process.env.OPENAI_API_KEY || '').trim() };
+  let creds = null;
+  try { creds = getCredentials(); keys.tencent = '1'; } catch { keys.tencent = ''; }
   const opts = { lang: flag('lang', 'ja'), out: flag('out', 'probe-file-out'), start: Number(flag('start', 0)) || 0, seconds: Number(flag('seconds', 0)) || 0 };
   const ARMS = {
+    tencent: { id: '16k_zh_large (大模型1.0)', key: 'tencent', run: (wav) => tencentFile(creds, '16k_zh_large', wav, log('tencent')) },
+    'tencent-yue': { id: '16k_yue (标准版)', key: 'tencent', run: (wav) => tencentFile(creds, '16k_yue', wav, log('tencent-yue')) },
+    'tencent-2.0': { id: '16k_multi_lang (大模型2.0)', key: 'tencent', run: (wav) => tencentFile(creds, '16k_multi_lang', wav, log('tencent-2.0')) },
     qwen: { id: 'qwen3-asr-flash-filetrans', key: 'dash', run: (wav) => dashTranscribe(keys.dash, 'qwen3-asr-flash-filetrans', wav, opts.lang, log('qwen')) },
     fun: { id: 'fun-asr', key: 'dash', run: (wav) => dashTranscribe(keys.dash, 'fun-asr', wav, opts.lang, log('fun')) },
     'qwen-audio': { id: 'qwen-audio-3.1-asr-flash-filetrans', key: 'dash', run: (wav) => dashTranscribe(keys.dash, 'qwen-audio-3.1-asr-flash-filetrans', wav, opts.lang, log('qwen-audio')) },
@@ -229,12 +261,12 @@ async function main() {
     openai: { id: 'openai gpt-transcribe', key: 'openai', run: (wav, totalMs) => openai(keys.openai, wav, opts.lang, opts.out, totalMs) },
   };
   const wanted = flag('arms', null) ? flag('arms').split(',').map((s) => s.trim()) : Object.keys(ARMS).filter((k) => keys[ARMS[k].key]);
-  for (const w of wanted) { if (!ARMS[w]) throw new Error(`unknown arm ${w}`); if (!keys[ARMS[w].key]) throw new Error(`${w} needs ${{ dash: 'DASHSCOPE_API_KEY', eleven: 'ELEVENLABS_API_KEY', openai: 'OPENAI_API_KEY' }[ARMS[w].key]} in .env`); }
-  if (!wanted.length) throw new Error('no key in .env: DASHSCOPE_API_KEY, ELEVENLABS_API_KEY or OPENAI_API_KEY');
+  for (const w of wanted) { if (!ARMS[w]) throw new Error(`unknown arm ${w}`); if (!keys[ARMS[w].key]) throw new Error(`${w} needs ${{ dash: 'DASHSCOPE_API_KEY', eleven: 'ELEVENLABS_API_KEY', openai: 'OPENAI_API_KEY', tencent: 'the TENCENT_* keys (server only)' }[ARMS[w].key]} in .env`); }
+  if (!wanted.length) throw new Error('no key in .env: TENCENT_*, DASHSCOPE_API_KEY, ELEVENLABS_API_KEY or OPENAI_API_KEY');
   function log(id) { return (m) => console.log(`  ${id.padEnd(12)} ${m}`); }
 
   fs.mkdirSync(opts.out, { recursive: true });
-  const wav = await wavOf(file, opts.start, opts.seconds, opts.out);
+  const wav = await audioOf(file, opts.start, opts.seconds, opts.out);
   const totalMs = await durationOf(wav);
   console.log(`# ${path.basename(file)} — ${(totalMs / 60000).toFixed(1)} min from ${opts.start}s, ${opts.lang}, arms: ${wanted.join(', ')}`);
 

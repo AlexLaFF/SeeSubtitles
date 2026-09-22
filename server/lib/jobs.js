@@ -23,12 +23,20 @@ const WHOLE_TIMEOUT_MS = 10 * 60_000; // one window of a file's translation; a w
 // Spoken language → Tencent batch engine, and the 混元翻译 (Hunyuan) source code. Hunyuan knows Cantonese
 // (yue) as its own language, so Cantonese transcripts are no longer translated "as Mandarin".
 // Every engine below was submitted to 录音文件识别 on the live account and came back `success`
-// (server/probe-languages.js --engines, last run 2026-09-10) — the list is what the account can really run,
-// not what the documentation advertises. `hunyuan: ''` means "let the translator detect the language".
+// (server/probe-languages.js --engines, last run 2026-09-23: all 26 engines, 16k_zh_large among them) — the list
+// is what the account can really run, not what the documentation advertises. `hunyuan: ''` means "let the
+// translator detect the language".
 // A language in dashscope.MODELS is recognised at 百炼 instead when the server has that key (engineFor).
+//
+// Cantonese and Mandarin files go to `16k_zh_large`, the engine live talks have used since 0.8.0: measured over
+// four lectures (docs/LIVE-PIPELINE-MEASUREMENTS.md), it returns verbatim Cantonese and heard 42 of a talk's 43
+// terms where `16k_yue` heard 17 — and `16k_yue` ignores a glossary entirely, which matters here the day a file
+// job starts sending one (CreateRecTask takes a HotwordId; it does not send one yet). `16k_zh_en_2.0` (the
+// 中文大模型 option) rewrites Cantonese into Mandarin while recognising, so the 粤语字幕 export from it is not
+// Cantonese; it stays available for anyone who wants that, and is the one to pick for mixed Chinese and English.
 const ENGINES = {
-  yue: { engine: '16k_yue', hunyuan: 'yue', label: '粤语 Cantonese' },
-  zh: { engine: '16k_zh', hunyuan: 'zh', label: '普通话 Mandarin' },
+  yue: { engine: '16k_zh_large', hunyuan: 'yue', label: '粤语 Cantonese' },
+  zh: { engine: '16k_zh_large', hunyuan: 'zh', label: '普通话 Mandarin' },
   mixed: { engine: '16k_zh-PY', hunyuan: 'zh', label: '中英粤混合 Mandarin + English + Cantonese' },
   zh_large: { engine: '16k_zh_en_2.0', hunyuan: 'zh', label: '中文大模型 Chinese large model (Mandarin, Cantonese, English, dialects)' },
   'zh-TW': { engine: '16k_zh-TW', hunyuan: 'zh', label: '繁體中文 Chinese (Traditional)' },

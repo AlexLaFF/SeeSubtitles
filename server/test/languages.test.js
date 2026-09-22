@@ -16,11 +16,14 @@ test('every engine names a real Tencent 16k engine and a translator source code'
   }
 });
 
-test('engines are distinct, and the Cantonese default is still there', () => {
-  const used = Object.values(ENGINES).map((e) => e.engine);
-  assert.equal(new Set(used).size, used.length, 'two entries share one engine');
-  assert.equal(ENGINES.yue.engine, '16k_yue');
+test('no two entries are the same choice, and Cantonese is heard by the large model', () => {
+  // Cantonese and Mandarin share 16k_zh_large and differ in what the translator is told the source is, so the
+  // pair — not the engine alone — is what must be unique; two identical pairs would be a copy-and-paste slip.
+  const used = Object.values(ENGINES).map((e) => `${e.engine}/${e.hunyuan}`);
+  assert.equal(new Set(used).size, used.length, 'two entries are the same engine and source language');
+  assert.equal(ENGINES.yue.engine, '16k_zh_large', '16k_yue ignores hotwords and hears a talk far worse');
   assert.equal(ENGINES.yue.hunyuan, 'yue');
+  assert.equal(ENGINES.zh.engine, '16k_zh_large');
   assert.equal(ENGINES.multi.hunyuan, '', 'the multi-language engine must let the translator detect');
 });
 
