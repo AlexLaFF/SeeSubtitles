@@ -37,8 +37,15 @@ cleaner boundaries than a real live stream and does not measure the deployed rol
 
 On 40 Cantonese FLEURS turns, the existing Tencent + Hunyuan pipeline scored 29.1 Mandarin chrF, versus Gummy's
 25.2 with Cantonese specified and 24.8 with automatic recognition. This supports keeping the existing Cantonese
-route, not a claim that Tencent wins on every recording or every language. A comparable reference-scored Mandarin
-study has not established a decisive winner.
+route over Gummy, not a claim that Tencent wins on every recording or every language.
+
+A later [direct Tencent vs Fun-ASR Cantonese live comparison](benchmarks/cantonese-live-2026-09-23/README.md)
+used the same 40 public Cantonese turns with the production rolling translation pipeline. Fun-ASR reduced mean
+recognition error from 10.1% to 6.2% and recognition plus translation cost from about ¥4.92/h to ¥1.34/h. Its
+Mandarin draft appeared 0.05 s sooner at the median, but the displayed text was rewritten 168 times rather than
+85, and its last change landed 0.49 s later relative to the end of each spoken turn. Explicit Cantonese live mode
+therefore remains on Tencent pending a conversational and draft-stability test; multilingual automatic mode remains
+on Fun-ASR. Neither result should be read as a universal ranking across venues or speech styles.
 
 Fun-ASR recognised more accurately than Gummy on these multilingual fixtures (the custom mixed character/word
 error score was approximately .07–.08 versus .15–.18). The earlier assumption that its longer final sentences meant slower first captions was not supported. The new

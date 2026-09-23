@@ -57,16 +57,20 @@ if [ -f "$DMG" ]; then
   # editor to overwrite) or the three variables.
   if [ -n "$APPLE_KEYCHAIN_PROFILE" ]; then
     echo "· notarizing the dmg itself (keychain profile $APPLE_KEYCHAIN_PROFILE)"
-    xcrun notarytool submit "$DMG" --keychain-profile "$APPLE_KEYCHAIN_PROFILE" --wait
+    xcrun notarytool submit "$DMG" --keychain-profile "$APPLE_KEYCHAIN_PROFILE" --no-progress --wait
     xcrun stapler staple "$DMG"
   elif [ -n "$APPLE_API_KEY" ]; then
     echo "· notarizing the dmg itself"
-    xcrun notarytool submit "$DMG" --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --wait
+    xcrun notarytool submit "$DMG" --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" --no-progress --wait
     xcrun stapler staple "$DMG"
   else
     echo "⚠ no notarization credentials — verify-release.js will refuse this build"
   fi
 fi
+
+# Stapling changes the DMG's bytes after electron-builder writes the blockmap and update manifest.
+# Refresh both so the public download and auto-updater describe the ticketed file exactly.
+if [ -f "$DMG" ]; then node "$HERE/refresh-release-metadata.js" "$DMG"; fi
 
 node "$HERE/verify-release.js"
 # RELEASABLE: from now on this number means this commit

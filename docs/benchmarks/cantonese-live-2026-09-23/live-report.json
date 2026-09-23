@@ -1,0 +1,864 @@
+{
+  "tencent": {
+    "summary": {
+      "firstVisibleMs": {
+        "n": 40,
+        "median": 3323.537261499994,
+        "p95": 4545.910134000005
+      },
+      "lastChangeAfterTurnMs": {
+        "n": 40,
+        "median": -8.851794999995036,
+        "p95": 1186.7868350000062
+      },
+      "finalConfirmedAfterTurnMs": {
+        "n": 40,
+        "median": -8.851794999995036,
+        "p95": 1186.7868350000062
+      },
+      "totalTargetUpdates": 297,
+      "totalNonappendRewrites": 85,
+      "turnsWithRewrite": 34,
+      "totalReplacedChars": 439,
+      "totalBlanksAfterText": 0,
+      "turnRewrites": {
+        "n": 40,
+        "median": 2.0,
+        "p95": 5
+      }
+    },
+    "turns": [
+      {
+        "id": "1514",
+        "firstVisibleMs": 3200.74658,
+        "lastChangeAfterTurnMs": -265.5809169999993,
+        "finalConfirmedAfterTurnMs": -265.5809169999993,
+        "targetUpdates": 10,
+        "nonappendRewrites": 4,
+        "replacedChars": 36,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1569",
+        "firstVisibleMs": 4590.016728999999,
+        "lastChangeAfterTurnMs": -2126.244600000002,
+        "finalConfirmedAfterTurnMs": -2126.244600000002,
+        "targetUpdates": 4,
+        "nonappendRewrites": 1,
+        "replacedChars": 1,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1526",
+        "firstVisibleMs": 2130.114924999998,
+        "lastChangeAfterTurnMs": 608.9742279999991,
+        "finalConfirmedAfterTurnMs": 608.9742279999991,
+        "targetUpdates": 7,
+        "nonappendRewrites": 1,
+        "replacedChars": 1,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1638",
+        "firstVisibleMs": 3750.666532999996,
+        "lastChangeAfterTurnMs": -273.10174299999926,
+        "finalConfirmedAfterTurnMs": -273.10174299999926,
+        "targetUpdates": 6,
+        "nonappendRewrites": 3,
+        "replacedChars": 17,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1611",
+        "firstVisibleMs": 3760.788478000002,
+        "lastChangeAfterTurnMs": -769.8615290000016,
+        "finalConfirmedAfterTurnMs": -769.8615290000016,
+        "targetUpdates": 6,
+        "nonappendRewrites": 2,
+        "replacedChars": 3,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1549",
+        "firstVisibleMs": 2118.0130199999985,
+        "lastChangeAfterTurnMs": 1222.5326329999953,
+        "finalConfirmedAfterTurnMs": 1222.5326329999953,
+        "targetUpdates": 4,
+        "nonappendRewrites": 2,
+        "replacedChars": 6,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1545",
+        "firstVisibleMs": 2421.687103999997,
+        "lastChangeAfterTurnMs": 1105.2796390000003,
+        "finalConfirmedAfterTurnMs": 1105.2796390000003,
+        "targetUpdates": 4,
+        "nonappendRewrites": 2,
+        "replacedChars": 7,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1578",
+        "firstVisibleMs": 3364.2515399999975,
+        "lastChangeAfterTurnMs": 1079.9958139999944,
+        "finalConfirmedAfterTurnMs": 1079.9958139999944,
+        "targetUpdates": 4,
+        "nonappendRewrites": 0,
+        "replacedChars": 0,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1565",
+        "firstVisibleMs": 3205.5600390000036,
+        "lastChangeAfterTurnMs": 1051.0330329999997,
+        "finalConfirmedAfterTurnMs": 1051.0330329999997,
+        "targetUpdates": 9,
+        "nonappendRewrites": 2,
+        "replacedChars": 9,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1535",
+        "firstVisibleMs": 4106.392082000006,
+        "lastChangeAfterTurnMs": -524.683382999996,
+        "finalConfirmedAfterTurnMs": -524.683382999996,
+        "targetUpdates": 10,
+        "nonappendRewrites": 4,
+        "replacedChars": 20,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1646",
+        "firstVisibleMs": 3317.516472999996,
+        "lastChangeAfterTurnMs": -173.62940499999968,
+        "finalConfirmedAfterTurnMs": -173.62940499999968,
+        "targetUpdates": 7,
+        "nonappendRewrites": 1,
+        "replacedChars": 2,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1630",
+        "firstVisibleMs": 2309.652341000008,
+        "lastChangeAfterTurnMs": 819.4437090000138,
+        "finalConfirmedAfterTurnMs": 819.4437090000138,
+        "targetUpdates": 12,
+        "nonappendRewrites": 4,
+        "replacedChars": 34,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1556",
+        "firstVisibleMs": 2324.3879610000004,
+        "lastChangeAfterTurnMs": 1186.7868350000062,
+        "finalConfirmedAfterTurnMs": 1186.7868350000062,
+        "targetUpdates": 14,
+        "nonappendRewrites": 7,
+        "replacedChars": 66,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1529",
+        "firstVisibleMs": 3329.5580499999924,
+        "lastChangeAfterTurnMs": -170.67717199999606,
+        "finalConfirmedAfterTurnMs": -170.67717199999606,
+        "targetUpdates": 12,
+        "nonappendRewrites": 3,
+        "replacedChars": 7,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1597",
+        "firstVisibleMs": 3393.664650999999,
+        "lastChangeAfterTurnMs": 92.45954800001346,
+        "finalConfirmedAfterTurnMs": 92.45954800001346,
+        "targetUpdates": 10,
+        "nonappendRewrites": 5,
+        "replacedChars": 15,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1607",
+        "firstVisibleMs": 3031.2348010000132,
+        "lastChangeAfterTurnMs": -136.41048099999898,
+        "finalConfirmedAfterTurnMs": -136.41048099999898,
+        "targetUpdates": 3,
+        "nonappendRewrites": 0,
+        "replacedChars": 0,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1551",
+        "firstVisibleMs": 3220.599703999993,
+        "lastChangeAfterTurnMs": 689.6806790000119,
+        "finalConfirmedAfterTurnMs": 689.6806790000119,
+        "targetUpdates": 6,
+        "nonappendRewrites": 2,
+        "replacedChars": 2,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1521",
+        "firstVisibleMs": 3294.027396999998,
+        "lastChangeAfterTurnMs": 126.60100200001034,
+        "finalConfirmedAfterTurnMs": 126.60100200001034,
+        "targetUpdates": 7,
+        "nonappendRewrites": 1,
+        "replacedChars": 5,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1629",
+        "firstVisibleMs": 3478.5122379999957,
+        "lastChangeAfterTurnMs": -428.93649500000174,
+        "finalConfirmedAfterTurnMs": -428.93649500000174,
+        "targetUpdates": 9,
+        "nonappendRewrites": 1,
+        "replacedChars": 4,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1618",
+        "firstVisibleMs": 4316.953700000013,
+        "lastChangeAfterTurnMs": -614.5415149999899,
+        "finalConfirmedAfterTurnMs": -614.5415149999899,
+        "targetUpdates": 7,
+        "nonappendRewrites": 2,
+        "replacedChars": 9,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1562",
+        "firstVisibleMs": 3954.6948219999904,
+        "lastChangeAfterTurnMs": -383.1268530000234,
+        "finalConfirmedAfterTurnMs": -383.1268530000234,
+        "targetUpdates": 6,
+        "nonappendRewrites": 1,
+        "replacedChars": 1,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1604",
+        "firstVisibleMs": 3312.7777670000214,
+        "lastChangeAfterTurnMs": -413.402974000026,
+        "finalConfirmedAfterTurnMs": -413.402974000026,
+        "targetUpdates": 19,
+        "nonappendRewrites": 5,
+        "replacedChars": 26,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1605",
+        "firstVisibleMs": 4545.910134000005,
+        "lastChangeAfterTurnMs": -366.2987929999945,
+        "finalConfirmedAfterTurnMs": -366.2987929999945,
+        "targetUpdates": 5,
+        "nonappendRewrites": 0,
+        "replacedChars": 0,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1589",
+        "firstVisibleMs": 3347.9151950000087,
+        "lastChangeAfterTurnMs": 112.3343369999784,
+        "finalConfirmedAfterTurnMs": 112.3343369999784,
+        "targetUpdates": 7,
+        "nonappendRewrites": 2,
+        "replacedChars": 7,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1641",
+        "firstVisibleMs": 3468.946241000027,
+        "lastChangeAfterTurnMs": 255.5416579999728,
+        "finalConfirmedAfterTurnMs": 255.5416579999728,
+        "targetUpdates": 10,
+        "nonappendRewrites": 3,
+        "replacedChars": 18,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1560",
+        "firstVisibleMs": 3447.9569379999884,
+        "lastChangeAfterTurnMs": -285.93730300001334,
+        "finalConfirmedAfterTurnMs": -285.93730300001334,
+        "targetUpdates": 4,
+        "nonappendRewrites": 1,
+        "replacedChars": 2,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1601",
+        "firstVisibleMs": 3053.7621919999947,
+        "lastChangeAfterTurnMs": 925.3702640000265,
+        "finalConfirmedAfterTurnMs": 925.3702640000265,
+        "targetUpdates": 8,
+        "nonappendRewrites": 0,
+        "replacedChars": 0,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1602",
+        "firstVisibleMs": 2926.3758389999857,
+        "lastChangeAfterTurnMs": 1042.3092799999868,
+        "finalConfirmedAfterTurnMs": 1042.3092799999868,
+        "targetUpdates": 7,
+        "nonappendRewrites": 3,
+        "replacedChars": 30,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1577",
+        "firstVisibleMs": 6626.095146999985,
+        "lastChangeAfterTurnMs": -333.90485300001455,
+        "finalConfirmedAfterTurnMs": -333.90485300001455,
+        "targetUpdates": 1,
+        "nonappendRewrites": 0,
+        "replacedChars": 0,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1576",
+        "firstVisibleMs": 3018.1399569999776,
+        "lastChangeAfterTurnMs": -169.04722200002288,
+        "finalConfirmedAfterTurnMs": -169.04722200002288,
+        "targetUpdates": 6,
+        "nonappendRewrites": 2,
+        "replacedChars": 8,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1592",
+        "firstVisibleMs": 4083.136505000002,
+        "lastChangeAfterTurnMs": -16.536742999975104,
+        "finalConfirmedAfterTurnMs": -16.536742999975104,
+        "targetUpdates": 8,
+        "nonappendRewrites": 1,
+        "replacedChars": 1,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1637",
+        "firstVisibleMs": 3315.0363149999757,
+        "lastChangeAfterTurnMs": -1.1668470000149682,
+        "finalConfirmedAfterTurnMs": -1.1668470000149682,
+        "targetUpdates": 23,
+        "nonappendRewrites": 4,
+        "replacedChars": 26,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1645",
+        "firstVisibleMs": 3340.9910229999805,
+        "lastChangeAfterTurnMs": -119.27728999999817,
+        "finalConfirmedAfterTurnMs": -119.27728999999817,
+        "targetUpdates": 4,
+        "nonappendRewrites": 2,
+        "replacedChars": 7,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1570",
+        "firstVisibleMs": 3462.5717389999772,
+        "lastChangeAfterTurnMs": 127.5365790000069,
+        "finalConfirmedAfterTurnMs": 127.5365790000069,
+        "targetUpdates": 5,
+        "nonappendRewrites": 1,
+        "replacedChars": 1,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1579",
+        "firstVisibleMs": 3980.954901000019,
+        "lastChangeAfterTurnMs": -301.5755689999787,
+        "finalConfirmedAfterTurnMs": -301.5755689999787,
+        "targetUpdates": 9,
+        "nonappendRewrites": 2,
+        "replacedChars": 21,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1528",
+        "firstVisibleMs": 1992.979330000002,
+        "lastChangeAfterTurnMs": 1335.9233990000212,
+        "finalConfirmedAfterTurnMs": 1335.9233990000212,
+        "targetUpdates": 5,
+        "nonappendRewrites": 4,
+        "replacedChars": 18,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1581",
+        "firstVisibleMs": 2210.3756680000224,
+        "lastChangeAfterTurnMs": 1040.9077989999787,
+        "finalConfirmedAfterTurnMs": 1040.9077989999787,
+        "targetUpdates": 5,
+        "nonappendRewrites": 3,
+        "replacedChars": 6,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1619",
+        "firstVisibleMs": 2533.3940220000222,
+        "lastChangeAfterTurnMs": 904.8529439999838,
+        "finalConfirmedAfterTurnMs": 904.8529439999838,
+        "targetUpdates": 6,
+        "nonappendRewrites": 1,
+        "replacedChars": 5,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1659",
+        "firstVisibleMs": 2971.2909249999793,
+        "lastChangeAfterTurnMs": 17.68589600000996,
+        "finalConfirmedAfterTurnMs": 1002.0365459999884,
+        "targetUpdates": 3,
+        "nonappendRewrites": 0,
+        "replacedChars": 0,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1566",
+        "firstVisibleMs": 3686.6521080000093,
+        "lastChangeAfterTurnMs": -192.06511199998204,
+        "finalConfirmedAfterTurnMs": -192.06511199998204,
+        "targetUpdates": 5,
+        "nonappendRewrites": 3,
+        "replacedChars": 18,
+        "blankAfterText": 0
+      }
+    ]
+  },
+  "fun400": {
+    "summary": {
+      "firstVisibleMs": {
+        "n": 40,
+        "median": 3268.87102650007,
+        "p95": 4389.283111000084
+      },
+      "lastChangeAfterTurnMs": {
+        "n": 40,
+        "median": 478.19138050003676,
+        "p95": 1732.5575609999942
+      },
+      "finalConfirmedAfterTurnMs": {
+        "n": 40,
+        "median": 515.0969965000404,
+        "p95": 1732.5575609999942
+      },
+      "totalTargetUpdates": 288,
+      "totalNonappendRewrites": 168,
+      "turnsWithRewrite": 40,
+      "totalReplacedChars": 1246,
+      "totalBlanksAfterText": 0,
+      "turnRewrites": {
+        "n": 40,
+        "median": 4.0,
+        "p95": 8
+      }
+    },
+    "turns": [
+      {
+        "id": "1514",
+        "firstVisibleMs": 3946.5639819999924,
+        "lastChangeAfterTurnMs": 477.92495400004555,
+        "finalConfirmedAfterTurnMs": 477.92495400004555,
+        "targetUpdates": 9,
+        "nonappendRewrites": 5,
+        "replacedChars": 57,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1569",
+        "firstVisibleMs": 3469.7434300000314,
+        "lastChangeAfterTurnMs": 239.4102590000257,
+        "finalConfirmedAfterTurnMs": 239.4102590000257,
+        "targetUpdates": 6,
+        "nonappendRewrites": 3,
+        "replacedChars": 8,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1526",
+        "firstVisibleMs": 3714.221347999992,
+        "lastChangeAfterTurnMs": -861.7203019999433,
+        "finalConfirmedAfterTurnMs": 1223.5602380000055,
+        "targetUpdates": 4,
+        "nonappendRewrites": 2,
+        "replacedChars": 10,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1638",
+        "firstVisibleMs": 3434.854333000025,
+        "lastChangeAfterTurnMs": 198.67637100000866,
+        "finalConfirmedAfterTurnMs": 198.67637100000866,
+        "targetUpdates": 6,
+        "nonappendRewrites": 5,
+        "replacedChars": 46,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1611",
+        "firstVisibleMs": 3012.186013999977,
+        "lastChangeAfterTurnMs": 158.07962800003588,
+        "finalConfirmedAfterTurnMs": 158.07962800003588,
+        "targetUpdates": 6,
+        "nonappendRewrites": 4,
+        "replacedChars": 28,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1549",
+        "firstVisibleMs": 1762.141580000054,
+        "lastChangeAfterTurnMs": 1683.3611100000562,
+        "finalConfirmedAfterTurnMs": 1683.3611100000562,
+        "targetUpdates": 5,
+        "nonappendRewrites": 2,
+        "replacedChars": 12,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1545",
+        "firstVisibleMs": 3561.5514810000313,
+        "lastChangeAfterTurnMs": 1306.2739089999814,
+        "finalConfirmedAfterTurnMs": 1306.2739089999814,
+        "targetUpdates": 3,
+        "nonappendRewrites": 2,
+        "replacedChars": 12,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1578",
+        "firstVisibleMs": 2009.5951480000513,
+        "lastChangeAfterTurnMs": 1158.904536999995,
+        "finalConfirmedAfterTurnMs": 1158.904536999995,
+        "targetUpdates": 5,
+        "nonappendRewrites": 3,
+        "replacedChars": 9,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1565",
+        "firstVisibleMs": 3228.8715820000507,
+        "lastChangeAfterTurnMs": 1370.8888199999928,
+        "finalConfirmedAfterTurnMs": 1370.8888199999928,
+        "targetUpdates": 10,
+        "nonappendRewrites": 5,
+        "replacedChars": 69,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1535",
+        "firstVisibleMs": 4453.14097399998,
+        "lastChangeAfterTurnMs": -245.92578299995512,
+        "finalConfirmedAfterTurnMs": -245.92578299995512,
+        "targetUpdates": 11,
+        "nonappendRewrites": 6,
+        "replacedChars": 29,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1646",
+        "firstVisibleMs": 2982.0225809999974,
+        "lastChangeAfterTurnMs": -204.00699599995278,
+        "finalConfirmedAfterTurnMs": -204.00699599995278,
+        "targetUpdates": 8,
+        "nonappendRewrites": 4,
+        "replacedChars": 18,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1630",
+        "firstVisibleMs": 3171.2416189999785,
+        "lastChangeAfterTurnMs": 1920.3594779999694,
+        "finalConfirmedAfterTurnMs": 1920.3594779999694,
+        "targetUpdates": 10,
+        "nonappendRewrites": 5,
+        "replacedChars": 24,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1556",
+        "firstVisibleMs": 2550.4124539999757,
+        "lastChangeAfterTurnMs": 1662.3084950000048,
+        "finalConfirmedAfterTurnMs": 1662.3084950000048,
+        "targetUpdates": 10,
+        "nonappendRewrites": 9,
+        "replacedChars": 145,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1529",
+        "firstVisibleMs": 4094.857373000006,
+        "lastChangeAfterTurnMs": 975.316090999986,
+        "finalConfirmedAfterTurnMs": 975.316090999986,
+        "targetUpdates": 11,
+        "nonappendRewrites": 8,
+        "replacedChars": 46,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1597",
+        "firstVisibleMs": 4452.6362179999705,
+        "lastChangeAfterTurnMs": 590.7070499999681,
+        "finalConfirmedAfterTurnMs": 590.7070499999681,
+        "targetUpdates": 7,
+        "nonappendRewrites": 5,
+        "replacedChars": 98,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1607",
+        "firstVisibleMs": 3412.1628110000165,
+        "lastChangeAfterTurnMs": 467.9710530000739,
+        "finalConfirmedAfterTurnMs": 467.9710530000739,
+        "targetUpdates": 3,
+        "nonappendRewrites": 1,
+        "replacedChars": 1,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1551",
+        "firstVisibleMs": 3166.9229090000736,
+        "lastChangeAfterTurnMs": 1173.5794450000394,
+        "finalConfirmedAfterTurnMs": 1173.5794450000394,
+        "targetUpdates": 6,
+        "nonappendRewrites": 4,
+        "replacedChars": 15,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1521",
+        "firstVisibleMs": 3179.125158000039,
+        "lastChangeAfterTurnMs": 387.5468010000186,
+        "finalConfirmedAfterTurnMs": 387.5468010000186,
+        "targetUpdates": 6,
+        "nonappendRewrites": 1,
+        "replacedChars": 4,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1629",
+        "firstVisibleMs": 4054.2946079999674,
+        "lastChangeAfterTurnMs": -68.81680399994366,
+        "finalConfirmedAfterTurnMs": -68.81680399994366,
+        "targetUpdates": 7,
+        "nonappendRewrites": 4,
+        "replacedChars": 18,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1618",
+        "firstVisibleMs": 4156.62895500008,
+        "lastChangeAfterTurnMs": 556.3159849999938,
+        "finalConfirmedAfterTurnMs": 556.3159849999938,
+        "targetUpdates": 8,
+        "nonappendRewrites": 4,
+        "replacedChars": 22,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1562",
+        "firstVisibleMs": 4142.423448999994,
+        "lastChangeAfterTurnMs": 501.72314000001643,
+        "finalConfirmedAfterTurnMs": 501.72314000001643,
+        "targetUpdates": 5,
+        "nonappendRewrites": 2,
+        "replacedChars": 12,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1604",
+        "firstVisibleMs": 3739.0820369999856,
+        "lastChangeAfterTurnMs": -56.44314300001133,
+        "finalConfirmedAfterTurnMs": -56.44314300001133,
+        "targetUpdates": 14,
+        "nonappendRewrites": 7,
+        "replacedChars": 73,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1605",
+        "firstVisibleMs": 3928.6316360000055,
+        "lastChangeAfterTurnMs": 408.2523809999693,
+        "finalConfirmedAfterTurnMs": 408.2523809999693,
+        "targetUpdates": 8,
+        "nonappendRewrites": 4,
+        "replacedChars": 34,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1589",
+        "firstVisibleMs": 3032.919930999982,
+        "lastChangeAfterTurnMs": 560.5960800000466,
+        "finalConfirmedAfterTurnMs": 560.5960800000466,
+        "targetUpdates": 6,
+        "nonappendRewrites": 3,
+        "replacedChars": 8,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1641",
+        "firstVisibleMs": 3009.30168699997,
+        "lastChangeAfterTurnMs": 640.6875860000728,
+        "finalConfirmedAfterTurnMs": 640.6875860000728,
+        "targetUpdates": 10,
+        "nonappendRewrites": 8,
+        "replacedChars": 60,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1560",
+        "firstVisibleMs": 3256.2516160000814,
+        "lastChangeAfterTurnMs": 379.6193050000584,
+        "finalConfirmedAfterTurnMs": 379.6193050000584,
+        "targetUpdates": 4,
+        "nonappendRewrites": 2,
+        "replacedChars": 7,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1601",
+        "firstVisibleMs": 2683.824706000043,
+        "lastChangeAfterTurnMs": 1532.9231850000797,
+        "finalConfirmedAfterTurnMs": 1532.9231850000797,
+        "targetUpdates": 9,
+        "nonappendRewrites": 3,
+        "replacedChars": 12,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1602",
+        "firstVisibleMs": 3257.769517000066,
+        "lastChangeAfterTurnMs": 1732.5575609999942,
+        "finalConfirmedAfterTurnMs": 1732.5575609999942,
+        "targetUpdates": 7,
+        "nonappendRewrites": 6,
+        "replacedChars": 114,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1577",
+        "firstVisibleMs": 3877.808257000055,
+        "lastChangeAfterTurnMs": 287.7710499999812,
+        "finalConfirmedAfterTurnMs": 287.7710499999812,
+        "targetUpdates": 3,
+        "nonappendRewrites": 2,
+        "replacedChars": 2,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1576",
+        "firstVisibleMs": 3477.1344250000548,
+        "lastChangeAfterTurnMs": 301.95084499998484,
+        "finalConfirmedAfterTurnMs": 301.95084499998484,
+        "targetUpdates": 6,
+        "nonappendRewrites": 3,
+        "replacedChars": 27,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1592",
+        "firstVisibleMs": 3029.468084000051,
+        "lastChangeAfterTurnMs": 215.10129999998026,
+        "finalConfirmedAfterTurnMs": 215.10129999998026,
+        "targetUpdates": 8,
+        "nonappendRewrites": 4,
+        "replacedChars": 12,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1637",
+        "firstVisibleMs": 2414.2611289999913,
+        "lastChangeAfterTurnMs": 478.45780700002797,
+        "finalConfirmedAfterTurnMs": 478.45780700002797,
+        "targetUpdates": 23,
+        "nonappendRewrites": 14,
+        "replacedChars": 70,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1645",
+        "firstVisibleMs": 3167.9784760000184,
+        "lastChangeAfterTurnMs": 120.91476800001692,
+        "finalConfirmedAfterTurnMs": 120.91476800001692,
+        "targetUpdates": 5,
+        "nonappendRewrites": 3,
+        "replacedChars": 15,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1570",
+        "firstVisibleMs": 3279.972536000074,
+        "lastChangeAfterTurnMs": 528.4708530000644,
+        "finalConfirmedAfterTurnMs": 528.4708530000644,
+        "targetUpdates": 5,
+        "nonappendRewrites": 2,
+        "replacedChars": 17,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1579",
+        "firstVisibleMs": 3624.44844800001,
+        "lastChangeAfterTurnMs": 73.56291099998634,
+        "finalConfirmedAfterTurnMs": 73.56291099998634,
+        "targetUpdates": 9,
+        "nonappendRewrites": 6,
+        "replacedChars": 31,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1528",
+        "firstVisibleMs": 1591.1490230000345,
+        "lastChangeAfterTurnMs": 1936.3552529999288,
+        "finalConfirmedAfterTurnMs": 1936.3552529999288,
+        "targetUpdates": 7,
+        "nonappendRewrites": 6,
+        "replacedChars": 27,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1581",
+        "firstVisibleMs": 1820.5239960000617,
+        "lastChangeAfterTurnMs": 1463.1902680000057,
+        "finalConfirmedAfterTurnMs": 1463.1902680000057,
+        "targetUpdates": 5,
+        "nonappendRewrites": 3,
+        "replacedChars": 7,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1619",
+        "firstVisibleMs": 4389.283111000084,
+        "lastChangeAfterTurnMs": 1379.1532110000262,
+        "finalConfirmedAfterTurnMs": 1379.1532110000262,
+        "targetUpdates": 5,
+        "nonappendRewrites": 4,
+        "replacedChars": 27,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1659",
+        "firstVisibleMs": 2899.399008999928,
+        "lastChangeAfterTurnMs": 354.6685789999319,
+        "finalConfirmedAfterTurnMs": 1183.0243209999753,
+        "targetUpdates": 3,
+        "nonappendRewrites": 2,
+        "replacedChars": 12,
+        "blankAfterText": 0
+      },
+      {
+        "id": "1566",
+        "firstVisibleMs": 3577.041723000002,
+        "lastChangeAfterTurnMs": 119.87054099992383,
+        "finalConfirmedAfterTurnMs": 119.87054099992383,
+        "targetUpdates": 5,
+        "nonappendRewrites": 2,
+        "replacedChars": 8,
+        "blankAfterText": 0
+      }
+    ]
+  }
+}
