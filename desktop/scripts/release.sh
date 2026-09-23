@@ -23,6 +23,12 @@ if [ -f "$ENV_FILE" ]; then
 else
   echo "⚠ no $ENV_FILE — the build will not be notarized and verify-release.js will refuse it"
 fi
+# electron-builder checks API-key variables before the keychain profile. An ID and issuer left in this shared
+# file for other Apple tools look like incomplete API credentials and stop its notarization before it tries the
+# valid profile. Keep the profile path clean unless all three API-key variables were supplied.
+if [ -n "${APPLE_KEYCHAIN_PROFILE:-}" ] && [ -z "${APPLE_API_KEY:-}" ]; then
+  unset APPLE_API_KEY_ID APPLE_API_ISSUER
+fi
 # electron-builder hands APPLE_KEYCHAIN_PROFILE to notarytool. Leave APPLE_KEYCHAIN unset unless the profile
 # really lives in one particular keychain file: `notarytool store-credentials` keeps profiles in the
 # data-protection keychain, which an explicit `--keychain <file>` excludes — naming the login keychain here made
