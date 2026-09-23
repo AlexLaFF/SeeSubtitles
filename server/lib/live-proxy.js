@@ -14,6 +14,7 @@
 // languages or tuning mid-talk. What it receives: JSON {type:'ready'|'result'|'status'|'log'|'error'}.
 const { WebSocketServer } = require('ws');
 const { TranslationStream, SplitStream, schema } = require('@subs/core');
+const { GummyStream } = require('./gummy-stream');
 
 const SAMPLE_BYTES = 16000 * 2; // one second of the audio the pipeline sends
 const METER_MS = 15_000; // how often streamed audio is charged to the month
@@ -36,7 +37,7 @@ const secondsOf = (bytes) => bytes / SAMPLE_BYTES;
  * @param {string} [o.wsUrl]    stand-in for the Tencent endpoint (tests only)
  * @param {string} [o.translateUrl]  stand-in for TokenHub's translations endpoint (tests only)
  */
-function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = process.env, meterMs = METER_MS, wsUrl = null, translateUrl = null,
+function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = process.env, meterMs = METER_MS, wsUrl = null, translateUrl = null, dashscopeUrl = null,
   tokenhubKey = (env.TOKENHUB_API_KEY || '').trim() }) {
   const wss = new WebSocketServer({ noServer: true });
   const live = new Map(); // ws → session, for status and shutdown
@@ -80,6 +81,10 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
     // asks for 实时语音翻译, and never the split one without a TokenHub key to translate with.
     const asked = String(url.searchParams.get('pipeline') || schema.DEFAULT_PIPELINE);
     const pipeline = schema.PIPELINES.includes(asked) && (asked !== 'split' || tokenhubKey) ? asked : 'combined';
+    if (pipeline === 'mixed' && (!(env.DASHSCOPE_API_KEY || '').trim() || !tokenhubKey)) {
+      send(ws, { type: 'error', code: 'multilingual_unavailable', message: 'multilingual subtitles are not configured on this server' });
+      return ws.close(4000, 'multilingual unavailable');
+    }
     const source = String(url.searchParams.get('source') || 'yue');
     const target = String(url.searchParams.get('target') || 'zh');
     if (!schema.pairsFor(pipeline)[source] || !schema.targetsFor(source, pipeline).includes(target)) {
@@ -105,7 +110,10 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
     // mainland China, which Tencent bills as mainland use; from this Hong Kong server ordinary DNS answers with
     // Singapore, where recognition is billed 跨境 at more than twice the price. A stand-in for Tencent is reached directly.
     const edge = wsUrl ? 'system' : (env.TENCENT_EDGE || 'cn');
-    const stream = pipeline === 'split'
+    const stream = pipeline === 'mixed'
+      ? new GummyStream({ target, model, tokenhubKey, dashscopeKey: env.DASHSCOPE_API_KEY,
+        ...(dashscopeUrl ? { dashscopeUrl } : {}), ...(translateUrl ? { translateUrl } : {}) })
+      : pipeline === 'split'
       ? new SplitStream(creds, {
         source,
         target,

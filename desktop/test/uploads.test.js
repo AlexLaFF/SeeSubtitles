@@ -266,3 +266,14 @@ test('Try again: an upload the server has part of carries on — also one this a
   assert.deepEqual(s.map, {});
   await assert.rejects(q.resume('j7', f), /arrived already/);
 });
+
+
+test('late buffered progress from a settled upload cannot restart its watchdog or change its state', async () => {
+  let progress;
+  const q = new UploadQueue({ cloud: { uploadJob: async (_id, _file, onProgress) => { progress = onProgress; onProgress(100); return { id: 'done' }; } } });
+  const cur = { abort: new AbortController(), percent: 0, retrying: false };
+  await q._send(cur, 'job', 'file', 100, 0);
+  assert.equal(cur.percent, 100);
+  progress(10);
+  assert.equal(cur.percent, 100, 'a completed attempt ignores late progress');
+});

@@ -418,3 +418,10 @@ by everyone who picked it; `hy-mt2-pro` allows 60 requests a minute and one talk
 languages would go to `hy-mt2-plus`) — about two weeks, and the first thing here that would cost money, though
 little. Cloud voices (Tencent 语音合成) would sound far more natural and are billed per character: a price check
 and a quoted test before anything is built on them.
+
+### Multilingual live mode
+
+The phone gets multilingual source selection alongside the desktop: choose Multilingual as the spoken language.
+`Preferences` selects the `mixed` relay and uses targets from the exported schema. Recognition and translation
+stay on the server, so the phone needs no provider protocol or API key. Existing single-language selections still
+use the default split pipeline. See [MULTILINGUAL-LIVE.md](MULTILINGUAL-LIVE.md) for supported sources and limits.

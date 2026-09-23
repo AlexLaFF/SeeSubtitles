@@ -48,7 +48,7 @@ struct LanguageLists: View {
 
   var body: some View {
     let schema = LiveSchema.shared
-    let sources = schema.sources()
+    let sources = schema.sources(pipeline: "mixed") + schema.sources()
     let shown = showAllSources || !sources.prefix(5).contains(prefs.source) ? sources : Array(sources.prefix(5))
     List {
       Section(L("ios.lang.spoken")) {
@@ -56,7 +56,7 @@ struct LanguageLists: View {
         if shown.count < sources.count { Button(L("ios.lang.more", ["n": String(sources.count - shown.count)])) { showAllSources = true } }
       }
       Section {
-        ForEach(schema.targets(for: prefs.source), id: \.self) { code in
+        ForEach(schema.targets(for: prefs.source, pipeline: prefs.pipeline), id: \.self) { code in
           row(code, selected: prefs.target == code, note: code == prefs.source ? L("ios.lang.asSpoken") : nil) { prefs.target = code }
         }
       } header: { Text(L("ios.lang.subtitles")) } footer: { Text(L("ios.lang.hint")) }

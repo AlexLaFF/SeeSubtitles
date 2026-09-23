@@ -205,7 +205,7 @@ class UploadQueue extends EventEmitter {
     const attempt = new AbortController();
     const cancelled = () => attempt.abort();
     signal.addEventListener('abort', cancelled);
-    let quiet; let stall; let stalled = false; let shown = Math.round(cur.percent);
+    let quiet; let stall; let stalled = false; let active = true; let shown = Math.round(cur.percent);
     const tell = () => { if (this.current === cur) this.emit('status', this.status()); };
     const watch = (limit) => {
       clearTimeout(quiet); clearTimeout(stall);
@@ -215,6 +215,7 @@ class UploadQueue extends EventEmitter {
     watch(this.stallMs);
     try {
       return await this.cloud.uploadJob(id, file, (sent) => {
+        if (!active) return; // buffered progress from a settled attempt must not restart its watchdogs
         watch(offset + sent >= size ? TAIL_MS : this.stallMs);
         cur.percent = ((offset + sent) / size) * 100;
         const pct = Math.round(cur.percent);
@@ -224,6 +225,7 @@ class UploadQueue extends EventEmitter {
       if (stalled && !signal.aborted) throw new Error(`the connection took nothing for ${Math.round(this.stallMs / 1000)} s`);
       throw err;
     } finally {
+      active = false;
       clearTimeout(quiet); clearTimeout(stall);
       signal.removeEventListener('abort', cancelled);
     }

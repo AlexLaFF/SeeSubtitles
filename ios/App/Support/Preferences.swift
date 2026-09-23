@@ -79,13 +79,16 @@ final class Preferences {
   var colorScheme: ColorScheme? { appearance == "dark" ? .dark : appearance == "light" ? .light : nil }
 
   /// The pair, kept to what the relay accepts: choosing a spoken language narrows the subtitle language.
+  var pipeline: String { source == "auto" ? "mixed" : LiveSchema.shared.defaultPipeline }
+
   func setSource(_ next: String) {
-    source = LiveSchema.shared.coerceSource(next)
-    target = LiveSchema.shared.coerceTarget(source: source, target: target)
+    let nextPipeline = next == "auto" ? "mixed" : LiveSchema.shared.defaultPipeline
+    source = LiveSchema.shared.coerceSource(next, pipeline: nextPipeline)
+    target = LiveSchema.shared.coerceTarget(source: source, target: target, pipeline: pipeline)
   }
 
   func relayOptions(hotwords: String) -> RelayOptions {
-    RelayOptions(source: source, target: target, transModel: transModel, hotwords: hotwords, vadSilenceTime: vadSilenceTime,
+    RelayOptions(source: source, target: target, pipeline: pipeline, transModel: transModel, hotwords: hotwords, vadSilenceTime: vadSilenceTime,
                  maxSpeakTime: maxSpeakTime, noiseThreshold: noiseThreshold, filterModal: filterModal)
   }
 

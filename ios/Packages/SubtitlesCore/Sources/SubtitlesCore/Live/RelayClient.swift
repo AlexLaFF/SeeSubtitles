@@ -44,7 +44,7 @@ public actor RelayClient {
   }
 
   /// Refusals that end the talk. Anything else is retried.
-  static let terminalCodes: Set<String> = ["plan_quota", "plan_talks", "bad_language"]
+  static let terminalCodes: Set<String> = ["plan_quota", "plan_talks", "bad_language", "multilingual_unavailable"]
 
   public nonisolated let events: AsyncStream<RelayEvent>
   private let continuation: AsyncStream<RelayEvent>.Continuation

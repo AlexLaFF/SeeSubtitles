@@ -193,7 +193,7 @@ class RemoteTranslationStream extends EventEmitter {
       this.lastError = { code: msg.code, message: msg.message };
       this._log(`✖ ${msg.message}`);
       // a plan refusal is not something to retry into: the answer will not change this month
-      if (msg.code === 'plan_quota' || msg.code === 'plan_talks' || msg.code === 'bad_language') this.attempt = BACKOFF_MS.length;
+      if (msg.code === 'plan_quota' || msg.code === 'plan_talks' || msg.code === 'bad_language' || msg.code === 'multilingual_unavailable') this.attempt = BACKOFF_MS.length;
       this.emit('server-error', { code: msg.code, message: msg.message });
     }
   }
