@@ -2,7 +2,7 @@
 // Live recognition at Alibaba 百炼 (`fun-asr-realtime` and its siblings), in the shape probe-ab.js's Tencent
 // RecognizeStream has: start / push / end / stop, and 'ready', 'partial', 'sentence', 'error', 'close'. It exists
 // to answer whether live talks — where nearly all the running cost is — hear as well there for a quarter of the
-// price (¥1.19/h against ¥4.80 for 16k_zh_large at the mainland rate). Nothing in the relay uses it yet.
+// price (¥1.19/h against ¥4.80 for 16k_zh_large at the mainland rate). The multilingual relay uses Fun-ASR; ordinary single-language talks stay on Tencent.
 //
 // The protocol is DashScope's duplex WebSocket: a run-task instruction, then binary PCM, then finish-task.
 // Sentences arrive as `result-generated` events, one per change, with `sentence_end` marking the settled one.
@@ -21,7 +21,7 @@ const DEFAULT_MODEL = 'fun-asr-realtime';
 class FunAsrStream extends EventEmitter {
   /**
    * @param {{key:string, model?:string, lang?:string, langs?:string[], target?:string, vadSilenceTime?:number,
-   *          vocabularyId?:string, semantic?:boolean, url?:string}} opts  `target` turns on gummy's translation
+   *          vocabularyId?:string, semantic?:boolean, keepDialect?:boolean, url?:string}} opts  `target` turns on gummy's translation
    */
   constructor(opts = {}) {
     super();
@@ -61,9 +61,10 @@ class FunAsrStream extends EventEmitter {
           ...(this.opts.vocabularyId ? { vocabulary_id: this.opts.vocabularyId } : {}),
         } : {
           format: 'pcm', sample_rate: 16000,
+          ...(this.opts.keepDialect !== undefined ? { keep_dialect: !!this.opts.keepDialect } : {}),
           // no hint at all = the service detects the language itself; a list narrows it to the ones expected
           ...(this.opts.langs && this.opts.langs.length ? { language_hints: this.opts.langs }
-            : this.opts.lang ? { language_hints: [this.opts.lang] } : {}),
+            : this.opts.lang && this.opts.lang !== 'auto' ? { language_hints: [this.opts.lang] } : {}),
           ...(this.opts.vadSilenceTime ? { max_sentence_silence: Math.round(this.opts.vadSilenceTime) } : {}),
           ...(this.opts.vocabularyId ? { vocabulary_id: this.opts.vocabularyId } : {}),
           // semantic: end a sentence where the meaning ends rather than where the speaker pauses — the cure, if any,
@@ -77,6 +78,7 @@ class FunAsrStream extends EventEmitter {
       if (isBinary) return;
       let msg = null;
       try { msg = JSON.parse(data.toString()); } catch { return; }
+      if (msg.payload?.usage) this.emit('usage', msg.payload.usage);
       const ev = msg.header && msg.header.event;
       if (ev === 'task-started') { this.ready = true; return this.emit('ready'); }
       if (ev === 'task-failed') return this.emit('error', new Error(`${msg.header.error_code || '?'}: ${msg.header.error_message || 'failed'}`));

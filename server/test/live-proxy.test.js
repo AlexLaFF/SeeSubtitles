@@ -162,7 +162,7 @@ test('multilingual relay translates automatic sources and meters the same audio'
     if (!binary) return ws.send(JSON.stringify({ header: { event: 'task-started' } }));
     bytes += data.length;
     if (bytes === 32000) ws.send(JSON.stringify({ header: { event: 'result-generated' }, payload: { output: {
-      transcription: { begin_time: 0, end_time: 1000, text: 'こんにちは', sentence_end: true },
+      sentence: { begin_time: 0, end_time: 1000, text: 'こんにちは', sentence_end: true },
     } } }));
   }));
   const translations = [];

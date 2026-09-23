@@ -81,7 +81,7 @@
   const SPLIT_PAIRS = Object.fromEntries(SPLIT_SOURCES.map((source) => [
     source, SPLIT_TARGETS.includes(source) ? SPLIT_TARGETS : [source, ...SPLIT_TARGETS],
   ]));
-  // Multilingual talks use Gummy recognition with automatic source detection, then Hunyuan translation.
+  // Multilingual talks use Fun-ASR recognition with automatic source detection, then Hunyuan translation.
   // Keys and processing stay on the server. Known-language talks keep their existing Tencent engines.
   const MIXED_SOURCES = ['auto'];
   const MIXED_TARGETS = SPLIT_TARGETS;

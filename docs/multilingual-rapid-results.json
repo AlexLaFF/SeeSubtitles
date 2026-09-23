@@ -1,0 +1,303 @@
+{
+  "fixture_sha256": "c5f170fbc8f543b080de954820206193571a72805022d7c9c346268f41484453",
+  "arms": {
+    "qwen31": {
+      "error": 0.04238871635610766,
+      "lost": 0,
+      "chrF": 64.42438635798133,
+      "firstSourceMs": {
+        "n": 20,
+        "median": 1569.5316295000011,
+        "p95": 2291.3111979999994
+      },
+      "firstTranslationMs": {
+        "n": 20,
+        "median": 2670.891648500001,
+        "p95": 3734.8383909999975
+      },
+      "settledAfterTurnMs": {
+        "n": 20,
+        "median": 977.9886430000042,
+        "p95": 1668.6086709999945
+      },
+      "crossTurnFinals": 0,
+      "finals": 22,
+      "calls": 115,
+      "rateFallbacks": 0,
+      "failures": 0,
+      "pacingErrorMs": 9.712846000000127,
+      "tokens": {
+        "prompt_tokens": 10186,
+        "completion_tokens": 1448,
+        "total_tokens": 11634
+      },
+      "translationLatencyMs": {
+        "n": 115,
+        "median": 822.5897580000001,
+        "p95": 981.8760820000025
+      },
+      "estimatedTranslationCNYPerHour": 0.17203253977748534,
+      "wholeStreamCER": 0.015715467328370553,
+      "wholeStreamChrF": 69.97679515914507
+    },
+    "funSemantic": {
+      "error": 0.04170659754898885,
+      "lost": 0,
+      "chrF": 63.397438605355866,
+      "firstSourceMs": {
+        "n": 20,
+        "median": 1604.5249864999787,
+        "p95": 2329.6223680000403
+      },
+      "firstTranslationMs": {
+        "n": 20,
+        "median": 2772.847507999977,
+        "p95": 3651.843486000027
+      },
+      "settledAfterTurnMs": {
+        "n": 20,
+        "median": 795.2405099999742,
+        "p95": 1539.2517649999936
+      },
+      "crossTurnFinals": 0,
+      "finals": 22,
+      "calls": 114,
+      "rateFallbacks": 0,
+      "failures": 0,
+      "pacingErrorMs": 1.882910999993328,
+      "tokens": {
+        "prompt_tokens": 10017,
+        "completion_tokens": 1399,
+        "total_tokens": 11416
+      },
+      "translationLatencyMs": {
+        "n": 114,
+        "median": 783.6095579999383,
+        "p95": 914.0232010000618
+      },
+      "estimatedTranslationCNYPerHour": 0.16810264385692067,
+      "wholeStreamCER": 0.013234077750206782,
+      "wholeStreamChrF": 69.4381584578155
+    },
+    "fun400": {
+      "error": 0.043629674472065776,
+      "lost": 0,
+      "chrF": 63.56145139427906,
+      "firstSourceMs": {
+        "n": 20,
+        "median": 1562.9799005000095,
+        "p95": 2308.572087000037
+      },
+      "firstTranslationMs": {
+        "n": 20,
+        "median": 2734.1472375000303,
+        "p95": 3751.8861479999905
+      },
+      "settledAfterTurnMs": {
+        "n": 20,
+        "median": 949.9230090000201,
+        "p95": 1607.5967100000125
+      },
+      "crossTurnFinals": 0,
+      "finals": 22,
+      "calls": 115,
+      "rateFallbacks": 0,
+      "failures": 0,
+      "pacingErrorMs": 1.92605600002571,
+      "tokens": {
+        "prompt_tokens": 10041,
+        "completion_tokens": 1410,
+        "total_tokens": 11451
+      },
+      "translationLatencyMs": {
+        "n": 115,
+        "median": 822.0347060000058,
+        "p95": 943.7358319999767
+      },
+      "estimatedTranslationCNYPerHour": 0.16883478885034095,
+      "wholeStreamCER": 0.014061207609594707,
+      "wholeStreamChrF": 69.70539559259085
+    },
+    "gummy400": {
+      "error": 0.16197569640504422,
+      "lost": 2,
+      "chrF": 58.96943974072271,
+      "firstSourceMs": {
+        "n": 20,
+        "median": 2069.0654875,
+        "p95": 2717.6687539999984
+      },
+      "firstTranslationMs": {
+        "n": 20,
+        "median": 2983.633273999998,
+        "p95": 4101.36267599999
+      },
+      "settledAfterTurnMs": {
+        "n": 20,
+        "median": 469.54724250000436,
+        "p95": 1154.6599100000021
+      },
+      "crossTurnFinals": 0,
+      "finals": 40,
+      "calls": 122,
+      "rateFallbacks": 0,
+      "failures": 0,
+      "pacingErrorMs": 2.712001999999984,
+      "tokens": {
+        "prompt_tokens": 7895,
+        "completion_tokens": 1135,
+        "total_tokens": 9030
+      },
+      "translationLatencyMs": {
+        "n": 122,
+        "median": 801.9241305000032,
+        "p95": 942.8985549999925
+      },
+      "estimatedTranslationCNYPerHour": 0.13388563225266178,
+      "wholeStreamCER": 0.11166253101736973,
+      "wholeStreamChrF": 66.06533339135763
+    }
+  },
+  "turns": [
+    {
+      "lang": "fr",
+      "id": "1570",
+      "startMs": 400.0,
+      "endMs": 6400.0,
+      "repeat": false
+    },
+    {
+      "lang": "ja",
+      "id": "1607",
+      "startMs": 6800.0,
+      "endMs": 14780.0,
+      "repeat": false
+    },
+    {
+      "lang": "id",
+      "id": "1515",
+      "startMs": 15180.0,
+      "endMs": 23700.0,
+      "repeat": false
+    },
+    {
+      "lang": "zh",
+      "id": "1605",
+      "startMs": 24100.0,
+      "endMs": 31540.0,
+      "repeat": false
+    },
+    {
+      "lang": "ko",
+      "id": "1577",
+      "startMs": 31940.0,
+      "endMs": 39380.0,
+      "repeat": false
+    },
+    {
+      "lang": "th",
+      "id": "1548",
+      "startMs": 39780.0,
+      "endMs": 48000.0,
+      "repeat": false
+    },
+    {
+      "lang": "es",
+      "id": "1615",
+      "startMs": 48400.0,
+      "endMs": 56800.0,
+      "repeat": false
+    },
+    {
+      "lang": "de",
+      "id": "1581",
+      "startMs": 57200.0,
+      "endMs": 66200.0,
+      "repeat": false
+    },
+    {
+      "lang": "yue",
+      "id": "1526",
+      "startMs": 66600.0,
+      "endMs": 75600.0,
+      "repeat": false
+    },
+    {
+      "lang": "en",
+      "id": "1548",
+      "startMs": 76000.0,
+      "endMs": 82540.0,
+      "repeat": false
+    },
+    {
+      "lang": "zh",
+      "id": "1581",
+      "startMs": 82940.0,
+      "endMs": 90500.0,
+      "repeat": false
+    },
+    {
+      "lang": "id",
+      "id": "1537",
+      "startMs": 90900.0,
+      "endMs": 98820.0,
+      "repeat": false
+    },
+    {
+      "lang": "en",
+      "id": "1510",
+      "startMs": 99220.0,
+      "endMs": 107140.0,
+      "repeat": false
+    },
+    {
+      "lang": "ja",
+      "id": "1572",
+      "startMs": 107540.0,
+      "endMs": 116660.0,
+      "repeat": false
+    },
+    {
+      "lang": "yue",
+      "id": "1549",
+      "startMs": 117060.0,
+      "endMs": 123240.0,
+      "repeat": false
+    },
+    {
+      "lang": "ko",
+      "id": "1577",
+      "startMs": 123640.0,
+      "endMs": 131080.0,
+      "repeat": true
+    },
+    {
+      "lang": "th",
+      "id": "1559",
+      "startMs": 131480.0,
+      "endMs": 139280.0,
+      "repeat": false
+    },
+    {
+      "lang": "fr",
+      "id": "1533",
+      "startMs": 139680.0,
+      "endMs": 147540.0,
+      "repeat": false
+    },
+    {
+      "lang": "es",
+      "id": "1599",
+      "startMs": 147940.0,
+      "endMs": 157120.0,
+      "repeat": false
+    },
+    {
+      "lang": "de",
+      "id": "1628",
+      "startMs": 157520.0,
+      "endMs": 164180.0,
+      "repeat": false
+    }
+  ]
+}

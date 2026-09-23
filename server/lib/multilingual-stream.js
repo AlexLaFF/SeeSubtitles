@@ -1,23 +1,23 @@
 'use strict';
-// Gummy supplies automatic multilingual recognition. The existing split pipeline supplies rolling/final
+// Fun-ASR supplies automatic multilingual recognition. The existing split pipeline supplies rolling/final
 // Hunyuan translations and its rate-limit fallback. Both credentials remain on the relay server.
 const { SplitStream } = require('../../core/split-stream');
 const { FunAsrStream } = require('./dashscope-stream');
 
-class GummyStream extends SplitStream {
+class MultilingualStream extends SplitStream {
   constructor(opts = {}) {
     super(null, { ...opts, source: 'auto', fetchImpl: opts.fetchImpl || ((url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(15_000) })) });
     this.key = opts.dashscopeKey;
     this.retryTimer = null;
   }
 
-  _engine() { return 'gummy-realtime-v1'; }
+  _engine() { return 'fun-asr-realtime'; }
   _tuningKey() { return JSON.stringify([this.opts.target, this.opts.model]); }
 
   _connect() {
     if (!this.running) return;
     clearTimeout(this.retryTimer);
-    const asr = new FunAsrStream({ key: this.key, model: this._engine(), lang: 'auto',
+    const asr = new FunAsrStream({ key: this.key, model: this._engine(),
       vadSilenceTime: 400, url: this.opts.dashscopeUrl });
     const sock = { asr, voiceId: asr.taskId, streamMs: 0, timeOffset: null, openedAt: 0, finals: new Set() };
     this.sock = sock;
@@ -122,4 +122,4 @@ class GummyStream extends SplitStream {
     this.rolling = null;
   }
 }
-module.exports = { GummyStream };
+module.exports = { MultilingualStream };

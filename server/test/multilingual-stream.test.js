@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { WebSocketServer } = require('ws');
-const { GummyStream } = require('../lib/gummy-stream');
+const { MultilingualStream } = require('../lib/multilingual-stream');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function until(fn) { for (let i = 0; i < 150; i++) { if (fn()) return; await wait(10); } assert.ok(fn(), 'timed out'); }
 
@@ -22,7 +22,7 @@ async function harness(t, { fetchImpl } = {}) {
     });
   });
   const requests = [];
-  const stream = new GummyStream({ dashscopeKey: 'test-only', tokenhubKey: 'test-only', target: 'en', rollMs: 0,
+  const stream = new MultilingualStream({ dashscopeKey: 'test-only', tokenhubKey: 'test-only', target: 'en', rollMs: 0,
     dashscopeUrl: `ws://127.0.0.1:${wss.address().port}`,
     fetchImpl: fetchImpl || (async (_url, opts) => {
       requests.push(JSON.parse(opts.body));
@@ -32,15 +32,17 @@ async function harness(t, { fetchImpl } = {}) {
   stream.on('result', (r) => results.push(r));
   t.after(async () => { stream.stop(); for (const ws of sockets) ws.terminate(); await new Promise((r) => wss.close(r)); });
   stream.start();
-  const emit = (sentence, ws = sockets.at(-1)) => ws.send(JSON.stringify({ header: { event: 'result-generated' }, payload: { output: { transcription: sentence } } }));
+  const emit = (sentence, ws = sockets.at(-1)) => ws.send(JSON.stringify({ header: { event: 'result-generated' }, payload: { output: { sentence: sentence } } }));
   await until(() => stream.status().state === 'ready');
   return { stream, sockets, starts, audio, requests, results, emit };
 }
 
-test('Gummy uses recognition only, detects the source, and maps translated cues onto capture time', async (t) => {
+test('Fun-ASR uses recognition only, detects the source, and maps translated cues onto capture time', async (t) => {
   const h = await harness(t);
-  assert.equal(h.starts[0].payload.parameters.translation_enabled, false);
-  assert.equal(h.starts[0].payload.parameters.source_language, 'auto');
+  assert.equal(h.starts[0].payload.model, 'fun-asr-realtime');
+  assert.equal(h.starts[0].payload.parameters.language_hints, undefined);
+  assert.equal(h.starts[0].payload.parameters.max_sentence_silence, 400);
+  assert.equal(h.starts[0].payload.parameters.semantic_punctuation_enabled, false);
   const capture = Date.now();
   h.stream.push(Buffer.alloc(6400), { t0: capture });
   h.emit({ begin_time: 0, end_time: 200, text: '日本語', sentence_end: false });

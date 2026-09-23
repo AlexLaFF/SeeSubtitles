@@ -7,7 +7,7 @@
   "core/transcript.js": "b127f584c211a84b",
   "design/tokens/marquee.css": "d5f7834667764e4a",
   "desktop/helpers/render-subs.swift": "6341393697e20108",
-  "server/lib/live-proxy.js": "0b4af08be78e5197",
+  "server/lib/live-proxy.js": "58b3873167341883",
   "server/lib/live.js": "56b92147a39d7170",
   "server/lib/summaries.js": "43f571c2b8a46aa6",
   "web/speak.js": "32232fd3d6e54083"

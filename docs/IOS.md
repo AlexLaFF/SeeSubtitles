@@ -425,3 +425,6 @@ The phone gets multilingual source selection alongside the desktop: choose Multi
 `Preferences` selects the `mixed` relay and uses targets from the exported schema. Recognition and translation
 stay on the server, so the phone needs no provider protocol or API key. Existing single-language selections still
 use the default split pipeline. See [MULTILINGUAL-LIVE.md](MULTILINGUAL-LIVE.md) for supported sources and limits.
+
+The September 23 recognizer selection changed the mixed relay from Gummy to Fun-ASR after a rolling-caption comparison.
+Both Mac and iOS use this server-side choice; the phone needs no additional provider code or schema fields.

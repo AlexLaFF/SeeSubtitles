@@ -14,7 +14,7 @@
 // languages or tuning mid-talk. What it receives: JSON {type:'ready'|'result'|'status'|'log'|'error'}.
 const { WebSocketServer } = require('ws');
 const { TranslationStream, SplitStream, schema } = require('@subs/core');
-const { GummyStream } = require('./gummy-stream');
+const { MultilingualStream } = require('./multilingual-stream');
 
 const SAMPLE_BYTES = 16000 * 2; // one second of the audio the pipeline sends
 const METER_MS = 15_000; // how often streamed audio is charged to the month
@@ -111,7 +111,7 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
     // Singapore, where recognition is billed 跨境 at more than twice the price. A stand-in for Tencent is reached directly.
     const edge = wsUrl ? 'system' : (env.TENCENT_EDGE || 'cn');
     const stream = pipeline === 'mixed'
-      ? new GummyStream({ target, model, tokenhubKey, dashscopeKey: env.DASHSCOPE_API_KEY,
+      ? new MultilingualStream({ target, model, tokenhubKey, dashscopeKey: env.DASHSCOPE_API_KEY,
         ...(dashscopeUrl ? { dashscopeUrl } : {}), ...(translateUrl ? { translateUrl } : {}) })
       : pipeline === 'split'
       ? new SplitStream(creds, {
