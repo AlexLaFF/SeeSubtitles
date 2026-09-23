@@ -1,7 +1,8 @@
 {
   "pipelines": [
     "split",
-    "combined"
+    "combined",
+    "mixed"
   ],
   "defaultPipeline": "split",
   "pairs": {
@@ -838,9 +839,53 @@
           "ug"
         ]
       }
+    ],
+    "mixed": [
+      {
+        "source": "auto",
+        "targets": [
+          "zh",
+          "yue",
+          "en",
+          "ja",
+          "ko",
+          "fr",
+          "de",
+          "es",
+          "pt",
+          "it",
+          "ru",
+          "ar",
+          "hi",
+          "th",
+          "vi",
+          "id",
+          "ms",
+          "fil",
+          "tr",
+          "pl",
+          "nl",
+          "cs",
+          "he",
+          "uk",
+          "fa",
+          "ur",
+          "bn",
+          "ta",
+          "te",
+          "mr",
+          "kk",
+          "mn",
+          "my",
+          "km",
+          "bo",
+          "ug"
+        ]
+      }
     ]
   },
   "languageNames": {
+    "auto": "多语种自动识别 Multilingual",
     "yue": "粤语 Cantonese",
     "zh": "普通话 Mandarin",
     "zh_en": "中英混合 Mandarin + English",
@@ -925,11 +970,26 @@
         "id": "hy-mt2-lite",
         "label": "hy-mt2-lite (fastest)"
       }
+    ],
+    "mixed": [
+      {
+        "id": "hy-mt2-pro",
+        "label": "hy-mt2-pro (best)"
+      },
+      {
+        "id": "hy-mt2-plus",
+        "label": "hy-mt2-plus (no rate limit)"
+      },
+      {
+        "id": "hy-mt2-lite",
+        "label": "hy-mt2-lite (fastest)"
+      }
     ]
   },
   "defaultModel": {
     "combined": "hunyuan-translation",
-    "split": "hy-mt2-pro"
+    "split": "hy-mt2-pro",
+    "mixed": "hy-mt2-pro"
   },
   "defaults": {
     "source": "yue",

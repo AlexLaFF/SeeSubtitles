@@ -250,6 +250,10 @@
     for (const [key, list] of Object.entries(Controls.inputs)) {
       if (!(key in settings)) continue;
       for (const c of list) {
+        if (['hotwords', 'vadSilenceTime', 'maxSpeakTime', 'noiseThreshold', 'filterModal'].includes(key)) {
+          const row = c.els[0]?.closest('.row');
+          if (row) row.hidden = settings.pipeline === 'mixed';
+        }
         if (c.refresh) c.refresh(settings);
         if (!force && c.els.some((e) => e === document.activeElement && e.type !== 'checkbox' && e.tagName !== 'SELECT')) continue;
         c.setValue(settings[key]);

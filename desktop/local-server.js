@@ -315,7 +315,7 @@ async function createLocalServer(opts) {
       transModel: settings.transModel, model: settings.transModel, hotwords: settings.hotwords,
       vadSilenceTime: settings.vadSilenceTime, maxSpeakTime: settings.maxSpeakTime,
       noiseThreshold: settings.noiseThreshold, filterModal: settings.filterModal };
-    const directOffered = opts.liveUrls && settings.pipeline !== 'split';
+    const directOffered = opts.liveUrls && settings.pipeline === 'combined';
     if (cloudLive) {
       return new RouteStream({
         viaServer: () => new RemoteTranslationStream(cloudLive, now),
@@ -324,7 +324,7 @@ async function createLocalServer(opts) {
         log: (t) => log('info', t),
       });
     }
-    if (!creds) return null;
+    if (!creds || settings.pipeline === 'mixed') return null;
     return settings.pipeline === 'split' && env.TOKENHUB_API_KEY
       ? new SplitStream(creds, { ...now, tokenhubKey: env.TOKENHUB_API_KEY })
       : new TranslationStream(creds, now);

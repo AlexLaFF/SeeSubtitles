@@ -55,6 +55,7 @@ class FunAsrStream extends EventEmitter {
           format: 'pcm', sample_rate: 16000,
           source_language: this.opts.lang || 'auto', // 'auto' = decide per sentence, which a mixed talk needs
           transcription_enabled: true,
+          translation_enabled: !!this.opts.target,
           ...(this.opts.target ? { translation_enabled: true, translation_target_languages: [this.opts.target] } : {}),
           ...(this.opts.vadSilenceTime ? { max_end_silence: Math.round(this.opts.vadSilenceTime) } : {}),
           ...(this.opts.vocabularyId ? { vocabulary_id: this.opts.vocabularyId } : {}),
@@ -87,7 +88,8 @@ class FunAsrStream extends EventEmitter {
       const translated = this.gummy && Array.isArray(out.translations) ? out.translations[0] : null;
       if (!s || !s.text) return;
       // sentence_id is not always there; a new sentence otherwise starts when the last one ended
-      if (s.sentence_id != null) { if (s.sentence_id !== this.lastSentenceId) { this.lastSentenceId = s.sentence_id; this.index++; } }
+      const sentenceId = s.sentence_id ?? s.begin_time;
+      if (sentenceId != null) { if (sentenceId !== this.lastSentenceId) { this.lastSentenceId = sentenceId; this.index++; } }
       else if (!this.open) { this.open = true; this.index++; }
       const row = { index: this.index, startMs: Number(s.begin_time) || 0, endMs: Number(s.end_time) || 0, text: String(s.text),
         ...(s.language || s.lang ? { lang: s.language || s.lang } : {}),
@@ -108,7 +110,13 @@ class FunAsrStream extends EventEmitter {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ header: { action: 'finish-task', task_id: this.taskId, streaming: 'duplex' }, payload: { input: {} } }));
   }
 
-  stop() { if (this.ws) this.ws.close(); }
+  stop() {
+    this.ready = false;
+    const ws = this.ws;
+    if (!ws) return;
+    ws.close();
+    setTimeout(() => { if (ws.readyState !== WebSocket.CLOSED) ws.terminate(); }, 1000).unref?.();
+  }
 }
 
 module.exports = { FunAsrStream, DEFAULT_MODEL };

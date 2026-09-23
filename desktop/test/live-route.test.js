@@ -81,3 +81,10 @@ test('the split pipeline has no direct route: its translation needs the key only
   assert.equal(h.route().route, 'viaServer', 'even the trusted account goes through the server');
   assert.equal(h.asked.length, 0, 'and never asks for a signed connection');
 });
+
+test('multilingual talks never take the trusted account direct Tencent route', async (t) => {
+  const h = await start(t, { trusted: () => true, liveUrls: async () => { throw new Error('must not be asked'); }, pipeline: 'mixed' });
+  await sleep(150);
+  assert.equal(h.route().route, 'viaServer');
+  assert.equal(h.asked.length, 0);
+});

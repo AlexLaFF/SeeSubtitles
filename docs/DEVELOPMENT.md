@@ -239,7 +239,9 @@ the app and its widget extension (`ios/scripts/asc.mjs` registers an identifier 
 none), replaces the archive's development signature with the distribution one, keeping the app's own entitlements
 with get-task-allow off, and zips the .ipa; `xcodebuild -exportArchive` did the same until it hung twice in a row on
 this Mac (Xcode 27.0's App Store helper, ITunesSoftwareService, once crashed and once stuck before its first request).
-The upload is `altool`, three tries, because the link to Apple drops connections; a failed upload keeps the .ipa.
+The upload is Apple's Transporter (`/Applications/Transporter.app`, free from the Mac App Store) when it is installed —
+altool, the fallback, crashes at start now and then on this Mac and failed six tries running on 2026-09-22 where
+Transporter went through first time — six tries of eight minutes either way; a failed upload keeps the .ipa.
 `asc.mjs build` then asks the API whether Apple has the build — Xcode's Organizer never shows an upload it did not
 make. The build number is the commit count, so a build always says which commit it is and no number is ever reused
 for different code; it refuses a tree with uncommitted changes under ios/, core/ or web/. The App Store Connect

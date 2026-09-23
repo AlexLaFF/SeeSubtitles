@@ -9,8 +9,7 @@ const schema = require('../schema');
 const { LIVE_PAIRS, COMBINED_PAIRS, SPLIT_PAIRS, SPLIT_SOURCES, SPLIT_TARGETS, LANG_NAMES, targetsFor, coerceTarget, byKey } = schema;
 
 test('every source and target of both pipelines has a name, and every name is used', () => {
-  const used = new Set([...Object.keys(COMBINED_PAIRS), ...Object.values(COMBINED_PAIRS).flat(),
-    ...Object.keys(SPLIT_PAIRS), ...Object.values(SPLIT_PAIRS).flat()]);
+  const used = new Set(Object.values(schema.PAIRS).flatMap((pairs) => [...Object.keys(pairs), ...Object.values(pairs).flat()]));
   for (const code of used) assert.ok(LANG_NAMES[code], `no name for "${code}"`);
   for (const code of Object.keys(LANG_NAMES)) assert.ok(used.has(code), `"${code}" is named but unreachable`);
 });
@@ -78,7 +77,7 @@ test('the subtitle-language field narrows itself to the chosen spoken language',
   assert.equal(target.optionsFor({ source: 'de', pipeline: 'split' }).length, 36, 'the split pipeline offers them all');
   // every option the field can ever show is a language the matrix knows
   for (const [code] of target.options) assert.ok(LANG_NAMES[code], `target option "${code}" has no name`);
-  for (const [code] of byKey.source.options) assert.ok(SPLIT_PAIRS[code], `source option "${code}" has no pairs`);
+  for (const [code] of byKey.source.options) assert.ok(Object.values(schema.PAIRS).some((pairs) => pairs[code]), `source option "${code}" has no pairs`);
 });
 
 test('sanitize still refuses a language that is not in the matrix at all', () => {
@@ -87,3 +86,10 @@ test('sanitize still refuses a language that is not in the matrix at all', () =>
   assert.deepEqual(schema.sanitize({ pipeline: 'nonsense' }), {});
   assert.deepEqual(schema.sanitize({ pipeline: 'combined' }), { pipeline: 'combined' });
 });
+
+ test('multilingual mode survives settings validation and offers automatic source detection', () => {
+  assert.deepEqual(schema.sanitize({ pipeline: 'mixed', source: 'auto', target: 'en' }), { pipeline: 'mixed', source: 'auto', target: 'en' });
+  assert.equal(schema.coerceSource('yue', 'mixed'), 'auto');
+  assert.equal(schema.coerceModel('hunyuan-translation', 'mixed'), 'hy-mt2-pro');
+  assert.deepEqual(byKey.source.optionsFor({ pipeline: 'mixed' }), ['auto']);
+ });

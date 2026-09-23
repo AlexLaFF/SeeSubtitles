@@ -19,6 +19,7 @@
   // recognition engines this account may open, and its subtitle languages are what hy-mt2 accepts — both
   // checked against the account on 2026-09-16, and written up in docs/LIVE-PIPELINE-MEASUREMENTS.md.
   const LANG_NAMES = {
+    auto: '多语种自动识别 Multilingual',
     yue: '粤语 Cantonese',
     zh: '普通话 Mandarin',
     zh_en: '中英混合 Mandarin + English',
@@ -69,7 +70,7 @@
     ru: ['zh', 'en', 'ru'],
   };
   // What hy-mt2 translates, in both directions. Everything else it refuses with `语言不支持`; there is no
-  // Traditional Chinese, no Nordic, Greek, Romanian, Hungarian or Bulgarian, and no auto-detect.
+  // Traditional Chinese, no Nordic, Greek, Romanian, Hungarian or Bulgarian, and source detection is available by omitting the source parameter.
   const SPLIT_TARGETS = ['zh', 'yue', 'en', 'ja', 'ko', 'fr', 'de', 'es', 'pt', 'it', 'ru', 'ar', 'hi', 'th', 'vi',
     'id', 'ms', 'fil', 'tr', 'pl', 'nl', 'cs', 'he', 'uk', 'fa', 'ur', 'bn', 'ta', 'te', 'mr', 'kk', 'mn', 'my',
     'km', 'bo', 'ug'];
@@ -80,15 +81,20 @@
   const SPLIT_PAIRS = Object.fromEntries(SPLIT_SOURCES.map((source) => [
     source, SPLIT_TARGETS.includes(source) ? SPLIT_TARGETS : [source, ...SPLIT_TARGETS],
   ]));
-  const PAIRS = { combined: COMBINED_PAIRS, split: SPLIT_PAIRS };
-  const PIPELINES = ['split', 'combined'];
+  // Multilingual talks use Gummy recognition with automatic source detection, then Hunyuan translation.
+  // Keys and processing stay on the server. Known-language talks keep their existing Tencent engines.
+  const MIXED_SOURCES = ['auto'];
+  const MIXED_TARGETS = SPLIT_TARGETS;
+  const MIXED_PAIRS = { auto: MIXED_TARGETS };
+  const PAIRS = { combined: COMBINED_PAIRS, split: SPLIT_PAIRS, mixed: MIXED_PAIRS };
+  const PIPELINES = ['split', 'combined', 'mixed'];
   const DEFAULT_PIPELINE = 'split';
   const LIVE_PAIRS = COMBINED_PAIRS; // the old name, for callers that still mean 实时语音翻译
 
   /** The languages of one pipeline. Unknown names fall back to the one the app ships with. */
   const pairsFor = (pipeline) => PAIRS[pipeline] || PAIRS[DEFAULT_PIPELINE];
   const sourcesFor = (pipeline) => Object.keys(pairsFor(pipeline)).map((k) => [k, LANG_NAMES[k]]);
-  const SOURCES = sourcesFor(DEFAULT_PIPELINE);
+  const SOURCES = [...new Set(Object.values(PAIRS).flatMap((pairs) => Object.keys(pairs)))].map((k) => [k, LANG_NAMES[k]]);
   const TARGETS = [...new Set(Object.values(SPLIT_PAIRS).flat())].map((k) => [k, LANG_NAMES[k]]);
   /** Subtitle languages this spoken language can be translated into. Never empty; source === target transcribes. */
   const targetsFor = (source, pipeline = DEFAULT_PIPELINE) => {
@@ -109,8 +115,9 @@
     combined: [['hunyuan-translation-lite', 'hunyuan-translation-lite (fast)'], ['hunyuan-translation', 'hunyuan-translation (quality)']],
     split: [['hy-mt2-pro', 'hy-mt2-pro (best)'], ['hy-mt2-plus', 'hy-mt2-plus (no rate limit)'], ['hy-mt2-lite', 'hy-mt2-lite (fastest)']],
   };
+  TRANS_MODELS.mixed = TRANS_MODELS.split;
   const modelsFor = (pipeline) => TRANS_MODELS[pipeline] || TRANS_MODELS[DEFAULT_PIPELINE];
-  const DEFAULT_MODEL = { combined: 'hunyuan-translation', split: 'hy-mt2-pro' };
+  const DEFAULT_MODEL = { combined: 'hunyuan-translation', split: 'hy-mt2-pro', mixed: 'hy-mt2-pro' };
   /** `model` when the pipeline offers it, else that pipeline's default. */
   const coerceModel = (pipeline, model) =>
     (modelsFor(pipeline).some(([k]) => k === model) ? model : DEFAULT_MODEL[pipeline] || DEFAULT_MODEL[DEFAULT_PIPELINE]);
@@ -119,7 +126,7 @@
     // input
     { key: 'audioDevice', group: 'input', label: 'Microphone', type: 'device', default: 'default' },
     { key: 'pipeline', group: 'input', label: 'Live pipeline', type: 'select', default: DEFAULT_PIPELINE,
-      options: [['split', '识别 + 翻译 recognise, then translate'], ['combined', '实时语音翻译 one Tencent stream']],
+      options: [['split', '识别 + 翻译 recognise, then translate'], ['combined', '实时语音翻译 one Tencent stream'], ['mixed', '多语种自动识别 Multilingual']],
       hint: 'The split pipeline settles a line sooner, survives a network stall and offers more languages; the combined one is Tencent\'s own.' },
     { key: 'source', group: 'input', label: 'Spoken language', type: 'select', options: SOURCES, default: 'yue',
       optionsFor: (s) => sourcesFor(s.pipeline).map(([k]) => k) },
@@ -245,6 +252,7 @@
   }
 
   return { FIELDS, GROUPS, PRESETS, byKey, defaults, sanitize, DEFAULT_FONT, LANG_NAMES,
-    LIVE_PAIRS, COMBINED_PAIRS, SPLIT_PAIRS, SPLIT_SOURCES, SPLIT_TARGETS, PAIRS, PIPELINES, DEFAULT_PIPELINE,
+    LIVE_PAIRS, COMBINED_PAIRS, SPLIT_PAIRS, SPLIT_SOURCES, SPLIT_TARGETS, MIXED_PAIRS, MIXED_SOURCES, MIXED_TARGETS,
+    PAIRS, PIPELINES, DEFAULT_PIPELINE,
     TRANS_MODELS, DEFAULT_MODEL, pairsFor, sourcesFor, modelsFor, targetsFor, coerceTarget, coerceSource, coerceModel };
 });

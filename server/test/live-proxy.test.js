@@ -36,7 +36,7 @@ function fakeQuotas(seconds) {
   return { used: () => used, add: (_id, kind, s) => { if (kind === 'live') used += s; }, remaining: () => Math.max(0, seconds - used) };
 }
 
-async function harness({ liveSeconds = 3600, meterMs = 100, tokenhubKey = '' } = {}) {
+async function harness({ liveSeconds = 3600, meterMs = 100, tokenhubKey = '', env = {}, dashscopeUrl = null, translateUrl = null } = {}) {
   const tencent = await fakeTencent();
   const quotas = fakeQuotas(liveSeconds);
   const user = { id: 1, email: 'probe@example.com' };
@@ -45,7 +45,7 @@ async function harness({ liveSeconds = 3600, meterMs = 100, tokenhubKey = '' } =
     creds: { appid: '1250000000', secretId: 'AKID', secretKey: 'sk' },
     authenticate: (req) => (/^Bearer good$/.test(req.headers.authorization || '') ? user : null),
     quotas, planRow: (u) => u, log: (level, text) => logs.push(`${level} ${text}`),
-    meterMs, wsUrl: tencent.url, tokenhubKey,
+    meterMs, wsUrl: tencent.url, tokenhubKey, env, dashscopeUrl, translateUrl,
   });
   const server = http.createServer((_q, res) => res.end('no'));
   server.on('upgrade', (req, socket, head) => { if (!proxy.upgrade(req, socket, head)) socket.destroy(); });
@@ -151,4 +151,64 @@ test('the relay can say what it is carrying during a split talk — the answer a
     stream.stop();
     await h.close();
   }
+});
+
+
+test('multilingual relay translates automatic sources and meters the same audio', async () => {
+  const wss = new WebSocketServer({ port: 0, host: '127.0.0.1' });
+  await new Promise((r) => wss.once('listening', r));
+  let bytes = 0;
+  wss.on('connection', (ws) => ws.on('message', (data, binary) => {
+    if (!binary) return ws.send(JSON.stringify({ header: { event: 'task-started' } }));
+    bytes += data.length;
+    if (bytes === 32000) ws.send(JSON.stringify({ header: { event: 'result-generated' }, payload: { output: {
+      transcription: { begin_time: 0, end_time: 1000, text: 'こんにちは', sentence_end: true },
+    } } }));
+  }));
+  const translations = [];
+  const translator = http.createServer((req, res) => {
+    let body = '';
+    req.on('data', (d) => { body += d; });
+    req.on('end', () => {
+      translations.push(JSON.parse(body));
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ choices: [{ message: { content: 'Hello' } }] }));
+    });
+  });
+  await new Promise((r) => translator.listen(0, '127.0.0.1', r));
+  const h = await harness({ tokenhubKey: 'test-only', env: { DASHSCOPE_API_KEY: 'test-only' },
+    dashscopeUrl: `ws://127.0.0.1:${wss.address().port}`, translateUrl: `http://127.0.0.1:${translator.address().port}` });
+  const client = new RemoteTranslationStream({ url: h.url, token: 'good' }, { pipeline: 'mixed', source: 'auto', target: 'en' });
+  const results = [];
+  client.on('result', (r) => results.push(r));
+  try {
+    client.start();
+    await sleep(200);
+    const capture = Date.now();
+    for (let i = 0; i < 5; i++) { client.push(Buffer.alloc(6400), { t0: capture + i * 200 }); await sleep(200); }
+    for (let i = 0; i < 100 && !results.some((r) => r.sentenceEnd); i++) await sleep(10);
+    assert.equal(results.at(-1)?.targetText, 'Hello');
+    assert.equal(results.at(-1)?.wallStart, capture);
+    assert.equal(h.quotas.used(), 1);
+    assert.equal(h.tencent.bytes(), 0);
+    assert.equal(translations[0].source, undefined);
+  } finally {
+    client.stop(); await h.close();
+    for (const ws of wss.clients) ws.terminate();
+    await new Promise((r) => wss.close(r));
+    await new Promise((r) => translator.close(r));
+  }
+});
+
+test('an unconfigured multilingual relay reports an error instead of substituting Tencent', async () => {
+  const h = await harness();
+  const stream = new RemoteTranslationStream({ url: h.url, token: 'good' }, { pipeline: 'mixed', source: 'auto', target: 'en' });
+  const errors = [];
+  stream.on('server-error', (e) => errors.push(e));
+  try {
+    stream.start(); await sleep(200);
+    assert.equal(errors[0]?.code, 'multilingual_unavailable');
+    assert.equal(h.proxy.status().length, 0);
+    assert.equal(h.tencent.bytes(), 0);
+  } finally { stream.stop(); await h.close(); }
 });

@@ -426,7 +426,7 @@ class SplitStream extends EventEmitter {
           method: 'POST',
           headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model, text, source: this.opts.source, target: this.opts.target,
+            model, text, ...(this.opts.source === 'auto' ? {} : { source: this.opts.source }), target: this.opts.target,
             ...(context ? { context } : {}),
           }),
         });
