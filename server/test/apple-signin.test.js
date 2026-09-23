@@ -24,6 +24,11 @@ test('Apple identity checks signature, issuer, audience, expiry, and nonce befor
   const apple = createAppleSignIn({ teamId: 'TEAM', keyId: 'KEY', privateKey: ecPrivate.export({ format: 'pem', type: 'pkcs8' }), clients: { native: 'com.example.app' }, fetchImpl, now: () => now });
   const identity = await apple.authenticate({ code: 'single-use-code', clientId: 'com.example.app', nonce: 'one-use-nonce' });
   assert.deepEqual(identity, { sub: 'stable-subject', email: 'person@example.com', emailVerified: true, isPrivateEmail: false });
+  claimOverrides = { email_verified: undefined };
+  assert.equal((await apple.verify(token(), 'com.example.app', 'one-use-nonce')).emailVerified, true);
+  claimOverrides = { email_verified: false };
+  assert.equal((await apple.verify(token(), 'com.example.app', 'one-use-nonce')).emailVerified, false);
+  claimOverrides = {};
   await assert.rejects(apple.verify(token(), 'com.example.app', 'wrong'), /nonce/);
   await assert.rejects(apple.verify(token(), 'com.other.app', 'one-use-nonce'), /client/);
   claimOverrides = { iss: 'https://attacker.example' };

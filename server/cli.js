@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-// Admin CLI:  node server/cli.js add-user <email> [password]
+// Admin CLI:  node server/cli.js add-user <email> [password|--apple-only]
 //             node server/cli.js set-password <email> <password>
 //             node server/cli.js set-role <email> admin|user
 //             node server/cli.js list-users
@@ -21,9 +21,9 @@ const [cmd, a, b] = process.argv.slice(2);
 try {
   switch (cmd) {
     case 'add-user': {
-      const password = b || crypto.randomBytes(9).toString('base64url');
+      const password = b === '--apple-only' ? null : (b || crypto.randomBytes(9).toString('base64url'));
       const u = auth.addUser(a, password);
-      console.log(`user ${u.email} (#${u.id}) created${b ? '' : `, password: ${password}`}`);
+      console.log(`user ${u.email} (#${u.id}) created${b === '--apple-only' ? ' without a password' : b ? '' : `, password: ${password}`}`);
       break;
     }
     case 'set-password':
@@ -63,7 +63,7 @@ try {
       for (const i of db.all('SELECT code, created_at, used_by, used_at FROM invites ORDER BY created_at')) console.log(`${i.code}  ${i.used_at ? `used by #${i.used_by} ${new Date(i.used_at).toISOString()}` : 'unused'}`);
       break;
     default:
-      console.log('usage: cli.js add-user <email> [password] | set-password <email> <password> | set-role <email> admin|user | set-plan <email> hobbyist|business|enterprise | list-users | add-invite [count] | list-invites');
+      console.log('usage: cli.js add-user <email> [password|--apple-only] | set-password <email> <password> | set-role <email> admin|user | set-plan <email> hobbyist|business|enterprise | list-users | add-invite [count] | list-invites');
       process.exit(1);
   }
 } catch (err) {

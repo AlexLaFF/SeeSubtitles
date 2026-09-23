@@ -46,21 +46,28 @@
 
     // password: the server signs every other device out; this app keeps its own login
     const pw = sec('password');
-    const cur = el('input', { type: 'password', autocomplete: 'current-password' });
-    const next = el('input', { type: 'password', autocomplete: 'new-password', minlength: 8 });
-    const again = el('input', { type: 'password', autocomplete: 'new-password', minlength: 8 });
-    const btnPw = el('button', { class: 'small' }, t('acct.change'));
-    const pwMsg = el('span', { class: 'hint', style: 'margin:0' });
-    pw.append(row(t('acct.current'), cur), row(t('acct.new'), next, el('span', { class: 'hint', style: 'margin:0' }, t('acct.atLeast'))), row(t('acct.repeat'), again), row('', btnPw, pwMsg), hint(t('acct.securityHint')));
-    btnPw.addEventListener('click', async () => {
-      pwMsg.textContent = '';
-      if (next.value.length < 8) { pwMsg.textContent = t('acct.atLeast'); return; }
-      if (next.value !== again.value) { pwMsg.textContent = t('acct.differ'); return; }
-      btnPw.disabled = true;
-      try { await d.cloud({ action: 'password', current: cur.value, next: next.value }); cur.value = next.value = again.value = ''; pwMsg.textContent = t('acct.changed'); renderDevices(); }
-      catch (err) { pwMsg.textContent = String(err.message || err).replace(/^.*Error: /, ''); }
-      btnPw.disabled = false;
-    });
+    const appleStatus = await d.cloud({ action: 'apple-status' }).catch(() => ({ passwordSet: true }));
+    if (appleStatus.passwordSet === false) {
+      const addOnWeb = el('button', { class: 'small' }, t('acct.addPassword'));
+      addOnWeb.addEventListener('click', () => App.openExternal(`${cfg.cloud.url || cfg.defaultCloudUrl}/account`));
+      pw.append(row('', addOnWeb), hint(t('acct.applePasswordHint')));
+    } else {
+      const cur = el('input', { type: 'password', autocomplete: 'current-password' });
+      const next = el('input', { type: 'password', autocomplete: 'new-password', minlength: 8 });
+      const again = el('input', { type: 'password', autocomplete: 'new-password', minlength: 8 });
+      const btnPw = el('button', { class: 'small' }, t('acct.change'));
+      const pwMsg = el('span', { class: 'hint', style: 'margin:0' });
+      pw.append(row(t('acct.current'), cur), row(t('acct.new'), next, el('span', { class: 'hint', style: 'margin:0' }, t('acct.atLeast'))), row(t('acct.repeat'), again), row('', btnPw, pwMsg), hint(t('acct.securityHint')));
+      btnPw.addEventListener('click', async () => {
+        pwMsg.textContent = '';
+        if (next.value.length < 8) { pwMsg.textContent = t('acct.atLeast'); return; }
+        if (next.value !== again.value) { pwMsg.textContent = t('acct.differ'); return; }
+        btnPw.disabled = true;
+        try { await d.cloud({ action: 'password', current: cur.value, next: next.value }); cur.value = next.value = again.value = ''; pwMsg.textContent = t('acct.changed'); renderDevices(); }
+        catch (err) { pwMsg.textContent = String(err.message || err).replace(/^.*Error: /, ''); }
+        btnPw.disabled = false;
+      });
+    }
 
     // devices: where the account is signed in (this app, browsers, other Macs)
     const dv = sec('devices');

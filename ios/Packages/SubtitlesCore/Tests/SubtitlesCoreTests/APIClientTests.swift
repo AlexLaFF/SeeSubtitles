@@ -60,6 +60,22 @@ final class StubServer: URLProtocol, @unchecked Sendable {
     #expect(StubServer.asked.last!.request.value(forHTTPHeaderField: "Authorization") == nil)
   }
 
+  @Test("Apple-only account status and later password setup use the verified native route")
+  func applePassword() async throws {
+    StubServer.reset()
+    StubServer.on("GET /api/apple/status") { _, _ in StubServer.json(#"{"enabled":true,"linked":true,"passwordSet":false}"#) }
+    StubServer.on("POST /api/apple/set-password-native") { request, body in
+      guard request.value(forHTTPHeaderField: "Authorization") == "Bearer tok",
+            let sent = try? JSONSerialization.jsonObject(with: body) as? [String: String],
+            sent["code"] == "apple-code", sent["nonce"] == "nonce", sent["next"] == "new-password" else {
+        return StubServer.json(#"{"error":"bad request"}"#, status: 400)
+      }
+      return StubServer.json(#"{"ok":true,"passwordSet":true}"#)
+    }
+    #expect(try await api.appleStatus().passwordSet == false)
+    try await api.setPasswordWithApple(code: "apple-code", nonce: "nonce", next: "new-password")
+  }
+
   @Test("the account, its plan, its glossary and its devices are read as the server writes them")
   func account() async throws {
     StubServer.reset()

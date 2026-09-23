@@ -318,6 +318,8 @@ async function cloudAction(body) {
       return { ok: true, cloud: cloud.status() };
     }
     // Account management inside the app (the same routes the hosted Account page uses)
+    case 'apple-status':
+      return { ok: true, ...(await cloud._fetch('/api/apple/status', null, { method: 'GET' })) };
     case 'password':
       await cloud._fetch('/api/account/password', { current: body.current, next: body.next });
       return { ok: true };

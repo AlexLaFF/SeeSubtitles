@@ -56,7 +56,9 @@ function createAppleSignIn({ teamId, keyId, privateKey, clients, fetchImpl = fet
     const seconds = Math.floor(now() / 1000);
     if (claims.iss !== ISSUER || claims.aud !== clientId || !Number.isInteger(claims.exp) || claims.exp <= seconds || !Number.isInteger(claims.iat) || claims.iat > seconds + 60 || claims.iat < seconds - 3600) throw new Error('expired or invalid Apple identity token');
     if (nonce && claims.nonce !== nonce) throw new Error('Apple sign-in nonce mismatch');
-    return { sub: claims.sub, email: claims.email || '', emailVerified: claims.email_verified === true || claims.email_verified === 'true', isPrivateEmail: claims.is_private_email === true || claims.is_private_email === 'true' };
+    // Apple says email in its signed identity token is verified. Some responses omit the
+    // optional email_verified claim; an explicit false still blocks automatic matching.
+    return { sub: claims.sub, email: claims.email || '', emailVerified: claims.email_verified !== false && claims.email_verified !== 'false', isPrivateEmail: claims.is_private_email === true || claims.is_private_email === 'true' };
   }
 
   async function authenticate({ code, clientId, redirectUri, nonce }) {

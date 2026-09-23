@@ -13,7 +13,7 @@ const path = require('node:path');
 const { randomUUID, randomBytes, createHash, timingSafeEqual } = require('node:crypto');
 const { loadEnv, getCredentials, schema, buildConnection, recognitionParams } = require('@subs/core');
 const { openDb } = require('./lib/db');
-const { createAuth } = require('./lib/auth');
+const { createAuth, hashPassword } = require('./lib/auth');
 const { LiveSessions } = require('./lib/live');
 const { JobRunner, ENGINES, TARGETS } = require('./lib/jobs');
 const { createLimiter, SIGNUP_MODES } = require('./lib/auth');
@@ -70,11 +70,11 @@ const apple = process.env.APPLE_SIGNIN_TEAM_ID && process.env.APPLE_SIGNIN_KEY_I
 const appleStates = new Map(); // short lived, single use browser authorization requests
 const appleTickets = new Map(); // browser-to-Mac handoff, bound to a verifier held only by the app
 const appleRedirect = `${BASE_URL}/api/apple/callback`;
-function newAppleState(mode, userId, next, challenge) {
+function newAppleState(mode, userId, next, challenge, extra = {}) {
   const state = randomBytes(24).toString('base64url');
   const nonce = randomBytes(24).toString('base64url');
   for (const [key, value] of appleStates) if (Date.now() - value.created > 5 * 60_000) appleStates.delete(key);
-  appleStates.set(state, { nonce, mode, userId, next, challenge, created: Date.now() });
+  appleStates.set(state, { nonce, mode, userId, next, challenge, ...extra, created: Date.now() });
   const params = new URLSearchParams({ response_type: 'code id_token', response_mode: 'form_post', client_id: apple.clients.web,
     redirect_uri: appleRedirect, scope: 'email', state, nonce });
   return `https://appleid.apple.com/auth/authorize?${params}`;
@@ -181,6 +181,13 @@ async function api(req, res, url, user) {
     const requested = url.searchParams.get('next') || '/';
     return redirect(res, newAppleState('login', null, requested.startsWith('/') && !requested.startsWith('//') ? requested : '/'));
   }
+  if (p === '/api/apple/start-claim' && req.method === 'GET') {
+    if (!apple || !SECURE) return fail(res, 503, 'Apple sign-in is not configured');
+    if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
+    const resetToken = url.searchParams.get('token') || '';
+    if (!account.resetInfo(resetToken)) return redirect(res, '/login?apple=invalid');
+    return redirect(res, newAppleState('claim', null, '/', null, { resetToken }));
+  }
   if (p === '/api/apple/desktop/start' && req.method === 'POST') {
     if (!apple || !SECURE) return fail(res, 503, 'Apple sign-in is not configured');
     if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
@@ -207,10 +214,22 @@ async function api(req, res, url, user) {
     const state = appleStates.get(body.get('state'));
     if (!state || Date.now() - state.created > 5 * 60_000) return redirect(res, '/login?apple=invalid');
     appleStates.delete(body.get('state'));
-    if (!body.get('code')) return redirect(res, state.mode === 'link' ? '/account?apple=invalid' : '/login?apple=invalid');
+    if (!body.get('code')) return redirect(res, state.mode === 'claim' ? `/reset/${state.resetToken}?apple=invalid` : ['link', 'password'].includes(state.mode) ? '/account?apple=invalid' : '/login?apple=invalid');
     try {
       const identity = await apple.authenticate({ code: body.get('code'), clientId: apple.clients.web, redirectUri: appleRedirect, nonce: state.nonce });
       if (state.mode === 'link') { auth.linkApple(state.userId, identity); return redirect(res, '/account?apple=linked'); }
+      if (state.mode === 'password') {
+        const signedIn = auth.userForToken(state.token);
+        if (!signedIn || signedIn.id !== state.userId) throw new Error('account session expired');
+        auth.confirmPasswordFromApple(state.userId, identity, state.passwordHash, state.token);
+        return redirect(res, '/account?apple=password');
+      }
+      if (state.mode === 'claim') {
+        account.claimAppleWithReset(state.resetToken, identity, auth.linkApple);
+        const out = auth.loginApple(identity, 'cookie', 'See Subtitles website');
+        res.setHeader('set-cookie', auth.cookieHeader(out.token, SECURE));
+        return redirect(res, '/account?apple=linked');
+      }
       if (state.mode === 'desktop') {
         const linked = auth.findOrLinkApple(identity);
         if (!linked) return redirect(res, '/login?apple=unknown');
@@ -222,7 +241,7 @@ async function api(req, res, url, user) {
       if (!out) return redirect(res, '/login?apple=unknown');
       res.setHeader('set-cookie', auth.cookieHeader(out.token, SECURE));
       return redirect(res, state.next);
-    } catch (err) { log('warn', `Apple browser sign-in: ${err.message}`); return redirect(res, state.mode === 'link' ? '/account?apple=invalid' : '/login?apple=invalid'); }
+    } catch (err) { log('warn', `Apple browser sign-in: ${err.message}`); return redirect(res, state.mode === 'claim' ? `/reset/${state.resetToken}?apple=invalid` : ['link', 'password'].includes(state.mode) ? '/account?apple=invalid' : '/login?apple=invalid'); }
   }
   if (p === '/api/desktop/version') {
     const rel = latestRelease(UPDATES_DIR);
@@ -291,6 +310,14 @@ async function api(req, res, url, user) {
     if (auth.appleStatus(user.id).linked) return fail(res, 409, 'this account already has an Apple Account linked');
     return send(res, 200, { url: newAppleState('link', user.id, '/account') });
   }
+  if (p === '/api/apple/start-password' && req.method === 'POST') {
+    if (!apple || !SECURE) return fail(res, 503, 'Apple sign-in is not configured');
+    if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
+    if (!auth.appleStatus(user.id).linked || auth.appleStatus(user.id).passwordSet) return fail(res, 409, 'a password cannot be added to this account');
+    const body = await readJson(req, 1e4);
+    if (String(body.next || '').length < 8) return fail(res, 400, 'password must be at least 8 characters');
+    return send(res, 200, { url: newAppleState('password', user.id, '/account', null, { passwordHash: hashPassword(body.next), token: user.token }) });
+  }
 
   if (p === '/api/apple/link-native' && req.method === 'POST') {
     if (!apple) return fail(res, 503, 'Apple sign-in is not configured');
@@ -302,6 +329,16 @@ async function api(req, res, url, user) {
       const identity = await apple.authenticate({ code: body.code, clientId: apple.clients.ios, nonce: body.nonce });
       return send(res, 200, { ok: true, ...auth.linkApple(user.id, identity) });
     } catch (err) { log('warn', `Apple link: ${err.message}`); return fail(res, 400, 'Apple Account could not be linked', { code: 'apple_link_failed' }); }
+  }
+  if (p === '/api/apple/set-password-native' && req.method === 'POST') {
+    if (!apple) return fail(res, 503, 'Apple sign-in is not configured');
+    if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes', { code: 'rate_limited' });
+    const body = await readJson(req, 1e4);
+    if (!body.code || !body.nonce) return fail(res, 400, 'Apple sign-in is incomplete');
+    try {
+      const identity = await apple.authenticate({ code: body.code, clientId: apple.clients.ios, nonce: body.nonce });
+      return send(res, 200, { ok: true, ...auth.setPasswordFromApple(user.id, identity, body.next, user.token) });
+    } catch (err) { log('warn', `Apple password setup: ${err.message}`); return fail(res, 400, 'Apple Account could not set this password', { code: 'apple_password_failed' }); }
   }
   if (p === '/api/apple/status' && req.method === 'GET') return send(res, 200, { enabled: !!apple, ...auth.appleStatus(user.id) });
 

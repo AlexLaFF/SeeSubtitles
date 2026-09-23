@@ -9,6 +9,7 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { openDb } = require('../lib/db');
 const { createAuth } = require('../lib/auth');
+const { createAccount } = require('../lib/account');
 
 const freePort = () => new Promise((resolve) => {
   const server = net.createServer();
@@ -26,8 +27,10 @@ async function fixture(t) {
   const auth = createAuth(db);
   const known = auth.addUser('known@example.com', 'known-password');
   const different = auth.addUser('different@example.com', 'different-password');
+  const appleOnly = auth.addUser('only@example.com', null);
   const knownToken = auth.login(known.email, 'known-password', 'bearer').token;
   const differentToken = auth.login(different.email, 'different-password', 'bearer').token;
+  const resetToken = createAccount(db).createReset(known.id).token;
   db.close();
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
@@ -51,8 +54,75 @@ async function fixture(t) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   assert.ok(ready, output);
-  return { base, known, different, knownToken, differentToken };
+  return { base, known, different, appleOnly, knownToken, differentToken, resetToken };
 }
+
+test('Apple-first iOS account can later add a password while both login methods keep working', async (t) => {
+  const { base, appleOnly } = await fixture(t);
+  const nonce = 'first-native';
+  const first = await post(base, '/api/apple/native', { code: code({ sub: 'only-subject', email: appleOnly.email, emailVerified: true, nonce }), nonce });
+  assert.equal(first.status, 200);
+  const { token } = await first.json();
+  assert.equal((await (await fetch(`${base}/api/apple/status`, { headers: { authorization: `Bearer ${token}` } })).json()).passwordSet, false);
+  const wrong = await post(base, '/api/apple/set-password-native', { code: code({ sub: 'wrong-subject', email: appleOnly.email, nonce: 'wrong' }), nonce: 'wrong', next: 'new-password' }, token);
+  assert.equal(wrong.status, 400);
+  const added = await post(base, '/api/apple/set-password-native', { code: code({ sub: 'only-subject', email: appleOnly.email, nonce: 'add-password' }), nonce: 'add-password', next: 'new-password' }, token);
+  assert.equal(added.status, 200);
+  assert.equal((await post(base, '/api/login', { email: appleOnly.email, password: 'new-password', kind: 'bearer' })).status, 200);
+  assert.equal((await post(base, '/api/apple/native', { code: code({ sub: 'only-subject', email: appleOnly.email, nonce: 'again' }), nonce: 'again' })).status, 200);
+});
+
+test('Apple-first website account can add a password after Apple reconfirmation', async (t) => {
+  const { base, appleOnly } = await fixture(t);
+  const first = await fetch(`${base}/api/apple/start`, { redirect: 'manual' });
+  const authorization = new URL(first.headers.get('location'));
+  const callback = await appleCallback(base, authorization.searchParams.get('state'),
+    { sub: 'web-only-subject', email: appleOnly.email, emailVerified: true, nonce: authorization.searchParams.get('nonce') });
+  const cookie = callback.headers.get('set-cookie').split(';')[0];
+  const started = await fetch(`${base}/api/apple/start-password`, { method: 'POST', headers: { 'content-type': 'application/json', cookie }, body: JSON.stringify({ next: 'web-password' }) });
+  assert.equal(started.status, 200);
+  const second = new URL((await started.json()).url);
+  const confirmed = await appleCallback(base, second.searchParams.get('state'),
+    { sub: 'web-only-subject', email: appleOnly.email, nonce: second.searchParams.get('nonce') });
+  assert.equal(confirmed.headers.get('location'), '/account?apple=password');
+  assert.equal((await post(base, '/api/login', { email: appleOnly.email, password: 'web-password' })).status, 200);
+  assert.equal((await fetch(`${base}/api/apple/status`, { headers: { cookie } }).then((r) => r.json())).passwordSet, true);
+});
+
+test('an invited account can choose Apple first with hidden email using its one-time link', async (t) => {
+  const { base, known, resetToken } = await fixture(t);
+  const setupPage = await fetch(`${base}/reset/${resetToken}`);
+  assert.equal(setupPage.status, 200);
+  assert.match(await setupPage.text(), /id="useApple"/);
+  const blocked = await post(base, '/api/apple/native', { code: code({ sub: 'private-apple', email: 'relay@privaterelay.appleid.com', emailVerified: true, isPrivateEmail: true, nonce: 'before' }), nonce: 'before' });
+  assert.equal(blocked.status, 403);
+  const start = await fetch(`${base}/api/apple/start-claim?token=${resetToken}`, { redirect: 'manual' });
+  assert.equal(start.status, 302);
+  const url = new URL(start.headers.get('location'));
+  const callback = await appleCallback(base, url.searchParams.get('state'),
+    { sub: 'private-apple', email: 'relay@privaterelay.appleid.com', emailVerified: true, isPrivateEmail: true, nonce: url.searchParams.get('nonce') });
+  assert.equal(callback.headers.get('location'), '/account?apple=linked');
+  const cookie = callback.headers.get('set-cookie').split(';')[0];
+  assert.equal((await (await fetch(`${base}/api/me`, { headers: { cookie } })).json()).user.id, known.id);
+  const native = await post(base, '/api/apple/native', { code: code({ sub: 'private-apple', email: 'relay@privaterelay.appleid.com', emailVerified: true, isPrivateEmail: true, nonce: 'after' }), nonce: 'after' });
+  assert.equal((await native.json()).user.id, known.id);
+  assert.equal((await post(base, '/api/login', { email: known.email, password: 'known-password' })).status, 200);
+  const reused = await fetch(`${base}/api/apple/start-claim?token=${resetToken}`, { redirect: 'manual' });
+  assert.equal(reused.headers.get('location'), '/login?apple=invalid');
+});
+
+test('a setup link cannot move an Apple Account already owned by someone else', async (t) => {
+  const { base, known, different, resetToken } = await fixture(t);
+  const owned = await post(base, '/api/apple/native', { code: code({ sub: 'owned-apple', email: different.email, emailVerified: true, nonce: 'owner' }), nonce: 'owner' });
+  assert.equal(owned.status, 200);
+  const start = await fetch(`${base}/api/apple/start-claim?token=${resetToken}`, { redirect: 'manual' });
+  const url = new URL(start.headers.get('location'));
+  const blocked = await appleCallback(base, url.searchParams.get('state'),
+    { sub: 'owned-apple', email: different.email, nonce: url.searchParams.get('nonce') });
+  assert.equal(blocked.headers.get('location'), `/reset/${resetToken}?apple=invalid`);
+  assert.equal((await (await fetch(`${base}/api/reset/${resetToken}`)).json()).ok, true);
+  assert.equal((await post(base, '/api/login', { email: known.email, password: 'known-password' })).status, 200);
+});
 
 test('Apple web and iOS login admit known accounts, preserve password login, and reject unknown accounts', async (t) => {
   const { base, known, knownToken } = await fixture(t);

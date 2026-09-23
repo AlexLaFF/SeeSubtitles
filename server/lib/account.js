@@ -3,7 +3,7 @@
 // invite codes, password reset links an administrator hands out, "request an account" from the website, and the
 // per-user glossary (hotwords) the desktop app and the web share.
 const crypto = require('node:crypto');
-const { hashPassword, verifyPassword } = require('./auth');
+const { hashPassword, verifyPassword, NO_PASSWORD } = require('./auth');
 const { IDS: PLAN_IDS, monthKey } = require('./plans');
 
 const RESET_TTL_MS = 24 * 3600 * 1000;
@@ -113,6 +113,20 @@ function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
     if (!r || r.used_at || Date.now() - r.created_at > RESET_TTL_MS) return null;
     return { email: r.email.replace(/^(.).*(@.*)$/, '$1•••$2'), userId: r.user_id };
   }
+  function claimAppleWithReset(token, identity, linkApple) {
+    db.raw.exec('BEGIN IMMEDIATE');
+    try {
+      const info = resetInfo(token);
+      if (!info) throw new Error('this account link is invalid or has expired');
+      linkApple(info.userId, identity);
+      db.run('UPDATE resets SET used_at = ? WHERE token = ?', Date.now(), token);
+      db.raw.exec('COMMIT');
+      return info.userId;
+    } catch (err) {
+      db.raw.exec('ROLLBACK');
+      throw err;
+    }
+  }
   function resetPassword(token, password) {
     const info = resetInfo(token);
     if (!info) throw new Error('this reset link is invalid or has expired');
@@ -169,7 +183,7 @@ function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
     let org = ownedOrg(userId);
     if (!org) { db.run('INSERT INTO orgs(owner_id, name, created_at) VALUES (?,?,?)', userId, '', Date.now()); org = ownedOrg(userId); }
     if (db.get('SELECT COUNT(*) AS n FROM users WHERE org_id = ?', org.id).n >= 50) throw new Error('a team has at most 50 members');
-    const r = db.run('INSERT INTO users(email, pass_hash, created_at, plan, org_id) VALUES (?,?,?,?,?)', clean, hashPassword(crypto.randomBytes(24).toString('base64url')), Date.now(), 'hobbyist', org.id);
+    const r = db.run('INSERT INTO users(email, pass_hash, created_at, plan, org_id) VALUES (?,?,?,?,?)', clean, NO_PASSWORD, Date.now(), 'hobbyist', org.id);
     const id = Number(r.lastInsertRowid);
     log('info', `team member ${clean} added by ${row.email}`);
     return { member: { id, email: clean }, reset: createReset(id) };
@@ -215,7 +229,7 @@ function createAccount(db, { baseUrl = '', log = () => {} } = {}) {
     const rows = db.all('SELECT id, name, email, org, note, created_at FROM requests WHERE handled_at IS NULL ORDER BY created_at DESC, id DESC LIMIT 5');
     return { count: db.get('SELECT COUNT(*) AS n FROM requests WHERE handled_at IS NULL').n, latest: rows };
   }
-  return { isAdmin, userRow, changePassword, listTokens, revokeTokens, team, setPlan, createInvite, deleteInvite, setRole, createReset, resetInfo, resetPassword, requestAccount, handleRequest, pendingRequests, getGlossary, putGlossary, teamView, addMember, memberReset, removeMember, setTeamName };
+  return { isAdmin, userRow, changePassword, listTokens, revokeTokens, team, setPlan, createInvite, deleteInvite, setRole, createReset, resetInfo, claimAppleWithReset, resetPassword, requestAccount, handleRequest, pendingRequests, getGlossary, putGlossary, teamView, addMember, memberReset, removeMember, setTeamName };
 }
 
 module.exports = { createAccount, cleanGlossary, hotwordsText, deviceName };

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title data-i18n="reset.title">See Subtitles — New password</title>
+<title data-i18n="reset.title">See Subtitles — Account setup</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/tokens.css">
@@ -15,8 +15,11 @@
     <div class="brand"><svg viewBox="0 0 824 824" aria-hidden="true"><rect width="824" height="824" rx="185" fill="#131210"/><circle cx="196" cy="196" r="46" fill="#ff453a"/><rect x="150" y="452" width="524" height="96" rx="48" fill="#f1ece2"/><rect x="232" y="596" width="360" height="72" rx="36" fill="#f5c518"/></svg><span data-i18n="brand">See Subtitles</span></div>
     <div id="loading" class="muted" data-i18n="reset.checking">checking the link…</div>
     <form id="form" hidden>
-      <h2 data-i18n="reset.h2">Choose a new password</h2>
+      <h2 data-i18n="reset.choose">Choose how to sign in</h2>
       <p class="muted" id="who"></p>
+      <button class="primary" type="button" id="useApple" data-i18n="reset.useApple" hidden>Continue with Apple</button>
+      <p class="hint" id="appleHint" data-i18n="reset.appleHint" hidden>You can add a password later. This link connects your Apple Account once, even if you hide your email.</p>
+      <h3 data-i18n="reset.h2">Choose a new password</h3>
       <label><span data-i18n="acct.new">New password</span> <span class="hint">· <span data-i18n="acct.atLeast">at least 8 characters</span></span><input id="password" type="password" autocomplete="new-password" required minlength="8"></label>
       <label><span data-i18n="acct.repeat">Repeat it</span><input id="again" type="password" autocomplete="new-password" required minlength="8"></label>
       <div class="alert" id="err" hidden></div>
@@ -47,7 +50,15 @@
   if (info.error) { $('bad').hidden = false; return; }
   $('who').textContent = t('reset.for', { email: info.email });
   $('form').hidden = false;
-  $('password').focus();
+  const config = await fetch('/api/config').then((r) => r.json()).catch(() => ({}));
+  if (config.apple) {
+    $('useApple').hidden = false;
+    $('appleHint').hidden = false;
+    $('useApple').onclick = () => { location.assign(`/api/apple/start-claim?token=${encodeURIComponent(token)}`); };
+  } else $('password').focus();
+  if (new URLSearchParams(location.search).get('apple') === 'invalid') {
+    $('err').textContent = t('reset.appleFailed'); $('err').hidden = false;
+  }
   $('form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const err = $('err'); err.hidden = true;

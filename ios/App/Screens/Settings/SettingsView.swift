@@ -246,16 +246,51 @@ struct PasswordView: View {
   @State private var next = ""
   @State private var problem: String?
   @State private var busy = false
+  @State private var appleStatus: APIClient.AppleStatus?
+  @State private var appleNonce = ""
 
   var body: some View {
     Form {
       Section {
-        SecureField(L("ios.password.current"), text: $current).textContentType(.password)
+        if appleStatus?.passwordSet != false { SecureField(L("ios.password.current"), text: $current).textContentType(.password) }
         SecureField(L("ios.password.new"), text: $next).textContentType(.newPassword)
-      } footer: { Text(problem ?? L("ios.password.hint")).foregroundStyle(problem == nil ? Color.mqText3 : Color.mqBad) }.listRowBackground(Color.mqSurface)
-      Section { Button(L("ios.save")) { save() }.disabled(busy || current.isEmpty || next.count < 8) }.listRowBackground(Color.mqSurface)
+      } footer: {
+        if appleStatus?.passwordSet == false {
+          Text(problem ?? L("ios.password.appleHint")).foregroundStyle(problem == nil ? Color.mqText3 : Color.mqBad)
+        } else {
+          Text(problem ?? L("ios.password.hint")).foregroundStyle(problem == nil ? Color.mqText3 : Color.mqBad)
+        }
+      }.listRowBackground(Color.mqSurface)
+      Section {
+        if appleStatus?.passwordSet == false {
+          SignInWithAppleButton(.continue, onRequest: { request in
+            appleNonce = UUID().uuidString
+            request.nonce = appleNonce
+          }, onCompletion: { result in
+            switch result {
+            case .success(let authorization):
+              guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                    let data = credential.authorizationCode,
+                    let code = String(data: data, encoding: .utf8) else { problem = L("ios.login.appleFailed"); return }
+              busy = true; problem = nil
+              Task {
+                defer { busy = false }
+                do { try await app.api.setPasswordWithApple(code: code, nonce: appleNonce, next: next); dismiss() }
+                catch { problem = L("ios.login.appleFailed") }
+              }
+            case .failure: problem = L("ios.login.appleFailed")
+            }
+          })
+          .signInWithAppleButtonStyle(.black)
+          .frame(height: 50)
+          .disabled(busy || next.count < 8)
+        } else {
+          Button(L("ios.save")) { save() }.disabled(busy || current.isEmpty || next.count < 8)
+        }
+      }.listRowBackground(Color.mqSurface)
     }
     .scrollContentBackground(.hidden).background(Color.mqBackground).navigationTitle(L("ios.settings.password"))
+    .task { appleStatus = try? await app.api.appleStatus() }
   }
 
   private func save() {
@@ -282,7 +317,8 @@ struct AppleLinkView: View {
     Form {
       Section {
         if status?.linked == true {
-          Text(L("ios.apple.linked"))
+          if status?.passwordSet == false { Text(L("ios.apple.linkedOnly")) }
+          else { Text(L("ios.apple.linked")) }
         } else if status?.enabled == true {
           Text(L("ios.apple.explain"))
           SecureField(L("ios.password.current"), text: $password).textContentType(.password)

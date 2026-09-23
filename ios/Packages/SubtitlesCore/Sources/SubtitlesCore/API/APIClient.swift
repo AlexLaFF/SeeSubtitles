@@ -75,7 +75,7 @@ public struct APIClient: Sendable {
 
   public struct Login: Decodable, Sendable { public let token: String; public let user: User }
   public struct PublicConfig: Decodable, Sendable { public let apple: Bool }
-  public struct AppleStatus: Decodable, Sendable { public let enabled: Bool; public let linked: Bool }
+  public struct AppleStatus: Decodable, Sendable { public let enabled: Bool; public let linked: Bool; public let passwordSet: Bool? }
 
   public func publicConfig() async throws -> PublicConfig { try await send(request("GET", "api/config")) }
 
@@ -89,6 +89,10 @@ public struct APIClient: Sendable {
     var body: [String: Any] = ["code": code, "nonce": nonce, "password": password]
     if let totp { body["totp"] = totp }
     try await send(request("POST", "api/apple/link-native", json: body))
+  }
+
+  public func setPasswordWithApple(code: String, nonce: String, next: String) async throws {
+    try await send(request("POST", "api/apple/set-password-native", json: ["code": code, "nonce": nonce, "next": next]))
   }
 
   /// - Parameter code: the 6-digit code, once the server has answered `totp_required`.

@@ -75,6 +75,20 @@ test('a password user can link a different Apple email without changing either l
   assert.throws(() => auth.linkApple(first.id, { sub: 'apple-second' }), /another Apple Account/);
 });
 
+test('an invited Apple-only account can add a password later with fresh Apple proof', (t) => {
+  const { auth } = fixture(t);
+  const user = auth.addUser('only@example.com', null);
+  assert.equal(auth.login(user.email, 'anything123', 'bearer'), null);
+  assert.deepEqual(auth.appleStatus(user.id), { linked: false, passwordSet: false });
+  const identity = { sub: 'only-apple', email: user.email, emailVerified: true };
+  assert.equal(auth.loginApple(identity, 'bearer').user.id, user.id);
+  assert.throws(() => auth.setPasswordFromApple(user.id, { sub: 'someone-else' }, 'new-password'), /cannot set/);
+  auth.setPasswordFromApple(user.id, identity, 'new-password');
+  assert.equal(auth.login(user.email, 'new-password', 'bearer').user.id, user.id);
+  assert.equal(auth.loginApple(identity, 'bearer').user.id, user.id);
+  assert.deepEqual(auth.appleStatus(user.id), { linked: true, passwordSet: true });
+});
+
 test('opening an older database adds the users.role column without losing rows', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'migrate-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

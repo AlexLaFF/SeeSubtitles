@@ -58,10 +58,10 @@ password; the server never sends mail.
 
 Everyone sees only their own jobs and live sessions. `cli.js set-role <email> admin` marks an
 administrator: their **Account** page (`/account`) gains a Team section with members, invite codes,
-password reset links (`/reset/<token>`, valid 24 hours, single use, handed over by you) and the
+account setup links (`/reset/<token>`, valid 24 hours, single use, handed over by you) that let an invited person choose Apple or a password, and the
 account requests that arrive from the website form. Every account has the password change, the
 signed-in devices, two-factor authentication, the glossary shared with the desktop app, and usage
-tiles. Login and sign-up are rate-limited per IP and per email address.
+tiles. `cli.js add-user <email> --apple-only` creates an invited account without a password. Apple can connect automatically when it shares that email; a setup link is needed when Apple hides it or uses a different email. An Apple-only account can add a password later by confirming with Apple. Login and sign-up are rate-limited per IP and per email address.
 
 Logged-out visitors to `/` get the website (`web/site.html`). `/poster?url=…` prints an A4 QR poster
 for a share link.

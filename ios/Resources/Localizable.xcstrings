@@ -188,6 +188,23 @@
         }
       }
     },
+    "ios.apple.linkedOnly": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Apple Account is linked. You can add a password in Settings whenever you want."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple 账户已关联。以后可随时在设置中添加密码。"
+          }
+        }
+      }
+    },
     "ios.apple.title": {
       "extractionState": "manual",
       "localizations": {
@@ -1911,13 +1928,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This Apple Account has no invited account. Log in with your password first to link it."
+            "value": "Open your account setup link and choose Apple to connect it. No password is needed."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "此 Apple 账户尚未关联已开通的账号。请先用密码登录，再关联 Apple 账户。"
+            "value": "请打开账号开通链接并选择通过 Apple 继续，无需设置密码。"
           }
         }
       }
@@ -2173,6 +2190,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新生成 MP4"
+          }
+        }
+      }
+    },
+    "ios.password.appleHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a password of at least 8 characters, then confirm with Apple."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置至少 8 个字符的密码，然后通过 Apple 确认。"
           }
         }
       }

@@ -6,6 +6,7 @@ const totp = require('./totp');
 const COOKIE = 'sid';
 const TOKEN_TTL_MS = 90 * 24 * 3600 * 1000;
 const SIGNUP_MODES = ['closed', 'invite', 'open']; // closed: admin CLI only · invite: needs a code · open: anyone
+const NO_PASSWORD = 'apple-only';
 
 /** Sliding-window counter for login / sign-up attempts, keyed by IP or email. In memory, per process. */
 function createLimiter({ max = 20, windowMs = 15 * 60_000 } = {}) {
@@ -84,7 +85,7 @@ function createAuth(db) {
     let user = db.get('SELECT u.id, u.email FROM apple_identities a JOIN users u ON u.id = a.user_id WHERE a.subject = ?', identity.sub);
     if (!user) {
       const email = String(identity.email || '').trim().toLowerCase();
-      if (!identity.emailVerified || identity.isPrivateEmail || !email) return null;
+      if (identity.emailVerified === false || identity.isPrivateEmail || !email) return null;
       user = db.get('SELECT id, email FROM users WHERE email = ?', email);
       if (!user) return null; // Apple sign-in never creates an account.
       linkApple(user.id, identity);
@@ -116,7 +117,22 @@ function createAuth(db) {
   }
 
   function appleStatus(userId) {
-    return { linked: !!db.get('SELECT 1 FROM apple_identities WHERE user_id = ?', userId) };
+    const user = db.get('SELECT pass_hash FROM users WHERE id = ?', userId);
+    return { linked: !!db.get('SELECT 1 FROM apple_identities WHERE user_id = ?', userId), passwordSet: !!user && user.pass_hash !== NO_PASSWORD };
+  }
+
+  function confirmPasswordFromApple(userId, identity, passwordHash, keepToken = '') {
+    const linked = db.get('SELECT subject FROM apple_identities WHERE user_id = ?', userId);
+    const user = db.get('SELECT pass_hash FROM users WHERE id = ?', userId);
+    if (!linked || linked.subject !== identity.sub || !user || user.pass_hash !== NO_PASSWORD) throw new Error('Apple Account cannot set this password');
+    if (!String(passwordHash).startsWith('scrypt$')) throw new Error('invalid password hash');
+    db.run('UPDATE users SET pass_hash = ? WHERE id = ?', passwordHash, userId);
+    db.run('DELETE FROM tokens WHERE user_id = ? AND token <> ?', userId, keepToken);
+    return { passwordSet: true };
+  }
+  function setPasswordFromApple(userId, identity, password, keepToken = '') {
+    if (String(password || '').length < 8) throw new Error('password must be at least 8 characters');
+    return confirmPasswordFromApple(userId, identity, hashPassword(password), keepToken);
   }
 
   /** A 6-digit TOTP, or one of the account's unused recovery codes (which is then spent). */
@@ -213,8 +229,8 @@ function createAuth(db) {
   function addUser(email, password) {
     const clean = String(email || '').trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+$/.test(clean)) throw new Error('invalid email');
-    if (String(password || '').length < 8) throw new Error('password must be at least 8 characters');
-    db.run('INSERT INTO users(email, pass_hash, created_at) VALUES (?,?,?)', clean, hashPassword(password), Date.now());
+    if (password !== null && String(password || '').length < 8) throw new Error('password must be at least 8 characters');
+    db.run('INSERT INTO users(email, pass_hash, created_at) VALUES (?,?,?)', clean, password === null ? NO_PASSWORD : hashPassword(password), Date.now());
     return db.get('SELECT id, email FROM users WHERE email = ?', clean);
   }
   function setPassword(email, password) {
@@ -246,8 +262,8 @@ function createAuth(db) {
     if (inv) db.run('UPDATE invites SET used_by = ?, used_at = ? WHERE code = ?', user.id, Date.now(), inv.code);
     return user;
   }
-  return { login, loginApple, findOrLinkApple, linkApple, authorizeAppleLink, appleStatus, authenticate, revoke, cookieHeader, clearCookie, addUser, setPassword, setRole, createInvite, signup, issueToken, userForToken,
+  return { login, loginApple, findOrLinkApple, linkApple, authorizeAppleLink, appleStatus, setPasswordFromApple, confirmPasswordFromApple, authenticate, revoke, cookieHeader, clearCookie, addUser, setPassword, setRole, createInvite, signup, issueToken, userForToken,
     beginTotp, confirmTotp, disableTotp, resetRecoveryCodes, regenerateRecovery, totpStatus };
 }
 
-module.exports = { createAuth, createLimiter, hashPassword, verifyPassword, SIGNUP_MODES, RECOVERY_COUNT };
+module.exports = { createAuth, createLimiter, hashPassword, verifyPassword, SIGNUP_MODES, RECOVERY_COUNT, NO_PASSWORD };
