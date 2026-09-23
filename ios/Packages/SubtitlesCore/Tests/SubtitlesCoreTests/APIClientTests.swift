@@ -80,6 +80,23 @@ final class StubServer: URLProtocol, @unchecked Sendable {
     #expect(try await api.me().plan.liveSecondsLeft == nil)
   }
 
+  @Test("usage breakdown reads the actual mode and model, and administrators can select another account")
+  func usageBreakdown() async throws {
+    StubServer.reset()
+    let answer = #"{"month":"2026-09","userId":2,"rows":[{"action":"live","operation":"translation","provider":"tokenhub","pipeline":"split","model":"hy-mt2-plus","source":"yue","target":"zh","seconds":0,"calls":3,"inputTokens":120,"outputTokens":30,"actions":1}]}"#
+    StubServer.on("GET /api/usage/detail") { _, _ in StubServer.json(answer) }
+    StubServer.on("GET /api/team/usage") { _, _ in StubServer.json(answer) }
+    StubServer.on("GET /api/team") { _, _ in StubServer.json(#"{"users":[{"id":1,"email":"owner@test.local"},{"id":2,"email":"member@test.local"}]}"#) }
+    let own = try await api.usageDetail(month: "2026-09")
+    #expect(own.rows[0].model == "hy-mt2-plus" && own.rows[0].inputTokens == 120)
+    #expect(StubServer.asked.last?.request.url?.query == "month=2026-09")
+    let people = try await api.usageAccounts()
+    #expect(people.map(\.id) == [1, 2])
+    let member = try await api.usageDetail(month: "2026-09", userId: 2)
+    #expect(member.userId == 2)
+    #expect(StubServer.asked.last?.request.url?.query == "month=2026-09&userId=2")
+  }
+
   @Test("a summary streams in: stages, the text as it is written, then the finished Markdown")
   func summary() async throws {
     StubServer.reset()

@@ -34,9 +34,9 @@ class TokenHubError extends Error {
  * Translate one text. Resolves with the translated string ('' when the model refused it as sensitive).
  * @param {string} apiKey
  * @param {{model?:string, text:string, source?:string, target:string, context?:string}} req
- * @param {{baseUrl?:string, timeoutMs?:number}} [opts]
+ * @param {{baseUrl?:string, timeoutMs?:number, onUsage?:Function}} [opts]
  */
-function translate(apiKey, { model = DEFAULT_MODEL, text, source, target, context }, { baseUrl = DEFAULT_BASE, timeoutMs = 120_000 } = {}) {
+function translate(apiKey, { model = DEFAULT_MODEL, text, source, target, context }, { baseUrl = DEFAULT_BASE, timeoutMs = 120_000, onUsage = () => {} } = {}) {
   const url = new URL('/v1/api/translations', baseUrl);
   const body = JSON.stringify({ model, text, target, ...(source ? { source } : {}), ...(context ? { context } : {}), stream: false });
   return new Promise((resolve, reject) => {
@@ -58,6 +58,10 @@ function translate(apiKey, { model = DEFAULT_MODEL, text, source, target, contex
         if (!json) return reject(new TokenHubError(200, `non-JSON body: ${raw.slice(0, 200)}`));
         const choice = json.choices && json.choices[0];
         if (!choice) return reject(new TokenHubError(200, `no choices in response: ${raw.slice(0, 200)}`, json));
+        const usage = json.usage || {};
+        try { onUsage({ model: json.model || model, inputTokens: usage.prompt_tokens ?? usage.input_tokens ?? 0,
+          outputTokens: usage.completion_tokens ?? usage.output_tokens ?? 0 }); }
+        catch { /* accounting must not fail a translation that succeeded */ }
         resolve(String((choice.message && choice.message.content) || '').trim());
       });
     });

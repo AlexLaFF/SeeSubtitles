@@ -13,6 +13,7 @@
 // What the client sends: binary frames of 16 kHz mono 16-bit PCM, and JSON {type:'settings', ...} to change
 // languages or tuning mid-talk. What it receives: JSON {type:'ready'|'result'|'status'|'log'|'error'}.
 const { WebSocketServer } = require('ws');
+const { randomUUID } = require('node:crypto');
 const { TranslationStream, SplitStream, schema } = require('@subs/core');
 const { MultilingualStream } = require('./multilingual-stream');
 
@@ -37,10 +38,11 @@ const secondsOf = (bytes) => bytes / SAMPLE_BYTES;
  * @param {string} [o.wsUrl]    stand-in for the Tencent endpoint (tests only)
  * @param {string} [o.translateUrl]  stand-in for TokenHub's translations endpoint (tests only)
  */
-function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = process.env, meterMs = METER_MS, wsUrl = null, translateUrl = null, dashscopeUrl = null,
+function createLiveProxy({ creds, authenticate, quotas, planRow, log, ledger = null, env = process.env, meterMs = METER_MS, wsUrl = null, translateUrl = null, dashscopeUrl = null,
   tokenhubKey = (env.TOKENHUB_API_KEY || '').trim() }) {
   const wss = new WebSocketServer({ noServer: true });
   const live = new Map(); // ws → session, for status and shutdown
+  const record = (row) => { try { ledger?.record(row); } catch (err) { log('warn', `usage detail: ${err.message}`); } };
 
   /** Charge what has streamed since the last time, and stop the talk if the plan is spent. */
   function meter(s, { final = false } = {}) {
@@ -51,6 +53,11 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
       s.charged += whole * SAMPLE_BYTES;
       quotas.add(s.user.id, 'live', whole);
       s.billed += whole;
+      const status = s.stream.status();
+      record({ userId: s.user.id, actionId: s.id, action: 'live', operation: s.pipeline === 'combined' ? 'combined' : 'recognition',
+        provider: s.pipeline === 'mixed' ? 'alibaba' : 'tencent', pipeline: s.pipeline,
+        model: s.pipeline === 'combined' ? status.transModel : status.engine,
+        source: status.source, target: status.target, seconds: whole });
     }
     if (final) return;
     if (quotas.remaining(planRow(s.user), 'live') <= 0) {
@@ -135,8 +142,12 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
         edge,
         ...(wsUrl ? { wsUrl } : {}),
       });
-    const s = { ws, user, stream, pipeline, bytes: 0, charged: 0, billed: 0, closed: false, lastFrom: Date.now() };
+    const s = { id: randomUUID(), ws, user, stream, pipeline, bytes: 0, charged: 0, billed: 0, closed: false, lastFrom: Date.now() };
     live.set(ws, s);
+
+    stream.on('translation-usage', (u) => record({ userId: user.id, actionId: s.id, action: 'live', operation: 'translation',
+      provider: 'tokenhub', pipeline, model: u.model, source: u.source, target: u.target,
+      calls: 1, inputTokens: u.inputTokens, outputTokens: u.outputTokens }));
 
     stream.on('result', (r) => send(ws, { type: 'result', result: r }));
     stream.on('status', (st) => send(ws, { type: 'status', status: st }));
@@ -165,6 +176,7 @@ function createLiveProxy({ creds, authenticate, quotas, planRow, log, env = proc
       let msg = null;
       try { msg = JSON.parse(data.toString()); } catch { return; }
       if (msg.type === 'settings') {
+        meter(s); // attribute audio already received to the old engine before a setting changes it
         const nextSource = schema.coerceSource(msg.source, s.pipeline);
         const nextTarget = schema.coerceTarget(nextSource, msg.target, s.pipeline);
         const nextModel = schema.coerceModel(s.pipeline, msg.transModel);

@@ -81,6 +81,23 @@ test('the key handout is gone, even for the owner', async (t) => {
   assert.ok(!(await r.text()).includes(TEST_KEY));
 });
 
+test('detailed usage shows the direct model to its account and only administrators can inspect another account', async (t) => {
+  const s = await startServer(t);
+  const headers = (token) => ({ authorization: `Bearer ${token}`, 'content-type': 'application/json' });
+  const report = await fetch(`${s.base}/api/usage/live`, { method: 'POST', headers: headers(s.tokens.owner),
+    body: JSON.stringify({ seconds: 37, model: 'hunyuan-translation', source: 'yue', target: 'zh' }) });
+  assert.equal(report.status, 200);
+  const own = await (await fetch(`${s.base}/api/usage/detail`, { headers: headers(s.tokens.owner) })).json();
+  assert.equal(own.rows.length, 1);
+  assert.equal(own.rows[0].model, 'hunyuan-translation');
+  assert.equal(own.rows[0].seconds, 37);
+  const member = await (await fetch(`${s.base}/api/usage/detail`, { headers: headers(s.tokens.member) })).json();
+  assert.equal(member.rows.length, 0);
+  assert.equal((await fetch(`${s.base}/api/team/usage?userId=${own.userId}`, { headers: headers(s.tokens.member) })).status, 403);
+  const admin = await (await fetch(`${s.base}/api/team/usage?userId=${own.userId}`, { headers: headers(s.tokens.owner) })).json();
+  assert.equal(admin.rows[0].seconds, 37);
+});
+
 test('every account may use the relay; a stranger may not', async (t) => {
   const s = await startServer(t);
   const open = (token) => new Promise((resolve) => {

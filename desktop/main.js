@@ -206,7 +206,7 @@ async function startCore() {
     onCloseOverlay: closeOverlay,
     onCloud: (body) => cloudAction(body),
     cloudStatus: () => cloud.status(),
-    onLiveUsage: (seconds) => (cloud.status().loggedIn ? cloud.reportLive(seconds) : null),
+    onLiveUsage: (seconds, detail) => (cloud.status().loggedIn ? cloud.reportLive(seconds, detail) : null),
     resubtitle,
     uploads,
     cloudJobs: async () => (cloud.status().loggedIn ? jobImporter.annotate(await cloud._fetch('/api/jobs', null, { method: 'GET' })) : []),

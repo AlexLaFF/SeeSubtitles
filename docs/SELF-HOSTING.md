@@ -109,6 +109,12 @@ from you. `TENCENT_BILLING_SECRET_ID` / `TENCENT_BILLING_SECRET_KEY`, a **separa
 `billing:DescribeAccountBalance` (preset `QcloudFinanceBillReadOnlyAccess`), adds the account balance.
 Keep it off the speech key: one key, one job, so a leak of either costs less.
 
+The account page also groups usage by user, live mode, provider and model from the time the detailed ledger was
+installed. It records relay audio seconds, completed file recognition, successful translation calls and summary
+tokens; administrators can select any account. `/api/usage/detail?month=YYYY-MM` returns the signed-in account's
+breakdown, and `/api/team/usage?userId=<id>&month=YYYY-MM` is administrator-only. These are usage units, not
+settled charges: provider billing can lag, round, include prepaid packs, or differ from audio sent to the relay.
+
 ## Other settings
 
 | Variable | Purpose |

@@ -52,9 +52,9 @@ class CloudLink {
     return this.plan;
   }
   /** Seconds of live subtitles since the last report; the answer carries the plan so the app can stop at the limit. */
-  async reportLive(seconds) {
+  async reportLive(seconds, detail = {}) {
     if (!this.cfg.token) return null;
-    const r = await this._fetch('/api/usage/live', { seconds: Math.round(seconds) });
+    const r = await this._fetch('/api/usage/live', { seconds: Math.round(seconds), ...detail });
     if (r && r.plan) { this.plan = r.plan; if (this.onPlan) this.onPlan(this.plan); }
     return this.plan;
   }

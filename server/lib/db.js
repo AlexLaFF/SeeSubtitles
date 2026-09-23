@@ -96,6 +96,25 @@ CREATE TABLE IF NOT EXISTS usage (           -- seconds of live subtitles and fi
   file_seconds INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, month)
 );
+CREATE TABLE IF NOT EXISTS usage_detail (
+  id INTEGER PRIMARY KEY,
+  event_key TEXT UNIQUE,                  -- idempotent file recognition across job restarts
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action_id TEXT,                         -- one live connection, file job, or summary request
+  action TEXT NOT NULL,                   -- live | file | summary
+  operation TEXT NOT NULL,                -- recognition | combined | translation | summary
+  provider TEXT NOT NULL,
+  pipeline TEXT NOT NULL DEFAULT '',
+  model TEXT NOT NULL DEFAULT '',
+  source_lang TEXT NOT NULL DEFAULT '',
+  target_lang TEXT NOT NULL DEFAULT '',
+  seconds REAL NOT NULL DEFAULT 0,
+  calls INTEGER NOT NULL DEFAULT 0,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS usage_detail_user_date ON usage_detail(user_id, created_at);
 `;
 // Columns added after the first release (CREATE TABLE IF NOT EXISTS does not alter existing tables).
 const MIGRATIONS = [

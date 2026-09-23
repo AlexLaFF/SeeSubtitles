@@ -127,7 +127,7 @@ class JobRunner extends EventEmitter {
    * @param {Function} [o.wholeAsk]   override (tests): (body) → Promise<{text, stopReason}>, one request to that model
    * @param {string} [o.tokenhubBaseUrl] a stand-in for TokenHub's chat endpoint (tests)
    */
-  constructor({ db, dir, creds, baseUrl, log, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null, onDuration = null, uploadIdleMs = 120_000, uploadStaleMs = 24 * 3600_000, dashscopeKey = '', dashscopeBaseUrl = '', fileModel = '', wholeAsk = null, tokenhubBaseUrl = '' }) {
+  constructor({ db, dir, creds, baseUrl, log, ledger = null, ffmpeg = 'ffmpeg', ffprobe = 'ffprobe', tokenhubKey = '', model = '', translate = null, onDuration = null, uploadIdleMs = 120_000, uploadStaleMs = 24 * 3600_000, dashscopeKey = '', dashscopeBaseUrl = '', fileModel = '', wholeAsk = null, tokenhubBaseUrl = '' }) {
     super();
     this.db = db;
     this.dashscopeKey = String(dashscopeKey || '').trim();
@@ -140,6 +140,7 @@ class JobRunner extends EventEmitter {
     this.creds = creds;
     this.baseUrl = String(baseUrl || '').replace(/\/$/, '');
     this.log = log || (() => {});
+    this.ledger = ledger;
     this.ffmpeg = ffmpeg;
     this.ffprobe = ffprobe;
     if (translate) {
@@ -153,13 +154,17 @@ class JobRunner extends EventEmitter {
       // file still comes back translated (server/lib/tokenhub.js, NEXT_MODEL). A model at its per-minute limit
       // hands its calls to the next one for a while instead, and leaves the limit to a live talk (RATE_FALLBACK).
       this.rateLimitedUntil = 0;
-      this.translate = async ({ text, source, target }) => {
+      this.translate = async ({ text, source, target, usageContext }) => {
         let limited = false; // this call met the limit itself
         for (;;) {
           const base = this.model; // cues can be translated side by side; another may step down first
           const model = ((limited || Date.now() < this.rateLimitedUntil) && tokenhub.rateFallback(base)) || base;
           try {
-            return await tokenhub.translate(tokenhubKey, { model, text, source, target });
+            return await tokenhub.translate(tokenhubKey, { model, text, source, target }, { onUsage: (u) => {
+              if (usageContext) this.recordUsage({ userId: usageContext.userId, actionId: usageContext.jobId,
+                action: 'file', operation: 'translation', provider: 'tokenhub', pipeline: 'file', model: u.model,
+                source, target, calls: 1, inputTokens: u.inputTokens, outputTokens: u.outputTokens });
+            } });
           } catch (err) {
             const fromHub = err instanceof tokenhub.TokenHubError;
             if (fromHub && model === base && tokenhub.rateFallback(base) && tokenhub.isRateLimited(err.status, err.body, err.message)) {
@@ -202,6 +207,7 @@ class JobRunner extends EventEmitter {
   }
 
   jobDir(id) { return path.join(this.dir, id); }
+  recordUsage(row) { try { this.ledger?.record(row); } catch (err) { this.log('warn', `usage detail: ${err.message}`); } }
   /** Which recogniser listens to a language: 百炼 where it hears better and the key is here, else Tencent. */
   engineFor(sourceLang) { return (this.dashscopeKey && dashscope.MODELS[sourceLang]) || ENGINES[sourceLang].engine; }
   get(id) { return this.db.get('SELECT * FROM jobs WHERE id = ?', id); }
@@ -492,7 +498,12 @@ class JobRunner extends EventEmitter {
       }
       this._progress(id, 'recognizing', Math.min(95, ((Date.now() - t0) / expectedMs) * 100));
     }
-    if (!heard) fs.writeFileSync(asrFile, JSON.stringify({ ...result, Engine: result.Engine || job.engine })); // who heard it, for regenerate
+    if (!heard) {
+      this.recordUsage({ eventKey: `file:${id}:recognition:${taskId}`, userId: job.user_id, actionId: id,
+        action: 'file', operation: 'recognition', provider: alibaba ? 'alibaba' : 'tencent', pipeline: 'file',
+        model: job.engine, source: job.source_lang, target: job.target_lang, seconds: meta.duration, calls: 1 });
+      fs.writeFileSync(asrFile, JSON.stringify({ ...result, Engine: result.Engine || job.engine })); // who heard it, for regenerate
+    }
 
     // 3. cues
     this._progress(id, 'segmenting', 100);
@@ -519,6 +530,8 @@ class JobRunner extends EventEmitter {
    * without one (edited or legacy) is translated on its own.
    */
   async _translate(id, cues, source, target) {
+    const job = this.get(id);
+    const usageContext = job ? { userId: job.user_id, jobId: id } : null;
     const groups = new Map();
     for (const c of cues) {
       const key = c.sentence ?? `cue-${c.id}`;
@@ -528,12 +541,19 @@ class JobRunner extends EventEmitter {
     const list = [...groups.values()];
     const texts = list.map((g) => (isCjkText(g.map((c) => c.text).join('')) ? g.map((c) => c.text).join('') : g.map((c) => c.text).join(' ')));
     const onProgress = (done, total) => this._progress(id, 'translating', (done / total) * 100);
-    const bySentence = (items) => translateSentences(items, { call: this.translate, source, target });
+    const bySentence = (items) => translateSentences(items, { call: (p) => this.translate({ ...p, usageContext }), source, target });
     let translations = null;
     if (this.whole && wholeHandles(source, target)) {
       const t0 = Date.now();
       try {
-        const r = await translateWhole(texts, { ask: this.whole.ask, model: this.whole.model, source, target, fallback: bySentence, onProgress,
+        const ask = async (body) => {
+          const r = await this.whole.ask(body);
+          if (job) this.recordUsage({ userId: job.user_id, actionId: id, action: 'file', operation: 'translation',
+            provider: 'tokenhub', pipeline: 'file', model: r.model || body.model, source, target,
+            calls: 1, inputTokens: r.usage?.input ?? r.usage?.input_tokens, outputTokens: r.usage?.output ?? r.usage?.output_tokens });
+          return r;
+        };
+        const r = await translateWhole(texts, { ask, model: this.whole.model, source, target, fallback: bySentence, onProgress,
           log: (m) => this.log('warn', `job ${id}: ${this.whole.model}: ${m}`) });
         translations = r.translations;
         this.log('info', `job ${id}: translated whole with ${this.whole.model} — ${texts.length} sentences in ${r.windows} windows, ${Math.round((Date.now() - t0) / 1000)} s`
@@ -542,7 +562,7 @@ class JobRunner extends EventEmitter {
         this.log('warn', `job ${id}: whole-file translation with ${this.whole.model} failed (${err.message}) — sentence by sentence with ${this.model}`);
       }
     }
-    if (!translations) translations = await translateSentences(texts, { call: this.translate, source, target, onProgress });
+    if (!translations) translations = await translateSentences(texts, { call: (p) => this.translate({ ...p, usageContext }), source, target, onProgress });
     list.forEach((g, i) => {
       const parts = distribute(translations[i], g.map((c) => [...c.text].length));
       g.forEach((c, k) => { c.trans = parts[k] || ''; });

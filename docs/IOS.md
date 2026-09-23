@@ -193,6 +193,9 @@ In the iOS style, grouped:
 - **The account is the door.** Logged out, only the login card and a joined talk exist.
 - **Hours are the server's count.** The app shows the month's usage from `/api/me` and stops when the relay says
   so; it never estimates its way past a limit.
+- **Detailed usage is shared by the server.** Phone talks, uploaded files and summaries enter the same per-account
+  mode/model ledger as Mac activity. Settings shows the plan-hour tiles and a monthly breakdown of audio, calls and
+  tokens; an administrator can select another account. The website reads the same ledger.
 - **Every string is in the catalogue.** Simplified Chinese only.
 - **Audio goes to the relay only.** The phone never receives a Tencent or TokenHub key and never contacts either
   service directly; summaries go through the server's endpoint.

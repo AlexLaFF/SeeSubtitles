@@ -220,7 +220,9 @@ test("a line that meets pro's per-minute limit is translated by plus at once, an
   });
   const s = new SplitStream(creds, { wsUrl: m.url, tokenhubKey: 'k', fetchImpl: t.fetchImpl, rateCooldownMs: 250 });
   const finals = [];
+  const used = [];
   s.on('result', (r) => { if (r.sentenceEnd) finals.push(r.targetText); });
+  s.on('translation-usage', (u) => used.push(u.model));
   await withCleanup(m, s, async () => {
     s.start();
     for (let i = 0; i < 10; i++) { s.push(Buffer.alloc(6400), { t0: Date.now() }); await sleep(60); }
@@ -230,6 +232,7 @@ test("a line that meets pro's per-minute limit is translated by plus at once, an
     assert.equal(s.status().model, 'hy-mt2-pro', 'pro is not stepped down from');
     assert.equal(s.status().translateFailures, 0);
     assert.equal(s.status().rateFallbacks, 2);
+    assert.deepEqual(used, ['hy-mt2-plus', 'hy-mt2-plus', 'hy-mt2-pro'], 'usage names the model that answered each call');
   });
 });
 

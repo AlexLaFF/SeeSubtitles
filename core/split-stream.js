@@ -431,7 +431,13 @@ class SplitStream extends EventEmitter {
           }),
         });
         const body = await res.json();
-        if (res.ok && body && body.choices && body.choices[0]) return (body.choices[0].message.content || '').trim();
+        if (res.ok && body && body.choices && body.choices[0]) {
+          const usage = body.usage || {};
+          this.emit('translation-usage', { model: body.model || model, source: this.opts.source, target: this.opts.target,
+            inputTokens: usage.prompt_tokens ?? usage.input_tokens ?? 0,
+            outputTokens: usage.completion_tokens ?? usage.output_tokens ?? 0 });
+          return (body.choices[0].message.content || '').trim();
+        }
         const message = (body && body.error && body.error.message) || `HTTP ${res.status}`;
         if (model === base && RATE_FALLBACK[base] && rateLimited(res.status, body)) {
           if (Date.now() >= this.rateLimitedUntil) this._log(`${base} is at its rate limit — ${RATE_FALLBACK[base]} for the next ${Math.round(this.opts.rateCooldownMs / 1000)} s`);

@@ -85,6 +85,21 @@ public struct APIClient: Sendable {
   public func logout() async throws { try await send(request("POST", "api/logout")) }
   public func me() async throws -> Account { try await send(request("GET", "api/me")) }
 
+  public func usageDetail(month: String, userId: Int? = nil) async throws -> UsageBreakdown {
+    var r = request("GET", userId == nil ? "api/usage/detail" : "api/team/usage")
+    var url = URLComponents(url: r.url!, resolvingAgainstBaseURL: false)!
+    url.queryItems = [URLQueryItem(name: "month", value: month)]
+    if let userId { url.queryItems?.append(URLQueryItem(name: "userId", value: String(userId))) }
+    r.url = url.url!
+    return try await send(r)
+  }
+
+  public func usageAccounts() async throws -> [User] {
+    struct Team: Decodable { let users: [User] }
+    let team: Team = try await send(request("GET", "api/team"))
+    return team.users
+  }
+
   public func changePassword(current: String, next: String) async throws {
     try await send(request("POST", "api/account/password", json: ["current": current, "next": next]))
   }

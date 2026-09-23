@@ -45,6 +45,29 @@ public struct Account: Codable, Sendable, Equatable {
   public let plan: Plan
 }
 
+/// The server's account-specific usage units, grouped by the mode and model that actually ran.
+public struct UsageBreakdown: Decodable, Sendable {
+  public let month: String
+  public let userId: Int
+  public let rows: [UsageDetailRow]
+}
+
+public struct UsageDetailRow: Decodable, Sendable, Identifiable {
+  public let action: String
+  public let operation: String
+  public let provider: String
+  public let pipeline: String
+  public let model: String
+  public let source: String
+  public let target: String
+  public let seconds: Double
+  public let calls: Int
+  public let inputTokens: Int
+  public let outputTokens: Int
+  public let actions: Int
+  public var id: String { [action, operation, provider, pipeline, model, source, target].joined(separator: "|") }
+}
+
 public struct GlossaryItem: Codable, Sendable, Equatable, Identifiable {
   public var term: String
   /// 1–11, or 100 to force the term.

@@ -10,6 +10,7 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 const { loadEnv, getCredentials, schema, buildConnection, recognitionParams } = require('@subs/core');
 const { openDb } = require('./lib/db');
 const { createAuth } = require('./lib/auth');
@@ -18,6 +19,7 @@ const { JobRunner, ENGINES, TARGETS } = require('./lib/jobs');
 const { createLimiter, SIGNUP_MODES } = require('./lib/auth');
 const { latestRelease } = require('./lib/updates');
 const { UsageMonitor, parsePack } = require('./lib/usage');
+const { UsageLedger } = require('./lib/usage-ledger');
 const { createAccount } = require('./lib/account');
 const { PLANS, Quotas } = require('./lib/plans');
 const { createLiveProxy } = require('./lib/live-proxy');
@@ -62,6 +64,8 @@ const db = openDb(DATA_DIR);
 const auth = createAuth(db);
 const account = createAccount(db, { baseUrl: BASE_URL, log });
 const quotas = new Quotas(db);
+const ledger = new UsageLedger(db);
+const recordDetail = (row) => { try { ledger.record(row); } catch (err) { log('warn', `usage detail: ${err.message}`); } };
 // A new account request can ping a chat webhook (Discord, Slack and anything that takes {text}/{content}).
 // …and/or an email from the operator's own mailbox (SMTP_HOST/PORT/USER/PASS, MAIL_FROM, NOTIFY_EMAIL in deploy/.env).
 const REQUEST_WEBHOOK_URL = (process.env.REQUEST_WEBHOOK_URL || '').trim();
@@ -94,7 +98,7 @@ const billingCreds = process.env.TENCENT_BILLING_SECRET_ID && process.env.TENCEN
 const usage = new UsageMonitor({ creds, billingCreds, pack: parsePack(process.env.TENCENT_PACK), pipeline: process.env.TENCENT_PACK_COVERS === 'all' ? 'all' : 'live', log });
 if (process.env.TENCENT_PACK && !usage.pack) log('warn', `TENCENT_PACK "${process.env.TENCENT_PACK}" is not <hours>h@<YYYY-MM-DD>; the dashboard shows usage without the pack`);
 const jobs = new JobRunner({
-  db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe',
+  db, dir: path.join(DATA_DIR, 'jobs'), creds, baseUrl: BASE_URL, log, ledger, tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), model: process.env.TRANSLATION_MODEL || process.env.HUNYUAN_MODEL || '', ffmpeg: process.env.FFMPEG || 'ffmpeg', ffprobe: process.env.FFPROBE || 'ffprobe',
   dashscopeKey: process.env.DASHSCOPE_API_KEY || '', dashscopeBaseUrl: process.env.DASHSCOPE_BASE_URL || undefined,
   fileModel: process.env.FILE_TRANSLATION_MODEL || '', tokenhubBaseUrl: process.env.TOKENHUB_BASE_URL || '',
   ...(Number(process.env.UPLOAD_IDLE_MS) > 0 ? { uploadIdleMs: Number(process.env.UPLOAD_IDLE_MS) } : {}),
@@ -195,8 +199,20 @@ async function api(req, res, url, user) {
 
   if (p === '/api/me') { const u = account.userRow(user.id) || {}; return send(res, 200, { user: { id: user.id, email: user.email, role: u.role === 'admin' ? 'admin' : 'user', created_at: u.created_at || null }, plan: entitlements(user), baseUrl: BASE_URL, creds: !!creds, signup: SIGNUP_MODE }); }
   // the desktop app reports the seconds its live subtitles ran; the answer carries the plan so the app can stop at the limit
-  if (p === '/api/usage/live' && req.method === 'POST') { const body = await readJson(req, 1e3); quotas.add(user.id, 'live', Math.min(3600, Math.max(0, Number(body.seconds) || 0))); return send(res, 200, { ok: true, plan: entitlements(user) }); }
+  if (p === '/api/usage/live' && req.method === 'POST') {
+    const body = await readJson(req, 1e3);
+    const seconds = Math.min(3600, Math.max(0, Math.round(Number(body.seconds) || 0)));
+    quotas.add(user.id, 'live', seconds);
+    if (seconds && entitlements(user).limits.directLive) recordDetail({ userId: user.id, action: 'live', operation: 'combined', provider: 'tencent',
+      pipeline: 'combined', model: body.model ? schema.coerceModel('combined', body.model) : 'unknown', source: String(body.source || '').slice(0, 16),
+      target: String(body.target || '').slice(0, 16), seconds });
+    return send(res, 200, { ok: true, plan: entitlements(user) });
+  }
   if (p === '/api/usage') return send(res, 200, await usage.snapshot());
+  if (p === '/api/usage/detail' && req.method === 'GET') {
+    try { return send(res, 200, ledger.breakdown(user.id, url.searchParams.get('month') || undefined)); }
+    catch (err) { return fail(res, 400, err.message); }
+  }
   // account
   if (p === '/api/account/password' && req.method === 'POST') { const body = await readJson(req, 1e4); try { account.changePassword(user, body.current, body.next); return send(res, 200, { ok: true }); } catch (err) { return fail(res, 400, err.message); } }
   if (p === '/api/account/totp' && req.method === 'GET') return send(res, 200, auth.totpStatus(user.id));
@@ -220,6 +236,11 @@ async function api(req, res, url, user) {
     if (!account.isAdmin(user)) return fail(res, 403, 'administrators only');
     try {
       if (p === '/api/team' && req.method === 'GET') return send(res, 200, { ...account.team(), plans: PLANS });
+      if (p === '/api/team/usage' && req.method === 'GET') {
+        const id = Number(url.searchParams.get('userId'));
+        if (!Number.isSafeInteger(id) || !account.userRow(id)) return fail(res, 404, 'no such account');
+        return send(res, 200, ledger.breakdown(id, url.searchParams.get('month') || undefined));
+      }
       if (p === '/api/team/invites' && req.method === 'POST') return send(res, 200, { ok: true, code: account.createInvite(user.id) });
       if ((r = m(/^\/api\/team\/invites\/([A-Za-z0-9_-]+)$/)) && req.method === 'DELETE') { account.deleteInvite(r[1]); return send(res, 200, { ok: true }); }
       if ((r = m(/^\/api\/team\/users\/(\d+)\/role$/)) && req.method === 'POST') { const body = await readJson(req, 1e4); account.setRole(user, Number(r[1]), body.role); return send(res, 200, { ok: true }); }
@@ -299,6 +320,7 @@ async function api(req, res, url, user) {
     const key = (process.env.TOKENHUB_API_KEY || '').trim();
     if (!key) return fail(res, 503, 'the server has no TokenHub key configured', { code: 'no_key' });
     const body = await readJson(req, 1e7);
+    const summaryId = randomUUID();
     const abort = new AbortController();
     res.on('close', () => { if (!res.writableEnded) abort.abort(); }); // the client gave up: stop paying for the answer
     sse(res);
@@ -312,6 +334,8 @@ async function api(req, res, url, user) {
         effort: process.env.SUMMARY_EFFORT || undefined,
         onStage: (stage) => event('stage', { stage }),
         onDelta: (text) => event('delta', { text }),
+        onUsage: (u) => recordDetail({ userId: user.id, actionId: summaryId, action: 'summary', operation: 'summary', provider: 'tokenhub',
+          pipeline: 'summary', model: u.model, calls: 1, inputTokens: u.input, outputTokens: u.output }),
       });
       log('info', `summary for ${user.email}: ${out.meta.cues} cues → ${out.meta.chars} chars, ${out.meta.usage.input}+${out.meta.usage.output} tokens, ${out.meta.seconds} s`);
       event('done', out);
@@ -480,7 +504,7 @@ const server = http.createServer(async (req, res) => {
 // talks never sets them, and says so loudly if it does.
 const STANDINS = { wsUrl: (process.env.TENCENT_WS_URL || '').trim() || null, tokenhub: (process.env.TOKENHUB_BASE_URL || '').trim() || null };
 if (STANDINS.wsUrl || STANDINS.tokenhub) log('warn', `STAND-INS IN USE — recognition: ${STANDINS.wsUrl || 'Tencent'}, TokenHub: ${STANDINS.tokenhub || 'TokenHub'}. This is a test server.`);
-const liveProxy = createLiveProxy({ creds, authenticate: (req) => auth.authenticate(req), quotas, planRow, log, env: process.env,
+const liveProxy = createLiveProxy({ creds, authenticate: (req) => auth.authenticate(req), quotas, planRow, log, ledger, env: process.env,
   tokenhubKey: (process.env.TOKENHUB_API_KEY || '').trim(), wsUrl: STANDINS.wsUrl,
   translateUrl: STANDINS.tokenhub ? new URL('/v1/api/translations', STANDINS.tokenhub).href : null,
   ...(Number(process.env.LIVE_METER_MS) > 0 ? { meterMs: Number(process.env.LIVE_METER_MS) } : {}) });

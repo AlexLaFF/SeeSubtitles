@@ -92,7 +92,7 @@ async function ask({ key, baseUrl = DEFAULT_BASE, body, onText = () => {}, onThi
  * @param {object} o     { key, baseUrl?, model?, effort?, onStage?, onDelta?, signal?, fetchImpl? } — the server's defaults
  * @returns {Promise<{markdown:string, meta:object}>}
  */
-async function summarise(req, { key, baseUrl, model: defaultModel = DEFAULT_MODEL, effort: defaultEffort = 'high', onStage = () => {}, onDelta = () => {}, signal, fetchImpl } = {}) {
+async function summarise(req, { key, baseUrl, model: defaultModel = DEFAULT_MODEL, effort: defaultEffort = 'high', onStage = () => {}, onDelta = () => {}, onUsage = () => {}, signal, fetchImpl } = {}) {
   if (!key) throw new SummaryError('no_key', 'the server has no TokenHub key configured', 503);
   const model = SUMMARY_MODELS.includes(req && req.model) ? req.model : defaultModel;
   const effort = SUMMARY_EFFORTS.includes(req && req.effort) ? req.effort : defaultEffort;
@@ -105,11 +105,16 @@ async function summarise(req, { key, baseUrl, model: defaultModel = DEFAULT_MODE
   const budget = lengthBudget(transcript.spokenChars);
   const t0 = Date.now();
   const thinking = thinkingFor(effort);
+  const measuredAsk = async (options) => {
+    const result = await ask(options);
+    onUsage({ model: result.model || options.body.model, ...result.usage });
+    return result;
+  };
 
   onStage('asking');
   let thought = false;
   let wrote = false;
-  let message = await ask({
+  let message = await measuredAsk({
     key, baseUrl, signal, fetchImpl,
     body: { model, max_tokens: 64000, thinking, system: systemPrompt(language, budget), messages: [{ role: 'user', content: userPrompt(name, transcript, budget) }] },
     onThinking: () => { if (!thought) { thought = true; onStage('thinking'); } },
@@ -126,7 +131,7 @@ async function summarise(req, { key, baseUrl, model: defaultModel = DEFAULT_MODE
   if (countChars(body) > budget.cap) {
     onStage('condensing');
     const c = condensePrompts(language, body, budget);
-    const second = await ask({ key, baseUrl, signal, fetchImpl, body: { model, max_tokens: 16000, thinking, system: c.system, messages: [{ role: 'user', content: c.user }] } });
+    const second = await measuredAsk({ key, baseUrl, signal, fetchImpl, body: { model, max_tokens: 16000, thinking, system: c.system, messages: [{ role: 'user', content: c.user }] } });
     const shorter = second.text.trim();
     if (shorter) { body = shorter; message = second; condensed = true; usage.input += second.usage.input; usage.output += second.usage.output; }
   }

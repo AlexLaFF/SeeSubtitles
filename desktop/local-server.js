@@ -405,7 +405,7 @@ async function createLocalServer(opts) {
     if (!p || !p.limits || p.limits.liveSeconds == null) return false;
     return p.used.liveSeconds + liveUnreported >= p.limits.liveSeconds;
   }
-  async function liveTick(flush = false) {
+  async function liveTick(flush = false, checkLimit = true) {
     const now = Date.now();
     const dt = (now - liveTickAt) / 1000; liveTickAt = now;
     // through the server, the server counts the seconds itself: reporting them as well would charge them twice
@@ -413,9 +413,10 @@ async function createLocalServer(opts) {
     if (st && settings.streaming && st.state === 'ready' && !st.metered) liveUnreported += Math.min(dt, 60);
     if ((liveUnreported >= 60 || (flush && liveUnreported >= 1)) && opts.onLiveUsage) {
       const s = Math.round(liveUnreported); liveUnreported = 0;
-      try { await opts.onLiveUsage(s); } catch (err) { liveUnreported += s; log('warn', `live hours not reported: ${err.message}`); }
+      try { await opts.onLiveUsage(s, { model: settings.transModel, source: settings.source, target: settings.target }); }
+      catch (err) { liveUnreported += s; log('warn', `live hours not reported: ${err.message}`); }
     }
-    if (settings.streaming && liveExhausted()) { log('error', 'the live subtitle hours of this month are used up — subtitles paused (upgrade the plan or wait for next month)'); applySettings({ streaming: false }, null); }
+    if (checkLimit && settings.streaming && liveExhausted()) { log('error', 'the live subtitle hours of this month are used up — subtitles paused (upgrade the plan or wait for next month)'); applySettings({ streaming: false }, null); }
   }
   const liveTimer = setInterval(() => liveTick().catch(() => {}), 10_000);
   liveTimer.unref();
@@ -471,6 +472,9 @@ async function createLocalServer(opts) {
     if (clean.window && settings.window) clean.window = { ...settings.window, ...clean.window };
     const changed = Object.keys(clean).filter((k) => JSON.stringify(clean[k]) !== JSON.stringify(settings[k]));
     if (!changed.length) return [];
+    if (settings.streaming && changed.some((k) => ['pipeline', 'source', 'target', 'transModel', 'streaming'].includes(k))) {
+      liveTick(true, false).catch(() => {}); // finish the old mode's time before changing what the report names
+    }
     for (const k of changed) settings[k] = clean[k];
     // The two language fields are only valid together: picking a spoken language the current subtitle
     // language cannot be reached from moves the subtitle language to one the API does accept.

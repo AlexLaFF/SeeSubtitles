@@ -59,6 +59,7 @@ struct SettingsView: View {
           UsageTile(title: L("ios.usage.live"), used: plan.used.liveSeconds, limit: plan.limits.liveSeconds)
           UsageTile(title: L("ios.usage.files"), used: plan.used.fileSeconds, limit: plan.limits.fileSeconds)
         }
+        NavigationLink { UsageBreakdownView() } label: { Text(L("ios.usage.details")) }
       }.padding(.vertical, 4)
     } else if prefs.demo {
       StackRow(L("ios.demo.badge"), L("ios.settings.demoHint"))
@@ -82,6 +83,122 @@ struct UsageTile: View {
     }
     .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(Color.mqSurface2, in: RoundedRectangle(cornerRadius: 12))
     .accessibilityElement(children: .combine)
+  }
+}
+
+/// The same account and mode/model breakdown as the website, read from the server's ledger.
+struct UsageBreakdownView: View {
+  @Environment(AppModel.self) private var app
+  @State private var month = Self.monthString(Date())
+  @State private var accounts: [User] = []
+  @State private var selectedAccount = 0
+  @State private var rows: [UsageDetailRow] = []
+  @State private var problem: String?
+  @State private var loading = false
+
+  private var isAdmin: Bool { app.account?.user.role == "admin" }
+
+  var body: some View {
+    List {
+      Section {
+        HStack {
+          Button { shiftMonth(-1) } label: { Image(systemName: "chevron.left") }.accessibilityLabel(L("ios.usage.previous"))
+          Spacer()
+          Text(month).font(.headline.monospacedDigit())
+          Spacer()
+          Button { shiftMonth(1) } label: { Image(systemName: "chevron.right") }.accessibilityLabel(L("ios.usage.next"))
+            .disabled(month >= Self.monthString(Date()))
+        }.buttonStyle(.plain)
+        if isAdmin && !accounts.isEmpty {
+          Picker(L("ios.usage.account"), selection: $selectedAccount) {
+            ForEach(accounts, id: \.id) { user in Text(user.email).tag(user.id) }
+          }
+        }
+      }.listRowBackground(Color.mqSurface)
+      Section {
+        if loading { ProgressView() }
+        else if let problem { Text(problem).foregroundStyle(Color.mqBad) }
+        else if rows.isEmpty { Text(L("ios.usage.empty")).foregroundStyle(Color.mqText3) }
+        else {
+          ForEach(rows) { row in
+            VStack(alignment: .leading, spacing: 5) {
+              Text("\(provider(row.provider)) · \(row.model)").font(.mqSecondary.weight(.semibold))
+              Text("\(mode(row.pipeline)) · \(operation(row.operation))" + (row.source.isEmpty && row.target.isEmpty ? "" : " · \(row.source) → \(row.target)"))
+                .font(.mqHint).foregroundStyle(Color.mqText3)
+              HStack(spacing: 10) {
+                if row.seconds > 0 { Text(row.seconds < 60 ? L("ios.usage.seconds", ["n": String(Int(row.seconds.rounded()))]) : L("ios.usage.duration", ["time": hoursMinutes(row.seconds)])) }
+                if row.calls > 0 { Text(L("ios.usage.calls", ["n": String(row.calls)])) }
+                if row.inputTokens > 0 || row.outputTokens > 0 {
+                  Text(L("ios.usage.tokens", ["input": String(row.inputTokens), "output": String(row.outputTokens)]))
+                }
+              }.font(.mqHint.monospacedDigit()).foregroundStyle(Color.mqText2)
+            }.padding(.vertical, 4).accessibilityElement(children: .combine)
+          }
+        }
+      } footer: { Text(L("ios.usage.note")) }.listRowBackground(Color.mqSurface)
+    }
+    .listStyle(.insetGrouped).scrollContentBackground(.hidden).background(Color.mqBackground)
+    .navigationTitle(L("ios.usage.details"))
+    .task {
+      if isAdmin {
+        accounts = (try? await app.api.usageAccounts()) ?? []
+        selectedAccount = app.account?.user.id ?? 0
+      }
+    }
+    .task(id: "\(month):\(selectedAccount)") { await load() }
+  }
+
+  private func load() async {
+    guard app.isSignedIn && (!isAdmin || selectedAccount > 0) else { return }
+    loading = true
+    defer { loading = false }
+    do {
+      let result = try await app.api.usageDetail(month: month, userId: isAdmin ? selectedAccount : nil)
+      rows = result.rows; problem = nil
+    } catch { problem = L("ios.err.offline") }
+  }
+
+  private func shiftMonth(_ offset: Int) {
+    let parts = month.split(separator: "-").compactMap { Int($0) }
+    guard parts.count == 2 else { return }
+    var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    guard let date = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: 1)),
+          let shifted = calendar.date(byAdding: .month, value: offset, to: date) else { return }
+    month = Self.monthString(shifted)
+  }
+
+  private static func monthString(_ date: Date) -> String {
+    let f = DateFormatter(); f.calendar = Calendar(identifier: .gregorian); f.timeZone = TimeZone(secondsFromGMT: 0)
+    f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM"
+    return f.string(from: date)
+  }
+
+  private func provider(_ id: String) -> String {
+    switch id {
+    case "tencent": L("ios.usage.tencent")
+    case "alibaba": L("ios.usage.alibaba")
+    case "tokenhub": L("ios.usage.tokenhub")
+    default: id
+    }
+  }
+  private func mode(_ id: String) -> String {
+    switch id {
+    case "split": L("ios.usage.split")
+    case "combined": L("ios.usage.combined")
+    case "mixed": L("ios.usage.mixed")
+    case "file": L("ios.usage.fileMode")
+    case "summary": L("ios.usage.summaryMode")
+    default: id
+    }
+  }
+  private func operation(_ id: String) -> String {
+    switch id {
+    case "recognition": L("ios.usage.recognition")
+    case "combined": L("ios.usage.combinedOperation")
+    case "translation": L("ios.usage.translation")
+    case "summary": L("ios.usage.summaryOperation")
+    default: id
+    }
   }
 }
 

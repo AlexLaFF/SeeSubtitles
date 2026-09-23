@@ -368,6 +368,54 @@
     const box = el('div', { class: 'stats' }); const note = el('div', { class: 'chips' });
     s.append(box, note);
     api('/api/usage').catch((e) => ({ errors: { usage: e.message } })).then((u) => { UsageTiles.render(box, note, u); if (box.hidden && !note.children.length) note.appendChild(el('span', { class: 'chip' }, t('acct.nothing'))); });
+    s.appendChild(el('h3', {}, t('usage.detail.title')));
+    s.appendChild(el('p', { class: 'muted' }, t('usage.detail.note')));
+    const controls = el('div', { class: 'v' });
+    const month = el('input', { type: 'month', value: new Date().toISOString().slice(0, 7), 'aria-label': t('usage.detail.month') });
+    const who = el('select', { 'aria-label': t('usage.detail.account') });
+    controls.append(month);
+    if (me.user.role === 'admin') {
+      controls.append(who);
+      api('/api/team').then((team) => {
+        for (const u of team.users || []) who.appendChild(el('option', { value: u.id }, u.email));
+        who.value = String(me.user.id);
+      }).catch(() => {});
+    }
+    s.appendChild(controls);
+    const details = el('div'); s.appendChild(details);
+    const load = async () => {
+      const path = me.user.role === 'admin' && who.value
+        ? `/api/team/usage?userId=${encodeURIComponent(who.value)}&month=${encodeURIComponent(month.value)}`
+        : `/api/usage/detail?month=${encodeURIComponent(month.value)}`;
+      try {
+        const data = await api(path);
+        details.replaceChildren();
+        if (!data.rows.length) { details.appendChild(el('p', { class: 'muted' }, t('usage.detail.empty'))); return; }
+        const table = el('table');
+        table.appendChild(el('thead')).appendChild(el('tr')).append(
+          el('th', {}, t('usage.detail.action')), el('th', {}, t('usage.detail.mode')),
+          el('th', {}, t('usage.detail.model')), el('th', {}, t('usage.detail.pair')),
+          el('th', {}, t('usage.detail.seconds')), el('th', {}, t('usage.detail.calls')),
+          el('th', {}, t('usage.detail.tokens')));
+        const body = table.appendChild(el('tbody'));
+        const labels = { live: t('usage.detail.live'), file: t('usage.detail.file'), summary: t('usage.detail.summary'),
+          recognition: t('usage.detail.recognition'), combined: t('usage.detail.combined'), translation: t('usage.detail.translation') };
+        for (const row of data.rows) {
+          const tr = body.appendChild(el('tr'));
+          const action = labels[row.action] || row.action;
+          tr.append(
+            el('td', {}, `${action} · ${labels[row.operation] || row.operation}`),
+            el('td', {}, row.pipeline || '—'),
+            el('td', {}, `${row.provider} · ${row.model || '—'}`),
+            el('td', {}, row.source || row.target ? `${row.source || '—'} → ${row.target || '—'}` : '—'),
+            el('td', {}, row.seconds ? UsageTiles.fmtDur(row.seconds) : '—'),
+            el('td', {}, row.calls ? String(row.calls) : '—'),
+            el('td', {}, row.inputTokens || row.outputTokens ? `${row.inputTokens} / ${row.outputTokens}` : '—'));
+        }
+        details.appendChild(table);
+      } catch (err) { details.replaceChildren(el('p', { class: 'muted' }, err.message)); }
+    };
+    month.onchange = load; who.onchange = load; load();
   }
 
   I18n.apply();
