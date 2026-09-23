@@ -204,7 +204,7 @@
   Sub.on('clear', () => { lines.length = 0; byId.clear(); queueRender(); });
   Sub.on('settings', (d) => {
     Sub.applyCss(d.settings);
-    if (d.from !== Sub.clientId) Controls.sync(d.settings);
+    Controls.sync(d.settings);
     renderStatus();
     queueRender();
   });

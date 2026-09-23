@@ -117,7 +117,7 @@
     document.addEventListener('keydown', (e) => { if (Sub.keyAction(e)) e.preventDefault(); });
     Sub.on('init', (d) => { if (d.language && !qlang) I18n.setLanguage(d.language); Controls.setDevices(d.devices); Controls.setPresets(d.presets); Controls.setOverlay(d.status.overlay); Controls.sync(d.settings, true); renderAccount(); for (const v of Object.values(App.views)) if (v.init) v.init(d); App.refresh(); });
     Sub.on('status', (s) => { Controls.setOverlay(s.overlay); renderAccount(); App.setLocked(!!window.desktop && !s.demo && !!s.cloud && !s.cloud.loggedIn); App.refresh(); });
-    Sub.on('settings', (d) => { if (d.from !== Sub.clientId) Controls.sync(d.settings); App.refresh(); });
+    Sub.on('settings', (d) => { Controls.sync(d.settings); App.refresh(); });
     Sub.on('local', App.refresh);
     Sub.on('devices', Controls.setDevices);
     Sub.on('presets', Controls.setPresets);
