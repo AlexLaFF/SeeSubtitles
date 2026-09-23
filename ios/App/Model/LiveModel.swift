@@ -75,13 +75,12 @@ final class LiveModel {
       if let i = indexById[line.id] {
         let settled = line.ended && !lines[i].ended
         lines[i] = line
-        if settled { didSettle() }
+        if settled { didSettle() } else if line.kind == .speech { showDraft(line) }
       } else {
         indexById[line.id] = lines.count
         lines.append(line)
-        if line.ended, line.kind == .speech { didSettle() }
+        if line.ended, line.kind == .speech { didSettle() } else if line.kind == .speech { showDraft(line) }
       }
-      if line.kind == .speech { showOnLockScreen() }
     case .notice:
       break
     }
@@ -95,17 +94,17 @@ final class LiveModel {
   private func didSettle() {
     unseen += 1
     if let settled = lines.last(where: { $0.kind == .speech && $0.ended }) { spoken?.offer(settled) }
+    if let line = lines.last(where: { $0.kind == .speech && $0.ended }) { showLine(line, draft: false) }
     if app?.prefs.haptics == true { Haptics.sentence() }
   }
 
-  /// The lock screen: the running text of the last sentences, the one being spoken included, in what the reader
-  /// chose to see — and the words as spoken under it when both are shown.
-  private func showOnLockScreen() {
-    let recent = lines.suffix(12).filter { $0.kind == .speech }
-    let mode = app?.prefs.showMode
-    let main = recent.map { mode == .source ? $0.sourceText : $0.display }
-    let original = mode == .both ? recent.map { $0.targetText.isEmpty || $0.targetText == $0.sourceText ? "" : $0.sourceText } : []
-    activity.show(text: RunningText.join(main), original: RunningText.join(original))
+  /// The sentence still being spoken, on the lock screen as it grows — a few words at a time, since the system
+  /// allows an activity only so many changes; the settled sentence follows at once.
+  private func showDraft(_ line: TranscriptLine) { showLine(line, draft: true) }
+
+  private func showLine(_ line: TranscriptLine, draft: Bool) {
+    let both = app?.prefs.showMode == .both && line.targetText != line.sourceText && !line.targetText.isEmpty
+    activity.show(text: app?.prefs.showMode == .source ? line.sourceText : line.display, original: both ? line.sourceText : "", draft: draft)
   }
 
   /// A talk the server refused recorded nothing worth keeping: end it and take its empty folder away.

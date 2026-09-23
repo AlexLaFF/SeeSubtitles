@@ -78,10 +78,7 @@ lost or refused. Lets the reader look at the speaker and feel when to look down.
 
 **Recording.** With Record on, Start also starts writing audio locally. The status line reads "listening ·
 recording 12:41". A Live Activity appears on the lock screen and in the Dynamic Island with the elapsed time and
-the sentence being spoken — it grows a few words at a time, at most every three seconds (the system rations an
-activity's changes), the settled sentence following within a second; a sentence too long for its lines loses its
-beginning, never its end — and a Stop control. Recording continues with the screen locked and the app in the
-background.
+the last sentence, and a Stop control. Recording continues with the screen locked and the app in the background.
 
 **Interrupted.** A phone call or Siri pauses capture; the status reads "paused · call" and the recording pads the
 gap with silence so timestamps stay aligned, as core/recorder.js does. Capture resumes when the interruption

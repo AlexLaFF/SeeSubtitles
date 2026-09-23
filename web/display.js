@@ -146,12 +146,8 @@
   }
 
   // ---- wiring
-  // The panel stays in the page on the attendee's side too (everything below is wired to its buttons; removing it
-  // left an attendee a black page, 2026-09-23) — it is simply never opened there, and the server sends a viewer
-  // none of the host's own settings to show in it (server/lib/live.js forViewers).
-  Controls.render($('panelControls'));
-  Controls.renderShortcuts($('kbd'));
-  if (Sub.remote) { panel.hidden = true; for (const id of ['btnClear', 'btnPause', 'btnReconnect', 'btnRec', 'btnControl']) $(id).hidden = true; }
+  if (!Sub.remote) { Controls.render($('panelControls')); Controls.renderShortcuts($('kbd')); }
+  else { panel.remove(); for (const id of ['btnClear', 'btnPause', 'btnReconnect', 'btnRec', 'btnControl']) $(id).hidden = true; }
   $('btnClear').addEventListener('click', () => Sub.post('/api/clear'));
   $('btnPause').addEventListener('click', () => Sub.update({ streaming: !Sub.settings.streaming }));
   $('btnReconnect').addEventListener('click', () => Sub.post('/api/reconnect'));

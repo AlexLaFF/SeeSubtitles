@@ -13,8 +13,7 @@ struct ListenSheet: View {
   var body: some View {
     @Bindable var prefs = prefs
     let voices = SystemVoice.voices(for: spoken.language)
-    ScrollView { // the hints run to several lines in either language: the sheet scrolls rather than clip them
-      VStack(alignment: .leading, spacing: Spacing.s4) {
+    VStack(alignment: .leading, spacing: Spacing.s4) {
       Text(L("ios.listen.title")).font(.mqSection).padding(.top, Spacing.s5)
       Toggle(isOn: Binding(get: { spoken.isOn }, set: setOn)) {
         VStack(alignment: .leading) { Text(L("ios.listen.speak")); Text(L("ios.listen.speakHint")).font(.mqHint).foregroundStyle(Color.mqText3) }
@@ -28,24 +27,20 @@ struct ListenSheet: View {
         // The phone ships with the compact voice only; the natural ones are a download in Settings, which an app
         // cannot start. Said once here, where the voice is chosen, until a better one is installed.
         if !voices.contains(where: { $0.quality > 0 }) {
-          Text(L("ios.listen.betterVoice", ["language": LiveSchema.shared.name(of: spoken.language).native]))
-            .font(.mqHint).foregroundStyle(Color.mqText3).fixedSize(horizontal: false, vertical: true)
+          StatusLabel(.neutral, L("ios.listen.betterVoice", ["language": LiveSchema.shared.name(of: spoken.language).native]))
         }
         Picker(L("ios.listen.speed"), selection: $prefs.speechRate) { Text("1×").tag(1.0); Text("1.1×").tag(1.1); Text("1.25×").tag(1.25) }.pickerStyle(.segmented)
-        Text(L("ios.listen.speedHint")).font(.mqHint).foregroundStyle(Color.mqText3).fixedSize(horizontal: false, vertical: true)
+        Text(L("ios.listen.speedHint")).font(.mqHint).foregroundStyle(Color.mqText3)
       }
       if headphonesOnly {
         Card {
           StatusLabel(spoken.status == .needsHeadphones ? .warn : .neutral, L("ios.listen.headphones"))
-          Text(L("ios.listen.headphonesHint")).font(.mqHint).foregroundStyle(Color.mqText3).fixedSize(horizontal: false, vertical: true)
+          Text(L("ios.listen.headphonesHint")).font(.mqHint).foregroundStyle(Color.mqText3)
         }
       }
       Spacer(minLength: 0)
-      }
     }
-    .scrollBounceBehavior(.basedOnSize)
     .padding(.horizontal, 20)
-    .padding(.bottom, Spacing.s4)
     .foregroundStyle(Color.mqText)
     .presentationBackground(Color.mqSurface)
     .presentationDragIndicator(.visible)
