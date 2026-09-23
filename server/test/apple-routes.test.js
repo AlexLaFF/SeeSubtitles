@@ -21,7 +21,7 @@ const post = (base, route, body, token) => fetch(`${base}${route}`, { method: 'P
 const appleCallback = (base, state, identity) => fetch(`${base}/api/apple/callback`, { method: 'POST', redirect: 'manual',
   headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ state, code: code(identity) }) });
 
-async function fixture(t) {
+async function fixture(t, { appleSignup = 'closed' } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'apple-routes-'));
   const db = openDb(root);
   const auth = createAuth(db);
@@ -36,7 +36,7 @@ async function fixture(t) {
   const base = `http://127.0.0.1:${port}`;
   const { privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
   const env = { ...process.env, PORT: String(port), HOST: '127.0.0.1', DATA_DIR: root,
-    BASE_URL: 'https://seesubtitles.test', SIGNUP_MODE: 'closed',
+    BASE_URL: 'https://seesubtitles.test', SIGNUP_MODE: 'closed', APPLE_SIGNUP_MODE: appleSignup,
     APPLE_SIGNIN_TEAM_ID: 'TESTTEAM', APPLE_SIGNIN_KEY_ID: 'TESTKEY',
     APPLE_SIGNIN_PRIVATE_KEY: privateKey.export({ format: 'pem', type: 'pkcs8' }),
     APPLE_SIGNIN_WEB_CLIENT_ID: 'test.web', APPLE_SIGNIN_IOS_CLIENT_ID: 'test.ios',
@@ -147,6 +147,54 @@ test('Apple web and iOS login admit known accounts, preserve password login, and
   assert.equal(unknown.status, 403);
   assert.equal((await unknown.json()).code, 'apple_unknown');
   assert.equal((await post(base, '/api/signup', { email: 'stranger@example.org', password: 'password123' })).status, 403);
+});
+
+test('a new shared-email Apple account signs up on iOS, then logs in on the website and adds a password', async (t) => {
+  const { base, known } = await fixture(t, { appleSignup: 'open' });
+  const config = await (await fetch(`${base}/api/config`)).json();
+  assert.equal(config.appleSignup, true);
+  assert.equal(config.signup, 'closed');
+  const first = await post(base, '/api/apple/native', { code: code({ sub: 'new-shared', email: 'new@example.org', emailVerified: true, nonce: 'first' }), nonce: 'first' });
+  assert.equal(first.status, 200);
+  const { user, token } = await first.json();
+  assert.equal(user.email, 'new@example.org');
+  assert.notEqual(user.id, known.id);
+  assert.equal((await (await fetch(`${base}/api/apple/status`, { headers: { authorization: `Bearer ${token}` } })).json()).passwordSet, false);
+  const webStart = new URL((await fetch(`${base}/api/apple/start`, { redirect: 'manual' })).headers.get('location'));
+  const web = await appleCallback(base, webStart.searchParams.get('state'), { sub: 'new-shared', nonce: webStart.searchParams.get('nonce') });
+  assert.equal(web.headers.get('location'), '/');
+  assert.equal((await (await fetch(`${base}/api/me`, { headers: { cookie: web.headers.get('set-cookie').split(';')[0] } })).json()).user.id, user.id);
+  const added = await post(base, '/api/apple/set-password-native', { code: code({ sub: 'new-shared', nonce: 'set-password' }), nonce: 'set-password', next: 'new-password' }, token);
+  assert.equal(added.status, 200);
+  assert.equal((await post(base, '/api/login', { email: user.email, password: 'new-password' })).status, 200);
+  assert.equal((await post(base, '/api/signup', { email: 'password@example.org', password: 'password123' })).status, 403);
+});
+
+test('a new hidden-email Apple account signs up on the website, then logs in on iOS and Mac', async (t) => {
+  const { base } = await fixture(t, { appleSignup: 'open' });
+  const relay = 'private-user@privaterelay.appleid.com';
+  const webStart = new URL((await fetch(`${base}/api/apple/start`, { redirect: 'manual' })).headers.get('location'));
+  const web = await appleCallback(base, webStart.searchParams.get('state'),
+    { sub: 'new-private', email: relay, emailVerified: true, isPrivateEmail: true, nonce: webStart.searchParams.get('nonce') });
+  assert.equal(web.status, 302);
+  assert.equal(web.headers.get('location'), '/');
+  const cookie = web.headers.get('set-cookie').split(';')[0];
+  const user = (await (await fetch(`${base}/api/me`, { headers: { cookie } })).json()).user;
+  assert.equal(user.email, relay);
+  const native = await post(base, '/api/apple/native', { code: code({ sub: 'new-private', nonce: 'second' }), nonce: 'second' });
+  assert.equal(native.status, 200);
+  assert.equal((await native.json()).user.id, user.id);
+  const verifier = crypto.randomBytes(32).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const desktop = await post(base, '/api/apple/desktop/start', { challenge });
+  const { url, state } = await desktop.json();
+  const callback = await appleCallback(base, state, { sub: 'new-private', nonce: new URL(url).searchParams.get('nonce') });
+  const deeplink = new URL(callback.headers.get('location'));
+  const claim = await post(base, '/api/apple/desktop/claim', { ticket: deeplink.searchParams.get('ticket'), state, verifier });
+  assert.equal(claim.status, 200);
+  assert.equal((await claim.json()).user.id, user.id);
+  assert.equal((await post(base, '/api/apple/native', { code: code({ sub: 'no-email', nonce: 'missing' }), nonce: 'missing' })).status, 403);
+  assert.equal((await post(base, '/api/apple/native', { code: code({ sub: 'unverified', email: 'other@example.org', emailVerified: false, nonce: 'unverified' }), nonce: 'unverified' })).status, 403);
 });
 
 test('a password account links a different Apple email, then both methods work on website and Mac', async (t) => {

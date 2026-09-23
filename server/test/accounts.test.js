@@ -62,6 +62,18 @@ test('Apple sign-in only admits existing verified real emails and uses the stabl
   assert.equal(db.get('SELECT COUNT(*) AS n FROM users').n, 1);
 });
 
+test('open Apple sign-up creates and links a private-relay account without a password', (t) => {
+  const { db, auth } = fixture(t);
+  const identity = { sub: 'fresh-private-subject', email: 'hidden@privaterelay.appleid.com', emailVerified: true, isPrivateEmail: true };
+  const first = auth.loginApple(identity, 'bearer', 'iPhone', { allowSignup: true });
+  assert.equal(first.user.email, identity.email);
+  assert.deepEqual(auth.appleStatus(first.user.id), { linked: true, passwordSet: false });
+  assert.equal(auth.loginApple({ sub: identity.sub }, 'bearer').user.id, first.user.id);
+  assert.equal(db.get('SELECT COUNT(*) AS n FROM users').n, 1);
+  assert.equal(auth.loginApple({ sub: 'unverified', email: 'u@example.org', emailVerified: false }, 'bearer', '', { allowSignup: true }), null);
+  assert.equal(auth.loginApple({ sub: 'missing' }, 'bearer', '', { allowSignup: true }), null);
+});
+
 test('a password user can link a different Apple email without changing either login', (t) => {
   const { auth } = fixture(t);
   const first = auth.addUser('first@example.com', 'password123');

@@ -1928,13 +1928,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open your account setup link and choose Apple to connect it. No password is needed."
+            "value": "Could not find or create an account with Apple. Try again or contact the administrator."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请打开账号开通链接并选择通过 Apple 继续，无需设置密码。"
+            "value": "无法通过 Apple 登录或创建账号，请重试或联系管理员。"
           }
         }
       }

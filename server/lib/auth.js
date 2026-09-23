@@ -80,21 +80,35 @@ function createAuth(db) {
 
   // Apple credentials must be verified by the server before either method is called.
   // Apple's stable subject is the login key; its email can change or be a private relay.
-  function findOrLinkApple(identity) {
+  function findOrLinkApple(identity, { allowSignup = false } = {}) {
     if (!identity || !identity.sub) throw new Error('invalid Apple identity');
     let user = db.get('SELECT u.id, u.email FROM apple_identities a JOIN users u ON u.id = a.user_id WHERE a.subject = ?', identity.sub);
     if (!user) {
       const email = String(identity.email || '').trim().toLowerCase();
-      if (identity.emailVerified === false || identity.isPrivateEmail || !email) return null;
-      user = db.get('SELECT id, email FROM users WHERE email = ?', email);
-      if (!user) return null; // Apple sign-in never creates an account.
-      linkApple(user.id, identity);
+      if (identity.emailVerified === false || !/^[^@\s]+@[^@\s]+$/.test(email)) return null;
+      // A shared, verified address can connect an existing account. A private relay
+      // cannot prove ownership of a different account; it may create its own.
+      user = identity.isPrivateEmail ? null : db.get('SELECT id, email FROM users WHERE email = ?', email);
+      if (user) { linkApple(user.id, identity); return user; }
+      if (!allowSignup || db.get('SELECT 1 FROM users WHERE email = ?', email)) return null;
+      // Keep the new account and its Apple identity together, including under a
+      // concurrent first sign-in or a failed insert.
+      db.raw.exec('BEGIN IMMEDIATE');
+      try {
+        user = db.get('SELECT u.id, u.email FROM apple_identities a JOIN users u ON u.id = a.user_id WHERE a.subject = ?', identity.sub);
+        if (!user) {
+          if (db.get('SELECT 1 FROM users WHERE email = ?', email)) { db.raw.exec('ROLLBACK'); return null; }
+          user = addUser(email, null);
+          linkApple(user.id, identity);
+        }
+        db.raw.exec('COMMIT');
+      } catch (err) { db.raw.exec('ROLLBACK'); throw err; }
     }
     return user;
   }
 
-  function loginApple(identity, kind, label) {
-    const user = findOrLinkApple(identity);
+  function loginApple(identity, kind, label, options) {
+    const user = findOrLinkApple(identity, options);
     return user ? { user, token: issueToken(user.id, kind, label) } : null;
   }
 

@@ -35,6 +35,8 @@ const BASE_URL = (process.env.BASE_URL || '').replace(/\/$/, '');
 const SECURE = /^https:/.test(BASE_URL);
 // Accounts: closed (admin CLI creates users; default) · invite (sign-up with a code from `cli.js add-invite`) · open
 const SIGNUP_MODE = SIGNUP_MODES.includes(process.env.SIGNUP_MODE) ? process.env.SIGNUP_MODE : 'closed';
+// Apple account creation is separate from password sign-up. An Apple identity is verified server-side.
+const APPLE_SIGNUP_OPEN = process.env.APPLE_SIGNUP_MODE === 'open';
 const attempts = createLimiter({ max: 20, windowMs: 15 * 60_000 }); // login + sign-up attempts per IP and per email
 // Signing requests per account. A talk needs one every half hour (rotation) plus a few on a bad network, so
 // this is far above honest use — it exists to bound what a stolen or modified client can start, since the
@@ -136,7 +138,7 @@ const jobs = new JobRunner({
   },
 });
 log('info', `clean transcripts ready for ${jobs.backfillPlainExports()} existing jobs`);
-log('info', `accounts: sign-up ${SIGNUP_MODE}`);
+log('info', `accounts: password sign-up ${SIGNUP_MODE}, Apple sign-up ${APPLE_SIGNUP_OPEN ? 'open' : 'closed'}`);
 // The Team page is for administrators. ADMIN_EMAIL names one; otherwise, while no account is an administrator, the
 // first account created becomes one (a closed server has exactly the operator's account).
 function ensureAdmin() {
@@ -174,7 +176,7 @@ async function api(req, res, url, user) {
   let r;
 
   // public
-  if (p === '/api/config') return send(res, 200, { signup: SIGNUP_MODE, baseUrl: BASE_URL, apple: !!apple });
+  if (p === '/api/config') return send(res, 200, { signup: SIGNUP_MODE, appleSignup: APPLE_SIGNUP_OPEN && !!apple, baseUrl: BASE_URL, apple: !!apple });
   if (p === '/api/apple/start' && req.method === 'GET') {
     if (!apple || !SECURE) return fail(res, 503, 'Apple sign-in is not configured');
     if (!attempts.allow(`ip:${clientIp(req)}`)) return fail(res, 429, 'too many attempts; try again in a few minutes');
@@ -231,14 +233,16 @@ async function api(req, res, url, user) {
         return redirect(res, '/account?apple=linked');
       }
       if (state.mode === 'desktop') {
-        const linked = auth.findOrLinkApple(identity);
+        const linked = auth.findOrLinkApple(identity, { allowSignup: APPLE_SIGNUP_OPEN });
         if (!linked) return redirect(res, '/login?apple=unknown');
+        ensureAdmin();
         const ticket = randomBytes(24).toString('base64url');
         appleTickets.set(ticket, { state: body.get('state'), challenge: state.challenge, user: linked, created: Date.now() });
         return redirect(res, `seesubtitles://apple?ticket=${ticket}&state=${body.get('state')}`);
       }
-      const out = auth.loginApple(identity, 'cookie', 'See Subtitles website');
+      const out = auth.loginApple(identity, 'cookie', 'See Subtitles website', { allowSignup: APPLE_SIGNUP_OPEN });
       if (!out) return redirect(res, '/login?apple=unknown');
+      ensureAdmin();
       res.setHeader('set-cookie', auth.cookieHeader(out.token, SECURE));
       return redirect(res, state.next);
     } catch (err) { log('warn', `Apple browser sign-in: ${err.message}`); return redirect(res, state.mode === 'claim' ? `/reset/${state.resetToken}?apple=invalid` : ['link', 'password'].includes(state.mode) ? '/account?apple=invalid' : '/login?apple=invalid'); }
@@ -278,8 +282,9 @@ async function api(req, res, url, user) {
     if (!body.code || !body.nonce) return fail(res, 400, 'Apple sign-in is incomplete');
     try {
       const identity = await apple.authenticate({ code: body.code, clientId: apple.clients.ios, nonce: body.nonce });
-      const out = auth.loginApple(identity, 'bearer', 'See Subtitles iOS app');
-      if (!out) return fail(res, 403, 'this Apple Account is not linked to an invited account', { code: 'apple_unknown' });
+      const out = auth.loginApple(identity, 'bearer', 'See Subtitles iOS app', { allowSignup: APPLE_SIGNUP_OPEN });
+      if (!out) return fail(res, 403, 'this Apple Account could not be matched or created', { code: 'apple_unknown' });
+      ensureAdmin();
       return send(res, 200, { ok: true, user: out.user, token: out.token });
     } catch (err) { log('warn', `Apple sign-in: ${err.message}`); return fail(res, 401, 'Apple sign-in could not be verified', { code: 'apple_invalid' }); }
   }

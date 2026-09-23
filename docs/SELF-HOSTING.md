@@ -48,11 +48,11 @@ password; the server never sends mail.
 
 ## Accounts
 
-`SIGNUP_MODE` decides who can create one:
+`SIGNUP_MODE` decides who can create an account with an email and password. `APPLE_SIGNUP_MODE` separately allows verified Apple sign-up when set to `open`:
 
 | Value | Behaviour |
 |---|---|
-| `closed` (default) | Only `cli.js add-user` creates accounts |
+| `closed` (default) | Only `cli.js add-user` creates password accounts |
 | `invite` | A sign-up form appears, and needs a code from `cli.js add-invite` or the Account page |
 | `open` | Anyone can sign up — see the security warning above |
 
@@ -61,7 +61,7 @@ administrator: their **Account** page (`/account`) gains a Team section with mem
 account setup links (`/reset/<token>`, valid 24 hours, single use, handed over by you) that let an invited person choose Apple or a password, and the
 account requests that arrive from the website form. Every account has the password change, the
 signed-in devices, two-factor authentication, the glossary shared with the desktop app, and usage
-tiles. `cli.js add-user <email> --apple-only` creates an invited account without a password. Apple can connect automatically when it shares that email; a setup link is needed when Apple hides it or uses a different email. An Apple-only account can add a password later by confirming with Apple. Login and sign-up are rate-limited per IP and per email address.
+tiles. `cli.js add-user <email> --apple-only` creates an invited account without a password. Apple can connect automatically when it shares that email; a setup link is needed when Apple hides it or uses a different email. Set `APPLE_SIGNUP_MODE=open` to let new people create accounts directly with Apple, including when they hide their email. This does not open password sign-up (`SIGNUP_MODE`). An Apple-only account can add a password later by confirming with Apple. Login and sign-up are rate-limited per IP and per email address.
 
 Logged-out visitors to `/` get the website (`web/site.html`). `/poster?url=…` prints an A4 QR poster
 for a share link.
