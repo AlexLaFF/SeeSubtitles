@@ -49,6 +49,14 @@ final class AppModel {
     await refreshAccount()
   }
 
+  func loginApple(code: String, nonce: String) async throws {
+    let result = try await APIClient(server: server).loginApple(code: code, nonce: nonce)
+    token = result.token
+    Keychain.write(result.token, for: "token")
+    prefs.demo = false
+    await refreshAccount()
+  }
+
   func logout() async {
     await live?.stop()
     try? await api.logout()

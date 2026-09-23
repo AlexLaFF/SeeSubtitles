@@ -434,3 +434,7 @@ use the default split pipeline. See [MULTILINGUAL-LIVE.md](MULTILINGUAL-LIVE.md)
 
 The September 23 recognizer selection changed the mixed relay from Gummy to Fun-ASR after a rolling-caption comparison.
 Both Mac and iOS use this server-side choice; the phone needs no additional provider code or schema fields.
+
+### Account sign-in
+
+The iPhone app offers Sign in with Apple after the server advertises it in `/api/config`. Its native authorization code goes to the server for verification; the Apple private key stays on the server. An existing email/password account can link an Apple Account from Settings after confirming its password. The Apple ID email may differ from the account email. The website and Mac app offer the same two login methods; the Mac completes Apple authorization in the browser and receives a one-time, device-bound handoff.

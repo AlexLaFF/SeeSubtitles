@@ -54,6 +54,7 @@
     s.append(row(t('acct.current'), cur), row(t('acct.new'), next, el('span', { class: 'hint' }, t('acct.atLeast'))), row(t('acct.repeat'), again), row('', btn, msg));
     s.appendChild(hint(t('acct.securityHint')));
     renderTotp(s);
+    renderApple(s);
     btn.onclick = async () => {
       msg.textContent = '';
       if (next.value !== again.value) { msg.textContent = t('acct.differ'); return; }
@@ -61,6 +62,29 @@
       try { await api('/api/account/password', { current: cur.value, next: next.value }); cur.value = next.value = again.value = ''; msg.textContent = t('acct.changed'); renderDevicesRows(); }
       catch (err) { msg.textContent = err.message; }
       btn.disabled = false;
+    };
+  }
+
+  async function renderApple(host) {
+    const status = await api('/api/apple/status').catch(() => null);
+    if (!status || !status.enabled) return;
+    const heading = el('h3', {}, t('ios.apple.title'));
+    host.appendChild(heading);
+    if (status.linked) { host.appendChild(hint(t('ios.apple.linked'))); return; }
+    host.appendChild(hint(t('ios.apple.explain')));
+    const password = el('input', { type: 'password', autocomplete: 'current-password' });
+    const totp = el('input', { inputmode: 'numeric', autocomplete: 'one-time-code' });
+    const button = el('button', { class: 'small' }, t('acct.appleLink'));
+    const message = el('span', { class: 'hint' });
+    host.append(row(t('acct.current'), password), row(t('settings.totpCode'), totp), row('', button, message));
+    const result = new URLSearchParams(location.search).get('apple');
+    if (result === 'invalid') message.textContent = t('web.login.appleFailed');
+    button.onclick = async () => {
+      message.textContent = ''; button.disabled = true;
+      try {
+        const started = await api('/api/apple/start-link', { password: password.value, totp: totp.value });
+        location.assign(started.url);
+      } catch (err) { message.textContent = err.message; button.disabled = false; }
     };
   }
 

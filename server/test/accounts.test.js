@@ -50,6 +50,31 @@ test('the attempt limiter blocks the 21st try in a window and keys are independe
   assert.ok(lim.allow('ip:2'));
 });
 
+test('Apple sign-in only admits existing verified real emails and uses the stable subject thereafter', (t) => {
+  const { db, auth } = fixture(t);
+  const known = auth.addUser('known@example.com', 'password123');
+  assert.equal(auth.loginApple({ sub: 'apple-unknown', email: 'new@example.com', emailVerified: true }, 'bearer'), null);
+  assert.equal(auth.loginApple({ sub: 'apple-unverified', email: known.email, emailVerified: false }, 'bearer'), null);
+  assert.equal(auth.loginApple({ sub: 'apple-relay', email: known.email, emailVerified: true, isPrivateEmail: true }, 'bearer'), null);
+  assert.equal(auth.loginApple({ sub: 'apple-known', email: known.email, emailVerified: true }, 'bearer').user.id, known.id);
+  assert.equal(auth.appleStatus(known.id).linked, true);
+  assert.equal(auth.loginApple({ sub: 'apple-known', email: 'changed@example.net' }, 'bearer').user.id, known.id);
+  assert.equal(db.get('SELECT COUNT(*) AS n FROM users').n, 1);
+});
+
+test('a password user can link a different Apple email without changing either login', (t) => {
+  const { auth } = fixture(t);
+  const first = auth.addUser('first@example.com', 'password123');
+  const second = auth.addUser('second@example.com', 'password456');
+  assert.equal(auth.authorizeAppleLink(first.id, 'wrong'), false);
+  assert.equal(auth.authorizeAppleLink(first.id, 'password123'), true);
+  auth.linkApple(first.id, { sub: 'apple-first', email: 'other@icloud.com' });
+  assert.equal(auth.loginApple({ sub: 'apple-first', email: 'other@icloud.com' }, 'bearer').user.id, first.id);
+  assert.equal(auth.login(first.email, 'password123', 'bearer').user.id, first.id);
+  assert.throws(() => auth.linkApple(second.id, { sub: 'apple-first' }), /another account/);
+  assert.throws(() => auth.linkApple(first.id, { sub: 'apple-second' }), /another Apple Account/);
+});
+
 test('opening an older database adds the users.role column without losing rows', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'migrate-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));

@@ -100,6 +100,28 @@ function summaryConfig(cfg) {
 let core = null;
 let port = 0;
 const cloud = new CloudLink({ log: (level, text) => core && core.log(level, `cloud: ${text}`) });
+let pendingApple = null;
+async function acceptAppleLink(url) {
+  let link;
+  try { link = new URL(url); } catch { return; }
+  if (link.protocol !== 'seesubtitles:' || link.hostname !== 'apple' || !pendingApple || link.searchParams.get('state') !== pendingApple.state) return;
+  const pending = pendingApple;
+  pendingApple = null;
+  try {
+    const result = await cloud.claimAppleDesktop(link.searchParams.get('ticket'), pending.state, pending.verifier);
+    const cfg = loadConfig();
+    cfg.cloud = { ...cfg.cloud, url: pending.url, email: result.user.email, token: encryptSecret(result.token) };
+    saveConfig(cfg);
+    cloud.attach(core, cloudConfig(cfg));
+    await cloud.refreshPlan();
+    await restartCore();
+    openControl();
+  } catch (err) {
+    consoleLog('warn', `Apple sign-in: ${err.message}`);
+    dialog.showMessageBox({ type: 'error', message: t('wel.appleFailed') }).catch(() => {});
+  }
+}
+app.on('open-url', (event, url) => { event.preventDefault(); acceptAppleLink(url).catch(() => {}); });
 const { ResubtitleQueue } = require('./lib/resubtitle');
 const resubtitle = new ResubtitleQueue({ cloud, log: (level, text) => core && core.log(level, text) });
 // A job made to re-subtitle a recording is that recording: written down at once, so the importer never brings it down as a new one.
@@ -255,6 +277,15 @@ async function restartCore() {
 async function cloudAction(body) {
   const cfg = loadConfig();
   switch (body.action) {
+    case 'apple-start': {
+      const url = String(body.url || cfg.cloud.url || DEFAULT_CLOUD_URL);
+      const verifier = crypto.randomBytes(32).toString('base64url');
+      const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+      const started = await cloud.beginAppleDesktop(url, challenge);
+      pendingApple = { verifier, state: started.state, url };
+      await shell.openExternal(started.url);
+      return { ok: true };
+    }
     case 'login':
     case 'signup': {
       let r;
@@ -576,6 +607,7 @@ cloud.onPlan = (plan) => {
 };
 
 app.whenReady().then(async () => {
+  if (PACKAGED) app.setAsDefaultProtocolClient('seesubtitles');
   const cfg = loadConfig();
   // Versions up to 0.6.9 downloaded the server's Tencent key and kept it here. Nothing reads it any more.
   if (cfg.cloudKeysEnc) { delete cfg.cloudKeysEnc; saveConfig(cfg); consoleLog('info', 'removed the Tencent key an older version had saved on this Mac'); }

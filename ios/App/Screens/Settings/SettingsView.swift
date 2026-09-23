@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SubtitlesCore
 import SubtitlesDesign
 import SwiftUI
@@ -18,6 +19,7 @@ struct SettingsView: View {
           Section {
             NavigationLink { DevicesView() } label: { Text(L("ios.settings.devices")) }
             NavigationLink { PasswordView() } label: { Text(L("ios.settings.password")) }
+            NavigationLink { AppleLinkView() } label: { Text(L("ios.apple.title")) }
             LabeledContent(L("ios.settings.twoFactor")) { TwoFactorValue() }
           } footer: { Text(L("ios.settings.twoFactorHint")) }.listRowBackground(Color.mqSurface)
         }
@@ -264,6 +266,62 @@ struct PasswordView: View {
       catch let e as APIError { problem = e.status == 400 ? L("ios.password.wrong") : L("ios.err.server") }
       catch { problem = L("ios.err.offline") }
     }
+  }
+}
+
+struct AppleLinkView: View {
+  @Environment(AppModel.self) private var app
+  @State private var status: APIClient.AppleStatus?
+  @State private var password = ""
+  @State private var totp = ""
+  @State private var nonce = ""
+  @State private var problem: String?
+  @State private var busy = false
+
+  var body: some View {
+    Form {
+      Section {
+        if status?.linked == true {
+          Text(L("ios.apple.linked"))
+        } else if status?.enabled == true {
+          Text(L("ios.apple.explain"))
+          SecureField(L("ios.password.current"), text: $password).textContentType(.password)
+          TextField(L("ios.login.code"), text: $totp).textContentType(.oneTimeCode)
+          SignInWithAppleButton(.continue, onRequest: { request in
+            nonce = UUID().uuidString
+            request.nonce = nonce
+            request.requestedScopes = [.email]
+          }, onCompletion: { result in
+            switch result {
+            case .success(let authorization):
+              guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                    let data = credential.authorizationCode,
+                    let code = String(data: data, encoding: .utf8) else { problem = L("ios.login.appleFailed"); return }
+              busy = true; problem = nil
+              Task {
+                defer { busy = false }
+                do {
+                  try await app.api.linkApple(code: code, nonce: nonce, password: password, totp: totp.isEmpty ? nil : totp)
+                  status = try await app.api.appleStatus()
+                  password = ""; totp = ""
+                } catch let error as APIError where error.code == "apple_link_auth" { problem = L("ios.apple.checkPassword") }
+                catch { problem = L("ios.login.appleFailed") }
+              }
+            case .failure: problem = L("ios.login.appleFailed")
+            }
+          })
+          .signInWithAppleButtonStyle(.black)
+          .frame(height: 50)
+          .disabled(password.isEmpty || busy)
+        } else {
+          Text(L("ios.apple.unavailable"))
+        }
+        if let problem { Text(problem).foregroundStyle(Color.mqBad) }
+      }.listRowBackground(Color.mqSurface)
+    }
+    .scrollContentBackground(.hidden).background(Color.mqBackground)
+    .navigationTitle(L("ios.apple.title"))
+    .task { status = try? await app.api.appleStatus() }
   }
 }
 

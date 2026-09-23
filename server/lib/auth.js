@@ -77,6 +77,48 @@ function createAuth(db) {
     return { user: { id: user.id, email: user.email }, token: issueToken(user.id, kind, label) };
   }
 
+  // Apple credentials must be verified by the server before either method is called.
+  // Apple's stable subject is the login key; its email can change or be a private relay.
+  function findOrLinkApple(identity) {
+    if (!identity || !identity.sub) throw new Error('invalid Apple identity');
+    let user = db.get('SELECT u.id, u.email FROM apple_identities a JOIN users u ON u.id = a.user_id WHERE a.subject = ?', identity.sub);
+    if (!user) {
+      const email = String(identity.email || '').trim().toLowerCase();
+      if (!identity.emailVerified || identity.isPrivateEmail || !email) return null;
+      user = db.get('SELECT id, email FROM users WHERE email = ?', email);
+      if (!user) return null; // Apple sign-in never creates an account.
+      linkApple(user.id, identity);
+    }
+    return user;
+  }
+
+  function loginApple(identity, kind, label) {
+    const user = findOrLinkApple(identity);
+    return user ? { user, token: issueToken(user.id, kind, label) } : null;
+  }
+
+  function linkApple(userId, identity) {
+    if (!identity || !identity.sub) throw new Error('invalid Apple identity');
+    const user = db.get('SELECT id FROM users WHERE id = ?', userId);
+    if (!user) throw new Error('no such account');
+    const owner = db.get('SELECT user_id FROM apple_identities WHERE subject = ?', identity.sub);
+    if (owner && owner.user_id !== userId) throw new Error('this Apple Account is linked to another account');
+    const existing = db.get('SELECT subject FROM apple_identities WHERE user_id = ?', userId);
+    if (existing && existing.subject !== identity.sub) throw new Error('this account is linked to another Apple Account');
+    if (!owner) db.run('INSERT INTO apple_identities(subject, user_id, linked_at) VALUES (?,?,?)', identity.sub, userId, Date.now());
+    return { linked: true };
+  }
+
+  function authorizeAppleLink(userId, password, code) {
+    const user = db.get('SELECT * FROM users WHERE id = ?', userId);
+    if (!user || !verifyPassword(String(password || ''), user.pass_hash)) return false;
+    return !user.totp_secret || (!!String(code || '').trim() && consumeSecondFactor(user, code));
+  }
+
+  function appleStatus(userId) {
+    return { linked: !!db.get('SELECT 1 FROM apple_identities WHERE user_id = ?', userId) };
+  }
+
   /** A 6-digit TOTP, or one of the account's unused recovery codes (which is then spent). */
   function consumeSecondFactor(user, code) {
     const given = String(code || '').trim();
@@ -204,7 +246,7 @@ function createAuth(db) {
     if (inv) db.run('UPDATE invites SET used_by = ?, used_at = ? WHERE code = ?', user.id, Date.now(), inv.code);
     return user;
   }
-  return { login, authenticate, revoke, cookieHeader, clearCookie, addUser, setPassword, setRole, createInvite, signup, issueToken, userForToken,
+  return { login, loginApple, findOrLinkApple, linkApple, authorizeAppleLink, appleStatus, authenticate, revoke, cookieHeader, clearCookie, addUser, setPassword, setRole, createInvite, signup, issueToken, userForToken,
     beginTotp, confirmTotp, disableTotp, resetRecoveryCodes, regenerateRecovery, totpStatus };
 }
 

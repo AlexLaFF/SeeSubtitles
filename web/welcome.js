@@ -59,6 +59,7 @@
     let needCode = false;
     const err = el('div', { class: 'alert', hidden: '' });
     const btn = el('button', { class: 'primary' }, t('settings.login'));
+    const appleBtn = el('button', { class: 'ghost' }, t('web.login.apple'));
     const toggle = el('a', { href: '#' }, t('wel.haveInvite'));
     let creating = false;
     const labelBtn = () => { btn.textContent = creating ? t('settings.createAccount') : t('settings.login'); };
@@ -81,8 +82,14 @@
       } catch (e) { err.textContent = String(e.message || e).replace(/^.*Error: /, ''); err.hidden = false; btn.disabled = false; labelBtn(); }
     };
     btn.addEventListener('click', submit);
+    appleBtn.addEventListener('click', async () => {
+      if (!d) return;
+      err.hidden = true; appleBtn.disabled = true;
+      try { await d.cloud({ action: 'apple-start' }); }
+      catch (e) { err.textContent = String(e.message || e).replace(/^.*Error: /, ''); err.hidden = false; appleBtn.disabled = false; }
+    });
     for (const i of [email, pass, invite, code]) i.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
-    card.append(fld(t('settings.email'), email), fld(t('settings.password'), pass), inviteRow, codeRow, codeHint, err, btn, toggle);
+    card.append(fld(t('settings.email'), email), fld(t('settings.password'), pass), inviteRow, codeRow, codeHint, err, btn, appleBtn, toggle);
     setTimeout(() => (email.value ? pass : email).focus(), 0);
   }
 

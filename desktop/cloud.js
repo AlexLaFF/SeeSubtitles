@@ -207,6 +207,18 @@ class CloudLink {
     this.log('info', `logged in to ${clean} as ${email}`);
     return { url: clean, token: r.token };
   }
+  async beginAppleDesktop(url, challenge) {
+    this._useUrl(url);
+    return this._fetch('/api/apple/desktop/start', { challenge }, { auth: false });
+  }
+  async claimAppleDesktop(ticket, state, verifier) {
+    const r = await this._fetch('/api/apple/desktop/claim', { ticket, state, verifier }, { auth: false });
+    if (!r || !r.token || !r.user || !r.user.email) throw new Error('Apple sign-in did not return an account');
+    this.cfg.token = r.token;
+    this.cfg.email = r.user.email;
+    this.error = null;
+    return r;
+  }
   /** Create an account (the server must be in invite or open sign-up mode) and log in. */
   async signup(url, email, password, invite) {
     const clean = this._useUrl(url);

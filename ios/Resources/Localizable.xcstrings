@@ -137,6 +137,91 @@
         }
       }
     },
+    "ios.apple.checkPassword": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check your password and authentication code, then try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请检查密码和验证码，然后重试。"
+          }
+        }
+      }
+    },
+    "ios.apple.explain": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm your password, then choose the Apple Account to link. Its email can be different from this account’s email."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认密码，然后选择要关联的 Apple 账户。Apple ID 邮箱可以与本账号邮箱不同。"
+          }
+        }
+      }
+    },
+    "ios.apple.linked": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your Apple Account is linked. You can use Apple or your email and password to log in."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple 账户已关联。现在可以通过 Apple 或邮箱和密码登录。"
+          }
+        }
+      }
+    },
+    "ios.apple.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with Apple"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通过 Apple 登录"
+          }
+        }
+      }
+    },
+    "ios.apple.unavailable": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple sign-in is not available yet."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple 登录暂不可用。"
+          }
+        }
+      }
+    },
     "ios.badge.joined": {
       "extractionState": "manual",
       "localizations": {
@@ -1799,6 +1884,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "重试"
+          }
+        }
+      }
+    },
+    "ios.login.appleFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple sign-in could not be completed. Please try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法完成 Apple 登录，请重试。"
+          }
+        }
+      }
+    },
+    "ios.login.appleUnknown": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Apple Account has no invited account. Log in with your password first to link it."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此 Apple 账户尚未关联已开通的账号。请先用密码登录，再关联 Apple 账户。"
           }
         }
       }

@@ -26,7 +26,15 @@ for x in "$APP"/PlugIns/*.appex; do [ -d "$x" ] && IDS="$IDS $(/usr/libexec/Plis
 # The profiles are kept beside the archive and asked for only when one is missing: they last a year, and the link
 # to Apple from here drops enough requests that a lookup which is not needed is a lookup that may fail.
 missing=""
-for id in $IDS; do [ -f "$PROFILES/$id.mobileprovision" ] || missing="$missing $id"; done
+for id in $IDS; do
+  profile="$PROFILES/$id.mobileprovision"
+  # Enabling Sign in with Apple invalidated the old app profile. A cached copy can still be on this Mac:
+  # never sign a new archive with it if it lacks the entitlement the archive now requests.
+  if [ "$id" = "$APP_ID" ] && [ -f "$profile" ] && ! openssl cms -verify -noverify -inform DER -in "$profile" 2>/dev/null | grep -q 'com.apple.developer.applesignin'; then
+    rm -f "$profile"
+  fi
+  [ -f "$profile" ] || missing="$missing $id"
+done
 if [ -n "$missing" ]; then
   echo "── App Store profiles for:$missing"
   node "$HERE/asc.mjs" profiles "$PROFILES" $missing

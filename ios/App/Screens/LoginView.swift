@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SubtitlesCore
 import SubtitlesDesign
 import SwiftUI
@@ -12,6 +13,8 @@ struct LoginView: View {
   @State private var busy = false
   @State private var problem: String?
   @State private var joining = false
+  @State private var appleEnabled = false
+  @State private var appleNonce = ""
   @FocusState private var focus: Field?
   enum Field { case email, password, code }
 
@@ -37,6 +40,31 @@ struct LoginView: View {
         if let problem { StatusLabel(.bad, problem) }
         Button(action: submit) { if busy { ProgressView().tint(Color.mqOnAccent) } else { Text(L("ios.login.submit")) } }
           .buttonStyle(PrimaryButtonStyle()).disabled(busy || (needsCode ? code.count < 6 : email.isEmpty || password.isEmpty))
+        if appleEnabled && !needsCode {
+          SignInWithAppleButton(.signIn, onRequest: { request in
+            appleNonce = UUID().uuidString
+            request.nonce = appleNonce
+            request.requestedScopes = [.email]
+          }, onCompletion: { result in
+            switch result {
+            case .success(let authorization):
+              guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                    let data = credential.authorizationCode,
+                    let code = String(data: data, encoding: .utf8) else { problem = L("ios.login.appleFailed"); return }
+              busy = true; problem = nil
+              Task {
+                defer { busy = false }
+                do { try await app.loginApple(code: code, nonce: appleNonce) }
+                catch let error as APIError where error.code == "apple_unknown" { problem = L("ios.login.appleUnknown") }
+                catch { problem = L("ios.login.appleFailed") }
+              }
+            case .failure: problem = L("ios.login.appleFailed")
+            }
+          })
+          .signInWithAppleButtonStyle(.black)
+          .frame(height: 50)
+          .disabled(busy)
+        }
         if needsCode { Button(L("ios.login.back")) { needsCode = false; code = ""; problem = nil }.frame(maxWidth: .infinity) }
         Text(L("ios.login.hint")).font(.mqHint).foregroundStyle(Color.mqText3).frame(maxWidth: .infinity).multilineTextAlignment(.center)
       }
@@ -50,6 +78,7 @@ struct LoginView: View {
       .font(.mqSecondary.weight(.medium)).padding(.bottom, Spacing.s4)
     }
     .sheet(isPresented: $joining) { JoinView() }
+    .task { appleEnabled = (try? await APIClient(server: app.server).publicConfig().apple) ?? false }
   }
 
   private func field(_ title: String, text: Binding<String>, _ which: Field) -> some View {

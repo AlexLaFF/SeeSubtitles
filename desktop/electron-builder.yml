@@ -3,6 +3,9 @@
 # installed copy (Alex's) was moved over by hand from the DMG. macOS keys its permissions to the identifier too —
 # the microphone is asked for again on first launch. The login and settings survive: they live under the product name.
 appId: com.algernonlabs.subtitles
+protocols:
+  - name: See Subtitles Login
+    schemes: [seesubtitles]
 productName: See Subtitles
 copyright: MIT
 directories:

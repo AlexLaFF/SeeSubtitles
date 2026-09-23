@@ -90,6 +90,7 @@ body.app .auth .card { width: 380px; padding: 26px 28px; box-shadow: none; }
 body.app .auth .card h2 { font: 600 20px/1.2 var(--ui); margin: 0 0 4px; }
 body.app .auth .card p.muted { margin: 0 0 8px; }
 body.app .auth .card button[type=submit] { width: 100%; height: var(--control-lg); justify-content: center; margin-top: 12px; font-size: 13px; }
+body.app .auth .card .apple-auth { display: flex; width: 100%; height: var(--control-lg); align-items: center; justify-content: center; margin-top: 10px; border-radius: 8px; background: #000; color: #fff; font-size: 13px; font-weight: 600; text-decoration: none; }
 body.app .auth .card .hint { margin: 12px 0 0; }
 @media (max-width: 900px) { body.app .auth { grid-template-columns: 1fr; } body.app .auth .left { border-right: 0; border-bottom: 1px solid var(--line); padding: 28px 24px; } body.app .auth h1 { font-size: 26px; margin-top: 8px; } body.app .auth .stage { display: none; } }
 

@@ -29,6 +29,7 @@
         <p class="hint" id="codeHint" hidden data-i18n="web.login.totpHint">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</p>
         <div class="alert" id="err" hidden></div>
         <button class="primary" type="submit" id="submit">Log in</button>
+        <a id="appleSignIn" href="/api/apple/start" class="apple-auth" hidden data-i18n="web.login.apple">通过 Apple 登录</a>
         <p class="muted" id="switchRow" hidden><a href="#" id="switch">Create an account</a></p>
         <p class="hint" id="forgotRow" data-i18n="web.login.forgot">Forgot your password? Ask the person who runs See Subtitles for a reset link.</p>
       </form>
@@ -44,7 +45,13 @@
   I18n.apply();
   document.querySelectorAll('a[data-lang]').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); I18n.remember(a.dataset.lang); I18n.apply(); render(); }));
   let signup = 'closed';
-  try { signup = (await fetch('/api/config').then((x) => x.json())).signup || 'closed'; } catch { /* keep login only */ }
+  let appleEnabled = false;
+  try { const config = await fetch('/api/config').then((x) => x.json()); signup = config.signup || 'closed'; appleEnabled = !!config.apple; } catch { /* keep login only */ }
+  $('appleSignIn').hidden = !appleEnabled;
+  const next = new URLSearchParams(location.search).get('next');
+  if (next && next.startsWith('/') && !next.startsWith('//')) $('appleSignIn').href = `/api/apple/start?next=${encodeURIComponent(next)}`;
+  const appleError = new URLSearchParams(location.search).get('apple');
+  if (appleError) { $('err').textContent = t(appleError === 'unknown' ? 'web.login.appleUnknown' : 'web.login.appleFailed'); $('err').hidden = false; }
   let creating = false;
   const render = () => {
     $('submit').textContent = creating ? t('settings.createAccount') : t('settings.login');
@@ -71,7 +78,6 @@
       return;
     }
     if (r.error) { err.textContent = I18n.err(r); err.hidden = false; return; }
-    const next = new URLSearchParams(location.search).get('next');
     location.href = next && next.startsWith('/') ? next : '/';
   });
 })();
