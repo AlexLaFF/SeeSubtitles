@@ -55,6 +55,47 @@ test('ported recording, summary, overlay and preset routes work with desktop aut
   await new Promise(r=>setTimeout(r,350));
 });
 
+test('Files lists the whole history and identifies imported files after they are stored locally', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'subtitle-history-'));
+  const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);
+  for (let i = 0; i < 26; i++) {
+    const base = `history-${String(i).padStart(2, '0')}`;
+    const audio = path.join(rec, names.fileName(base, 'mp3'));
+    fs.writeFileSync(audio, 'fixture');
+    fs.utimesSync(audio, new Date(1_000_000 + i * 1000), new Date(1_000_000 + i * 1000));
+  }
+  fs.writeFileSync(path.join(rec, names.fileName('history-00', 'manifest')), JSON.stringify({ source: 'ja', target: 'zh', importedFrom: 'old-job' }));
+  fs.writeFileSync(path.join(rec, names.fileName('history-01', 'manifest')), JSON.stringify({ source: 'yue', target: 'zh', job: 'resubtitle-job' }));
+  let importedJobs = { 'legacy-job': 'history-02' };
+  let queued;
+  const resubtitle = new (require('node:events').EventEmitter)();
+  resubtitle.add = (item) => { queued = item; return true; };
+  resubtitle.status = () => ({});
+  const server = await createLocalServer({
+    webDir: path.resolve(__dirname, '../../web'), schemaFile: require.resolve('@subs/core/schema'),
+    dataDir: path.join(root, 'data'), recordingsDir: rec, transcriptsDir: path.join(root, 'transcripts'),
+    demo: true, token: 'tk', env: { MP4_AUTO: '0' }, consoleLog() {},
+    importedJobs: () => importedJobs,
+    onRenameRecording: (oldBase, newBase) => { importedJobs = Object.fromEntries(Object.entries(importedJobs).map(([id, base]) => [id, base === oldBase ? newBase : base])); },
+    resubtitle, cloudStatus: () => ({ loggedIn: true }),
+  });
+  t.after(async () => { await server.shutdown(); fs.rmSync(root, { recursive: true, force: true }); });
+  const headers = { cookie: 'token=tk' };
+  const list = await (await fetch(`${server.base}/api/recordings`, { headers })).json();
+  assert.equal(list.length, 26);
+  assert.equal(list.at(-1).base, 'history-00', 'the oldest entry remains available');
+  assert.equal(list.at(-1).addedFile, true);
+  assert.equal(list.find((r) => r.base === 'history-01').addedFile, false, 're-subtitling a talk does not turn it into an added file');
+  assert.equal(list.find((r) => r.base === 'history-02').addedFile, true, 'the earliest imports had a saved job mapping but no manifest');
+  assert.equal((await fetch(`${server.base}/api/recordings/cues?base=history-00`, { headers })).status, 200);
+  const post = (route, body) => fetch(`${server.base}${route}`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal((await post('/api/recordings/rename', { base: 'history-02', name: 'renamed-old-import' })).status, 200);
+  assert.equal(importedJobs['legacy-job'], 'renamed-old-import');
+  assert.equal((await post('/api/recordings/resubtitle', { base: 'renamed-old-import' })).status, 200);
+  assert.equal(queued.jobId, 'legacy-job', 'the server already has the uploaded file');
+  assert.equal(JSON.parse(fs.readFileSync(names.filePath(rec, 'renamed-old-import', 'manifest'), 'utf8')).importedFrom, 'legacy-job');
+});
+
 test('bulk download zips the chosen kinds and delete removes a whole recording set', async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'subtitle-bulk-'));
   const rec = path.join(root, 'recordings'); fs.mkdirSync(rec);

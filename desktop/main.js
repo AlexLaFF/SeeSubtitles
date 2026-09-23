@@ -116,7 +116,7 @@ const uploads = new UploadQueue({
 });
 let jobLanguages = null; // the server's list of file-job languages, asked for once
 const { JobImporter } = require('./lib/import-job');
-// A finished cloud job is copied into the recordings folder so an added file behaves like any recording.
+// A finished cloud job is copied into the recordings folder; its manifest still identifies it as an added file.
 const jobImporter = new JobImporter({
   cloud,
   dir: () => loadConfig().recordingsDir,
@@ -210,6 +210,12 @@ async function startCore() {
     resubtitle,
     uploads,
     cloudJobs: async () => (cloud.status().loggedIn ? jobImporter.annotate(await cloud._fetch('/api/jobs', null, { method: 'GET' })) : []),
+    importedJobs: () => loadConfig().importedJobs || {},
+    onRenameRecording: (oldBase, newBase) => {
+      const c = loadConfig();
+      for (const [id, base] of Object.entries(c.importedJobs || {})) if (base === oldBase) c.importedJobs[id] = newBase;
+      saveConfig(c);
+    },
     deleteCloudJob: async (id) => { uploads.cancel(id); await cloud.deleteJob(id); },
     retryCloudJob: (id) => cloud._fetch(`/api/jobs/${id}/retry`, {}),
     cloudLanguages: async () => (jobLanguages = jobLanguages || await cloud._fetch('/api/languages', null, { method: 'GET' })),

@@ -1,7 +1,7 @@
 'use strict';
 // Files added with "+ Add file…" are subtitled in the cloud, so their audio and subtitles live on the server
 // and the app had nothing local to Open, Download or act on. This brings a finished job down into the
-// recordings folder under the ordinary naming, after which it is an ordinary recording like any other.
+// recordings folder under the ordinary naming, while its manifest keeps its added-file origin.
 const fs = require('node:fs');
 const path = require('node:path');
 const names = require('@subs/core/names');
@@ -61,7 +61,7 @@ class JobImporter {
     const mp4 = files.find((f) => f.endsWith('.mp4'));
     if (mp4) wanted.push(['mp4', mp4]);
 
-    // an imported job is a recording like any other, so it gets the same manifest
+    // Use the same local file format as a talk, while retaining where it came from for the Files list.
     try {
       fs.writeFileSync(path.join(dir, names.fileName(base, 'manifest', 'cn')), JSON.stringify({
         base, source: job.source_lang, target: job.target_lang && job.target_lang !== 'none' ? job.target_lang : job.source_lang,

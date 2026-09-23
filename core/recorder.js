@@ -202,8 +202,8 @@ class Recorder extends EventEmitter {
     };
   }
 
-  /** Recent recordings on disk, newest first (both naming styles). */
-  list(limit = 20) {
+  /** Recordings on disk, newest first (both naming styles). */
+  list(limit = Infinity) {
     let files;
     try { files = fs.readdirSync(this.dir); } catch { return []; }
     const byBase = new Map();

@@ -682,8 +682,8 @@
     'live.share.image': ['QR image ▾', '二维码图片 ▾'],
 
     // ---- files (footer, recording page facts)
-    'files.foot.one': ['1 recording · {size}', '1 段录音 · {size}'],
-    'files.foot.many': ['{n} recordings · {size}', '{n} 段录音 · {size}'],
+    'files.foot.one': ['1 item · {size}', '1 项 · {size}'],
+    'files.foot.many': ['{n} items · {size}', '{n} 项 · {size}'],
     'files.showOriginalHint': ['under each line, like the venue screen', '显示在每行下方，与会场大屏一致'],
     'files.talk': ['This talk', '本场'],
     'files.talk.recorded': ['Recorded', '录制时间'],

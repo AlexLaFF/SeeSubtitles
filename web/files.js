@@ -44,7 +44,7 @@
         <button id="btnFolder" class="ghost">${t('files.openFolder')}</button><button id="btnAdd" class="primary">${t('files.add')}</button></div>
       <div class="toolbar"><div class="pills" id="filters"></div><div id="bulk" class="btns" style="margin:0" hidden></div><div class="grow"></div><input type="text" id="search" placeholder="${t('files.search')}" style="width:220px"></div>
       <div class="body" style="flex-direction:column;overflow:auto">
-        <div class="ui" style="padding:0;overflow:hidden"><table><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" title="${t('files.selectAll')}"></th><th style="width:32%">${t('files.col.name')}</th><th>${t('files.col.date')}</th><th>${t('files.col.length')}</th><th>${t('files.col.subtitles')}</th><th>${t('files.col.mp4')}</th><th>${t('files.col.actions')}</th></tr></thead><tbody id="rows"></tbody></table></div>
+        <div class="ui files-table"><table><thead><tr><th style="width:28px"><input type="checkbox" id="selAll" title="${t('files.selectAll')}"></th><th style="width:32%">${t('files.col.name')}</th><th>${t('files.col.date')}</th><th>${t('files.col.length')}</th><th>${t('files.col.subtitles')}</th><th>${t('files.col.mp4')}</th><th>${t('files.col.actions')}</th></tr></thead><tbody id="rows"></tbody></table></div>
         <div class="drop" id="drop">${t('files.drop')}</div>
       </div>
       <div class="foot"><span id="fFoot"></span></div>`;
@@ -181,7 +181,7 @@
     const s = Sub.status || {};
     const rs = s.resubtitle || {}; const mp = s.mp4 || {}; const sm = s.summary || {}; const up = s.uploads || {};
     const items = [];
-    for (const r of recordings) items.push({ kind: 'rec', name: r.base, sub: t('files.recordingSub', { langs: `${langName(r.source)} → ${langName(r.target)}` }), date: r.mtime, length: r.durationMs, rec: r });
+    for (const r of recordings) items.push({ kind: r.addedFile ? 'added' : 'rec', name: r.base, sub: t(r.addedFile ? 'files.addedSub' : 'files.recordingSub', { langs: `${langName(r.source)} → ${langName(r.target)}` }), date: r.mtime, length: r.durationMs, rec: r });
     for (const j of jobs) { if (j.importedBase) continue; items.push({ kind: 'added', name: j.filename, sub: t('files.addedSub', { langs: `${j.engineLabel || j.source_lang} → ${j.targetLabel || j.target_lang}` }), date: j.created_at, length: j.duration ? j.duration * 1000 : null, job: j, upload: up.current && up.current.jobId === j.id ? up.current : null }); }
     if (up.current && !jobs.some((j) => j.id === up.current.jobId)) items.push({ kind: 'added', name: up.current.name, sub: t('files.uploading'), date: up.current.startedAt, upload: up.current });
     if (up.last && !up.last.ok && Date.now() - up.last.at < 600_000 && !jobs.some((j) => j.id === up.last.jobId)) items.push({ kind: 'added', name: up.last.name, sub: t('files.notSent'), date: up.last.at, failed: up.last }); // no job to say it on: said here, for ten minutes

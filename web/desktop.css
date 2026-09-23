@@ -49,6 +49,7 @@ body.shell { margin: 0; padding: 0; background: var(--bg); color: var(--fg); fon
 .shell .col { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
 .shell .col.scroll { overflow: auto; padding-right: 2px; }
 .shell .ui { box-shadow: none; }
+.shell .files-table { padding: 0; overflow: hidden; flex-shrink: 0; } /* the outer Files body scrolls the whole table */
 .shell .ui h3 { display: flex; align-items: center; gap: 10px; }
 .shell .ui h3 .n { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--accent-fg); display: inline-flex; align-items: center; justify-content: center; font: 700 11px/1 var(--ui); letter-spacing: 0; flex: none; }
 .shell .ui h3 .grow { flex: 1; }

@@ -45,6 +45,8 @@ const readJson = (req) => readBody(req, 1e6); // a settings change or a recordin
  * @param {object}   [opts.resubtitle]   ResubtitleQueue (needs the cloud login) for POST /api/recordings/resubtitle
  * @param {object}   [opts.uploads]      UploadQueue for POST /api/files/add
  * @param {function} [opts.cloudJobs]    async () => the account's upload jobs on the hosted server
+ * @param {function} [opts.importedJobs] () => persisted jobId → local base, for imports made before manifests existed
+ * @param {function} [opts.onRenameRecording] (oldBase, newBase) => keep persisted job mappings pointed at renamed files
  * @param {function} [opts.cloudLanguages] async () => {sources, targets} — the languages a file job can be in, for GET /api/files/options
  * @param {function} [opts.retryCloudJob]  async (id) => void — run a failed job again on the server, for POST /api/cloud/jobs/retry
  * @param {function} [opts.deleteCloudJob] async (id) => void — delete one of them, for POST /api/cloud/jobs/delete
@@ -143,11 +145,13 @@ async function createLocalServer(opts) {
   function recordingJobLangs(base, langs = null) {
     const was = names.languagesOf(opts.recordingsDir, base);
     let manifest = {};
-    try { manifest = JSON.parse(fs.readFileSync(names.filePath(opts.recordingsDir, base, 'manifest'), 'utf8')) || {}; } catch { /* a recording from before manifests */ }
+    let hasManifest = false;
+    try { manifest = JSON.parse(fs.readFileSync(names.filePath(opts.recordingsDir, base, 'manifest'), 'utf8')) || {}; hasManifest = true; } catch { /* a recording from before manifests */ }
+    const oldImport = hasManifest ? null : legacyImportedJob(base);
     const known = (map, code) => (langs && code in map ? code : null);
     const sourceLang = JOB_SOURCE[was.source] || (langs ? known(langs.sources, was.source) : was.source) || null;
-    const targetLang = was.target === was.source && (manifest.job || manifest.importedFrom) ? 'none' : JOB_TARGET[was.target] || (langs ? known(langs.targets, was.target) : was.target) || 'none';
-    return { sourceLang, targetLang, jobId: manifest.job || manifest.importedFrom || null };
+    const targetLang = was.target === was.source && (manifest.job || manifest.importedFrom || oldImport) ? 'none' : JOB_TARGET[was.target] || (langs ? known(langs.targets, was.target) : was.target) || 'none';
+    return { sourceLang, targetLang, jobId: manifest.job || manifest.importedFrom || oldImport, oldImport };
   }
   /** "Add file…": upload any video/audio file to the hosted server as a subtitling job, in the languages the user confirmed (Live's when none are given). audioOnly: of a video, only its sound. */
   function addFile(file, { audioOnly = false, sourceLang = null, targetLang = null } = {}) {
@@ -188,6 +192,9 @@ async function createLocalServer(opts) {
     return out.map((f) => (path.isAbsolute(f) ? f : path.join(opts.recordingsDir, f)));
   }
   /** Recordings with what the Files view needs: whether the subtitles came from the cloud, the live backups, the length. */
+  function legacyImportedJob(base) {
+    return Object.entries(opts.importedJobs ? opts.importedJobs() || {} : {}).find(([, savedBase]) => savedBase === base)?.[0] || null;
+  }
   function listRecordings() {
     let live = [];
     try { live = fs.readdirSync(opts.recordingsDir).filter((f) => /\.live\.(srt|mp4)$/.test(f)); } catch { /* no folder yet */ }
@@ -196,10 +203,18 @@ async function createLocalServer(opts) {
       const backups = live.filter((f) => f.startsWith(r.base) && !/^\d/.test(f.slice(r.base.length)));
       const versions = listVersions(opts.recordingsDir, r.base);
       let fromCloud = false; // an added file never had a talk: its subtitles were made on the server from the start
-      try { const m = JSON.parse(fs.readFileSync(names.filePath(opts.recordingsDir, r.base, 'manifest'), 'utf8')); fromCloud = !!(m && (m.job || m.importedFrom)); } catch { /* no manifest: a recording from before them, so from a talk */ }
+      let addedFile = false;
+      let hasManifest = false;
+      try {
+        const m = JSON.parse(fs.readFileSync(names.filePath(opts.recordingsDir, r.base, 'manifest'), 'utf8'));
+        hasManifest = true;
+        addedFile = !!(m && m.importedFrom); // a talk can have m.job after re-subtitling
+        fromCloud = !!(m && (m.job || m.importedFrom));
+      } catch { /* no manifest: a recording from before them, so from a talk */ }
+      if (!hasManifest && legacyImportedJob(r.base)) { addedFile = true; fromCloud = true; }
       let durationMs = null;
       try { const cues = readCues(opts.recordingsDir, r.base); if (cues.length) durationMs = cues[cues.length - 1].end; } catch { /* none */ }
-      return { ...r, resubtitled: backups.some((b) => /\.srt$/.test(b)) || versions.length > 0 || fromCloud, backups, versions, durationMs };
+      return { ...r, addedFile, resubtitled: backups.some((b) => /\.srt$/.test(b)) || versions.length > 0 || fromCloud, backups, versions, durationMs };
     });
   }
   const savePresetsFile = () => fs.writeFile(PRESETS_FILE, JSON.stringify(userPresets, null, 2), (err) => { if (err) log('error', `saving presets: ${err.message}`); });
@@ -440,11 +455,12 @@ async function createLocalServer(opts) {
   function renameRecording(base, name) {
     const clean = cleanName(name);
     if (!clean) { const e = new Error('the name is empty'); e.code = 'name_empty'; throw e; }
-    if (!recorder.list(1000).some((r) => r.base === base)) { const e = new Error('unknown recording'); e.code = 'unknown_recording'; throw e; }
+    if (!recorder.list().some((r) => r.base === base)) { const e = new Error('unknown recording'); e.code = 'unknown_recording'; throw e; }
     if (recorder.recording && recorder.status().current && String(recorder.status().current.file || '').startsWith(base)) { const e = new Error('this recording is still in progress'); e.code = 'recording_in_progress'; throw e; }
     if (clean === base) return base;
     const next = names.uniqueBase(opts.recordingsDir, clean);
     for (const f of recordingFiles(base)) fs.renameSync(f, path.join(opts.recordingsDir, next + path.basename(f).slice(base.length)));
+    if (opts.onRenameRecording) opts.onRenameRecording(base, next);
     log('info', `recording ${base} renamed to ${next}`);
     return next;
   }
@@ -580,7 +596,7 @@ async function createLocalServer(opts) {
       if (p === '/api/recordings') return send(res, 200, listRecordings());
       if (p === '/api/recordings/cues') {
         const base = String(url.searchParams.get('base') || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
+        if (!recorder.list().some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         return send(res, 200, { base, cues: readCues(opts.recordingsDir, base) });
       }
       if (p === '/api/recordings/archive') {
@@ -626,7 +642,7 @@ async function createLocalServer(opts) {
         try { return send(res, 200, presetAction(body)); } catch (err) { return send(res, 400, { error: err.message }); }
       case '/api/recordings/summary': {
         const base = String(body.base || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
+        if (!recorder.list().some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         if (!summaries.configured) return send(res, 400, { error: 'Log in under Settings: summaries are written by the server for the account', code: 'summary_login' });
         const queued = summaries.add(base);
         log('info', queued ? `AI summary requested for ${base}` : `AI summary for ${base} already in progress`);
@@ -634,7 +650,7 @@ async function createLocalServer(opts) {
       }
       case '/api/recordings/summary-pdf': {
         const base = String(body.base || '');
-        if (!recorder.list(1000).some((r) => r.base === base && r.summary)) return send(res, 404, { error: 'no summary for this recording yet' });
+        if (!recorder.list().some((r) => r.base === base && r.summary)) return send(res, 404, { error: 'no summary for this recording yet' });
         summaries.makePdf(base).then(
           (pdf) => { log('info', `summary PDF made for ${base}`); broadcast('status', status()); },
           (err) => log('error', `summary PDF ${base}: ${err.message}`),
@@ -643,7 +659,7 @@ async function createLocalServer(opts) {
       }
       case '/api/recordings/cues': {
         const base = String(body.base || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
+        if (!recorder.list().some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         try { const cues = writeCues(opts.recordingsDir, base, body.cues); log('info', `subtitles of ${base} edited (${cues.length} cues)`); return send(res, 200, { ok: true, cues }); } catch (err) { return send(res, 400, { error: err.message }); }
       }
       case '/api/recordings/rename': {
@@ -651,7 +667,7 @@ async function createLocalServer(opts) {
       }
       case '/api/recordings/delete': {
         const bases = Array.isArray(body.bases) ? body.bases.map(String) : [];
-        const known = new Set(recorder.list(1000).map((r) => r.base));
+        const known = new Set(recorder.list().map((r) => r.base));
         let deleted = 0;
         for (const base of bases) {
           if (!known.has(base)) continue;
@@ -681,7 +697,7 @@ async function createLocalServer(opts) {
       }
       case '/api/recordings/resubtitle': {
         const base = String(body.base || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
+        if (!recorder.list().some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         if (!opts.resubtitle) return send(res, 400, { error: 'cloud link not available', code: 'cloud_unavailable' });
         const cloud = opts.cloudStatus ? opts.cloudStatus() : null;
         if (!cloud || !cloud.loggedIn) return send(res, 400, { error: 'Log in under Settings first', code: 'login_first' });
@@ -691,6 +707,9 @@ async function createLocalServer(opts) {
         const sourceLang = lang(body.sourceLang) || own.sourceLang;
         if (!sourceLang) return send(res, 400, { error: `the cloud does not transcribe "${names.languagesOf(opts.recordingsDir, base).source}" uploads yet`, code: 'unsupported_source', lang: names.languagesOf(opts.recordingsDir, base).source });
         const targetLang = lang(body.targetLang) || own.targetLang;
+        // Imports from the earliest Mac builds have only the saved job mapping. Preserve that origin before
+        // the queue rewrites the manifest, so their subtitles are kept as a file version, not a live-talk backup.
+        if (own.oldImport) fs.writeFileSync(names.filePath(opts.recordingsDir, base, 'manifest'), JSON.stringify({ base, importedFrom: own.oldImport }));
         const queued = opts.resubtitle.add({ base, dir: opts.recordingsDir, sourceLang, targetLang, jobId: own.jobId });
         log('info', queued ? `re-subtitle requested for ${base} (${sourceLang} → ${targetLang}${own.jobId ? `, from job ${own.jobId}` : ''})` : `re-subtitle for ${base} already in progress`);
         return send(res, 200, { ok: true, queued, resubtitle: opts.resubtitle.status() });
@@ -718,7 +737,7 @@ async function createLocalServer(opts) {
       }
       case '/api/recordings/mp4': {
         const base = String(body.base || '');
-        if (!recorder.list(1000).some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
+        if (!recorder.list().some((r) => r.base === base)) return send(res, 404, { error: 'unknown recording', code: 'unknown_recording' });
         const queued = mp4.add(base);
         log('info', queued ? `MP4 export requested for ${base}` : `MP4 export for ${base} already in progress`);
         return send(res, 200, { ok: true, queued, mp4: mp4.status() });

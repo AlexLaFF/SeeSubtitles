@@ -143,6 +143,9 @@ it again is the retry. The phone's only upload is re-subtitling, and it gains wh
 a recording's m4a, tens of megabytes, begun again if it breaks — port it from desktop/lib/uploads.js if that ever
 proves too much on a mobile connection.
 
+The Mac Files list shows all local history and labels imported jobs as added files. The phone stores its own
+recordings in a separate Library and has no imported jobs, so this needs no Swift change.
+
 ### 2.5 · Recording
 
 Player at the top: play/pause, a scrubber, ±15 s, speed. Below, three segments:
