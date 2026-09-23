@@ -17,7 +17,7 @@ const { createAuth, hashPassword } = require('./lib/auth');
 const { LiveSessions } = require('./lib/live');
 const { JobRunner, ENGINES, TARGETS } = require('./lib/jobs');
 const { createLimiter, SIGNUP_MODES } = require('./lib/auth');
-const { latestRelease } = require('./lib/updates');
+const { latestRelease, latestIosRelease } = require('./lib/updates');
 const { UsageMonitor, parsePack } = require('./lib/usage');
 const { UsageLedger } = require('./lib/usage-ledger');
 const { createAccount } = require('./lib/account');
@@ -251,6 +251,7 @@ async function api(req, res, url, user) {
     const rel = latestRelease(UPDATES_DIR);
     return send(res, 200, rel ? { version: rel.version, releaseDate: rel.releaseDate, dmg: rel.dmg ? `${BASE_URL}/updates/${encodeURIComponent(rel.dmg)}` : null, zip: rel.zip ? `${BASE_URL}/updates/${encodeURIComponent(rel.zip)}` : null } : { version: null });
   }
+  if (p === '/api/ios/version') return send(res, 200, latestIosRelease(UPDATES_DIR) || { version: null });
   if (p === '/api/login' && req.method === 'POST') {
     const body = await readJson(req, 1e4);
     const kind = body.kind === 'bearer' ? 'bearer' : 'cookie';

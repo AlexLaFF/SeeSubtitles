@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { parseLatest, latestRelease, compareVersions } = require('../lib/updates');
+const { parseLatest, latestRelease, latestIosRelease, compareVersions } = require('../lib/updates');
 
 test('latest-mac.yml is summarised and the files checked on disk', (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'upd-'));
@@ -22,4 +22,15 @@ test('version comparison', () => {
   assert.equal(compareVersions('0.2.10', '0.2.9'), 1);
   assert.equal(compareVersions('1.0.0', '1.0.0'), 0);
   assert.equal(compareVersions('0.2.0-beta', '0.3.0'), -1);
+});
+
+test('only a published, installable iOS build is advertised', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ios-upd-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  assert.equal(latestIosRelease(dir), null);
+  const file = path.join(dir, 'latest-ios.json');
+  fs.writeFileSync(file, JSON.stringify({ version: '1.0', build: 189, channel: 'testflight', url: 'https://testflight.apple.com/' }));
+  assert.deepEqual(latestIosRelease(dir), { version: '1.0', build: 189, channel: 'testflight', url: 'https://testflight.apple.com/' });
+  fs.writeFileSync(file, JSON.stringify({ version: '1.0', build: 190, channel: 'testflight', url: 'http://example.org/' }));
+  assert.equal(latestIosRelease(dir), null);
 });

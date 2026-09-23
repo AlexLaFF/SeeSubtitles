@@ -76,6 +76,18 @@ final class StubServer: URLProtocol, @unchecked Sendable {
     try await api.setPasswordWithApple(code: "apple-code", nonce: "nonce", next: "new-password")
   }
 
+  @Test("the optional iOS version check is public and has a short deadline")
+  func iosVersion() async throws {
+    StubServer.reset()
+    StubServer.on("GET /api/ios/version") { request, _ in
+      #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+      #expect(request.timeoutInterval == 4)
+      return StubServer.json(#"{"version":"1.0","build":189,"channel":"testflight","url":"https://apps.apple.com/app/testflight/id899247664"}"#)
+    }
+    let release = try await api.with(token: nil).iosVersion()
+    #expect(release.build == 189 && release.channel == "testflight")
+  }
+
   @Test("the account, its plan, its glossary and its devices are read as the server writes them")
   func account() async throws {
     StubServer.reset()

@@ -75,9 +75,22 @@ public struct APIClient: Sendable {
 
   public struct Login: Decodable, Sendable { public let token: String; public let user: User }
   public struct PublicConfig: Decodable, Sendable { public let apple: Bool }
+  public struct IOSVersion: Decodable, Sendable {
+    public let version: String?
+    public let build: Int?
+    public let channel: String?
+    public let url: String?
+  }
   public struct AppleStatus: Decodable, Sendable { public let enabled: Bool; public let linked: Bool; public let passwordSet: Bool? }
 
   public func publicConfig() async throws -> PublicConfig { try await send(request("GET", "api/config")) }
+
+  /// A tiny public response. A short deadline keeps this optional check off the launch path.
+  public func iosVersion() async throws -> IOSVersion {
+    var r = request("GET", "api/ios/version")
+    r.timeoutInterval = 4
+    return try await send(r)
+  }
 
   public func loginApple(code: String, nonce: String) async throws -> Login {
     try await send(request("POST", "api/apple/native", json: ["code": code, "nonce": nonce]))

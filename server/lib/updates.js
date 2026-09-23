@@ -2,6 +2,7 @@
 // Desktop app releases hosted by the server: <DATA_DIR>/updates holds what `electron-builder` produces
 // (Subtitles-<v>-arm64.dmg, Subtitles-<v>-arm64-mac.zip, latest-mac.yml). electron-updater reads
 // latest-mac.yml itself; /api/desktop/version summarises it for the manual-download fallback.
+// The same folder holds latest-ios.json, published only after a TestFlight build is approved for external testers.
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -31,6 +32,18 @@ function latestRelease(dir) {
   } catch { return null; }
 }
 
+/** The newest iOS build users can actually install, or null before one is published. */
+function latestIosRelease(dir) {
+  try {
+    const info = JSON.parse(fs.readFileSync(path.join(dir, 'latest-ios.json'), 'utf8'));
+    if (!/^\d+(?:\.\d+)*$/.test(info.version) || !Number.isSafeInteger(info.build) || info.build < 1) return null;
+    if (info.channel !== 'testflight' && info.channel !== 'appstore') return null;
+    const url = new URL(info.url);
+    if (url.protocol !== 'https:' || !['testflight.apple.com', 'apps.apple.com'].includes(url.hostname)) return null;
+    return { version: info.version, build: info.build, channel: info.channel, url: url.toString() };
+  } catch { return null; }
+}
+
 const { compareVersions } = require('@subs/core/versions'); // the same comparison the desktop's updater makes
 
-module.exports = { parseLatest, latestRelease, compareVersions };
+module.exports = { parseLatest, latestRelease, latestIosRelease, compareVersions };

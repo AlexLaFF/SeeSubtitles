@@ -147,6 +147,15 @@ const jobImporter = new JobImporter({
   log: (level, text) => (core ? core.log(level, text) : consoleLog(level, text)),
 });
 const updater = new Updater({ cloud, log: (level, text) => (core ? core.log(level, `updates: ${text}`) : consoleLog(level, `updates: ${text}`)), packaged: PACKAGED, beforeInstall: () => shutDownOnce() });
+let lastBackgroundUpdateCheck = 0;
+function checkUpdatesInBackground() {
+  // A launch always checks. Returning from another app checks again once the
+  // last attempt is at least a minute old, without making rapid app switches chatty.
+  const now = Date.now();
+  if (now - lastBackgroundUpdateCheck < 60_000) return;
+  lastBackgroundUpdateCheck = now;
+  updater.check().catch(() => {});
+}
 
 function consoleLog(level, text) {
   const ts = new Date().toTimeString().slice(0, 8);
@@ -620,9 +629,9 @@ app.whenReady().then(async () => {
   }
   await startCore();
   openControl();
-  // updates: check shortly after launch and every 6 h
-  setTimeout(() => updater.check().catch(() => {}), 15_000);
-  setInterval(() => updater.check().catch(() => {}), 6 * 3600_000).unref();
+  // The first window is already visible. Check now, without awaiting the network.
+  checkUpdatesInBackground();
+  setInterval(checkUpdatesInBackground, 6 * 3600_000).unref();
   if (!app.isPackaged && process.platform === 'darwin' && app.dock) app.dock.setIcon(path.join(__dirname, 'build', 'icon.png')); // packaged builds get it from the icns
   rebuildTray();
   screen.on('display-added', rebuildTray);
@@ -633,7 +642,7 @@ app.whenReady().then(async () => {
   screen.on('display-metrics-changed', reportOverlay);
 });
 
-app.on('activate', () => { if (core) openControl(); });
+app.on('activate', () => { if (core) { openControl(); checkUpdatesInBackground(); } });
 app.on('window-all-closed', () => { /* keep the pipeline running in the dock */ });
 
 let quitting = false;

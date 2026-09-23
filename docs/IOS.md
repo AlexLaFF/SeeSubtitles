@@ -231,11 +231,17 @@ ios/
     export-schema.mjs      core/schema.js → the languages, pipelines and tuning the app offers; the decimator fixture
     ports.mjs              the Mac originals each Swift port follows, and whether one has changed since (--check / --accept)
     testflight.sh          the release test, an archive, the export (export-ipa.sh, asc.mjs) and the upload
+    publish-testflight-update.sh  advertises a build only after external TestFlight approval
     make-icon.swift        draws the app icon from the mark's geometry (design/canvas/icons.mjs) — by hand, once
 ```
 
-Bundle id `com.algernonlabs.seesubtitles`, next to the Mac's. Versioning starts at 1.0 on its own line; the Mac's
-`/api/desktop/version` is not used, the App Store updates the app.
+Bundle id `com.algernonlabs.seesubtitles`, next to the Mac's. Versioning starts at 1.0 on its own line. The phone
+asks `/api/ios/version` in the background on launch and when it becomes active (at most once a minute). The request
+times out after four seconds and never blocks the screen. The server reads `<DATA_DIR>/updates/latest-ios.json`,
+which is published with `sh ios/scripts/publish-testflight-update.sh <build>` only after Apple approves that build
+for the external TestFlight group. If a newer build exists, a small banner directs the user to TestFlight. For an
+App Store release, the same file can name `channel: "appstore"` and its App Store URL. Apple's TestFlight or App
+Store app performs the actual installation; this check never downloads an iOS app itself.
 
 ### 4.2 · Audio
 

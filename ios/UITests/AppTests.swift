@@ -1,13 +1,14 @@
 import AVFoundation
 import XCTest
 
-// The app itself, driven in the Simulator the way a person would drive it. Two journeys:
+// The app itself, driven in the Simulator the way a person would drive it. Three journeys:
 //
 //   testDemoJourney      no account, no network: first run, a talk, Text, Listen, Reply, the ended card, the recording's
 //                        three tabs, a summary, an MP4, rename, delete, Settings, and the interface in Chinese.
 //   testSignedInJourney  against the real server the harness starts (ios/e2e/run.mjs sets E2E_SERVER): a wrong password,
 //                        login, a talk with a recording as the microphone and subtitles from the relay, the account and
 //                        its devices, joining a talk a Mac is hosting, logging out. Skipped without the harness.
+//   testUpdateBanner    a newer, externally available build appears without holding up the login card.
 //
 // Every launch begins from a phone nobody has used (-ResetForTests), speaks without a sound (-SilentVoice: a simulator
 // talks through the Mac's loudspeakers) and is in English unless the test is about Chinese. The words looked for are the
@@ -160,6 +161,20 @@ final class AppTests: XCTestCase {
   }
 
   // ---------------------------------------------------------------- signed in, against the real server
+
+  func testUpdateBanner() async throws {
+    guard let server = env["E2E_SERVER"], let control = env["E2E_CONTROL"] else {
+      throw XCTSkip("needs the harness's server: node ios/e2e/run.mjs ui")
+    }
+    _ = try await Self.ask(control, "update/ios", ["build": "999"])
+    app.launchArguments = common + ["-SubtitlesServer", server]
+    app.launch()
+    seen("Accounts are opened at seesubtitles.com.")
+    seen("Build 999 is available", within: 15)
+    tap("Later")
+    gone("Build 999 is available")
+    _ = try await Self.ask(control, "update/ios", ["clear": "true"])
+  }
 
   func testSignedInJourney() async throws {
     guard let server = env["E2E_SERVER"], let control = env["E2E_CONTROL"], let password = env["E2E_PASSWORD"], let email = env["E2E_BUSINESS"] else {

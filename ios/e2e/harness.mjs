@@ -134,6 +134,15 @@ export async function start({ log = () => {} } = {}) {
       if (url.pathname === '/recogniser') return send({ connections: asr.state.connections, audioSeconds: asr.state.audioBytes / 32000 });
       if (url.pathname === '/tokenhub') return send({ translations: hub.state.translations, summaries: hub.state.messages.length, keysSeen: [...hub.state.auth], lastSummaryRequest: hub.state.messages.at(-1) || null });
       if (url.pathname === '/log') return send({ log: output });
+      if (url.pathname === '/update/ios') {
+        const file = path.join(root, 'updates', 'latest-ios.json');
+        if (body.clear) fs.rmSync(file, { force: true });
+        else {
+          fs.mkdirSync(path.dirname(file), { recursive: true });
+          fs.writeFileSync(file, JSON.stringify({ version: '1.0', build: Number(body.build), channel: 'testflight', url: 'https://apps.apple.com/app/testflight/id899247664' }));
+        }
+        return send({ ok: true });
+      }
       // A Mac hosting a talk: a share session opened by the Business account, with a first line already said.
       if (url.pathname === '/host/start') {
         const login = await (await fetch(`${base}/api/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: ACCOUNTS.business, password: PASSWORD, kind: 'bearer', label: 'A Mac at the front of the room' }) })).json();

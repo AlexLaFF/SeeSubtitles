@@ -130,7 +130,8 @@ Three of them guard rules that are easy to break by accident:
 
 4. Publish the DMG, the zip, both blockmaps and `latest-mac.yml` into the server's update directory
    (`<DATA_DIR>/updates`) and remove the previous version's. `/api/desktop/version` then reports the newest build,
-   and the app offers it on launch, every six hours, and from **See Subtitles → Check for Updates…**.
+   and the app checks as soon as its window opens, when returning to it after a minute, every six hours,
+   and from **See Subtitles → Check for Updates…**. Checks run in the background.
 
 Notarization needs a *Developer ID Application* certificate in the login keychain and a notarytool keychain
 profile; `release.sh` explains what `notarize.env` must name. A build signed with a development certificate
@@ -233,6 +234,11 @@ Store Connect API key named in `~/.config/seesubtitles/notarize.env` (`APPLE_API
 .p8 beside it), never the Apple ID signed in to Xcode, whose sign-in goes through developer.apple.com and fails from
 Alex's Mac ("No Accounts with App Store Connect Access" — the journal project's experience too). The key must have
 the App Manager or Admin role: a Developer one uploads builds but may not make provisioning profiles (403).
+
+After Apple approves the build for the external tester group, run
+`sh ios/scripts/publish-testflight-update.sh <build>`. It checks approval and group membership before updating the
+small iOS version file on the server. The phone reads that file in the background when opened; it never waits for
+an update check before showing the app.
 
 The export is ours, not Xcode's: `ios/scripts/export-ipa.sh` asks App Store Connect for the App Store profiles of
 the app and its widget extension (`ios/scripts/asc.mjs` registers an identifier and makes a profile when there is
