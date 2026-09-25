@@ -10,6 +10,9 @@ someone else's talk followed through their share code.
 The Mac at the front of the room turns a talk into subtitles for everyone. The phone is the device in one person's
 hand. So the iOS app does two jobs, and one more that costs almost nothing:
 
+The public website redesign on 2026-09-25 changes the presentation of these existing capabilities, not the iOS
+feature set. Its room display is hosted from the Mac; a phone in that illustration follows the Mac's share link.
+
 - **Listen.** A live transcript reader for the person who cannot hear the room well, or does not speak its
   language. Large scrolling text, translation and original, on a phone lying on the table or held up.
 - **Record.** A lecture and meeting recorder that keeps running with the screen locked and ends with the audio,
