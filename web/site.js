@@ -20,6 +20,18 @@
       'language.live': '实时语言组合 <span aria-hidden="true">↗</span>',
       'language.caption': '一种语言说出来，另一种语言同步显示。对话继续，字幕也不会停。',
       'language.hint': '这里只展示 See Subtitles 支持的部分实时语言组合。',
+      'language.all': '查看全部输入与字幕语言 ↗',
+      'languages.kicker': '完整语言列表',
+      'languages.title': '支持哪些语言，一目了然。',
+      'languages.intro': '输入是录音中说的语言，输出是你选择的字幕语言。实时讲话和上传文件的选项不同，下面分别列出。',
+      'languages.tag.live1': '01 / 实时', 'languages.tag.live2': '02 / 实时',
+      'languages.tag.file3': '03 / 文件', 'languages.tag.file4': '04 / 文件',
+      'languages.live.input': '讲话输入语言', 'languages.live.output': '字幕输出语言',
+      'languages.file.input': '音视频输入语言', 'languages.file.output': '字幕输出语言',
+      'languages.live.input.note': '列表中的“普通话 + 英语”是混合输入选项，不是另一种语言。也可选多语种自动识别；效果取决于语言和音频质量。',
+      'languages.live.output.note': '标准实时模式中，上列任一输入选项均可搭配这些字幕语言。可选的合并实时模式支持的组合较少。',
+      'languages.file.input.note': '这里列出所有可选的识别选项，包括混合语言、大模型和自动识别模式。',
+      'languages.file.output.note': '也可以不翻译，只保留原文字幕。',
       'product.kicker': '01 / 实时体验', 'product.h2': '一个人讲。<br><em>全场都跟上。</em>',
       'product.intro': '讲者说话时，字幕随即出现，译文紧接而来。观众不必等下一页幻灯片，也不必请讲者重复。',
       'product.screen.h': '大屏幕，看得清。', 'product.screen.p': '投影机上显示清晰字幕，也能覆盖在幻灯片上。一台 Mac 就能控制现场。',
@@ -174,6 +186,25 @@
       startLanguageRotation();
     };
     document.head.appendChild(script);
+  }
+
+  function renderLanguageReference() {
+    const lists = window.SITE_LANGUAGES;
+    if (!lists) return;
+    for (const [key, id] of [
+      ['liveInput', 'liveInputLanguages'], ['liveOutput', 'liveOutputLanguages'],
+      ['fileInput', 'fileInputLanguages'], ['fileOutput', 'fileOutputLanguages'],
+    ]) {
+      const ul = $(id);
+      ul.replaceChildren();
+      for (const { code, label } of lists[key]) {
+        const li = document.createElement('li');
+        li.dataset.code = code;
+        li.textContent = label;
+        ul.appendChild(li);
+      }
+      $(`${key}Count`).textContent = String(lists[key].length).padStart(2, '0');
+    }
   }
 
   function setLang(l) {
@@ -369,6 +400,7 @@
   try { saved = localStorage.getItem('site.lang') || ''; } catch { /* none */ }
   if (!saved) { const nav = (navigator.language || '').toLowerCase(); saved = /^zh/.test(nav) ? 'zh-Hans' : 'en'; }
   setLang(saved);
+  renderLanguageReference();
   startLanguageRotation();
   loadLanguagePairs();
 })();
