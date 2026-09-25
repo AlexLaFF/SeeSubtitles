@@ -148,6 +148,7 @@ body.site { margin: 0; background: #171613; color: #f1ece2; font: 16px/1.5 var(-
 .site .language-reference-card strong { color: #b8322b; font: 600 43px/1 var(--ui); letter-spacing: -.07em; }
 .site .language-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .site .language-list li { border: 1px solid #d5ccbd; background: #fffbf4; padding: 7px 10px; border-radius: 5px; font-size: 13px; line-height: 1.35; }
+.site .language-list li small { display: block; color: #a3322b; font-size: 10px; font-weight: 700; margin-top: 3px; }
 .site .language-reference-card > p { color: #6b655a; font-size: 13px; line-height: 1.6; margin: 24px 0 0; }
 .site .files .kicker { color: #94700a; }.site .files h2 em { color: #9c7608; }.site .files .section-intro { color: #5d584e; margin: 28px 0 32px; }
 .site .files-grid { display: grid; grid-template-columns: .9fr 1.1fr; gap: 70px; align-items: center; }

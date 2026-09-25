@@ -6,9 +6,18 @@ const { ENGINES, TARGETS } = require('../server/lib/jobs');
 
 const display = (label) => label.replace(/繁體中文/g, '繁体中文');
 const entries = (codes, names) => codes.map((code) => ({ code, label: display(names[code]) }));
+const combinedTargets = [...new Set(Object.values(schema.COMBINED_PAIRS).flat())];
+const liveInputs = [...new Set([...schema.SPLIT_SOURCES, ...Object.keys(schema.COMBINED_PAIRS), ...schema.MIXED_SOURCES])];
+const liveOutputs = [...new Set([...schema.SPLIT_TARGETS, ...combinedTargets])];
 const data = {
-  liveInput: entries(schema.SPLIT_SOURCES, schema.LANG_NAMES),
-  liveOutput: entries(schema.SPLIT_TARGETS, schema.LANG_NAMES),
+  liveInput: entries(liveInputs, schema.LANG_NAMES).map((entry) => ({
+    ...entry,
+    ...(schema.MIXED_SOURCES.includes(entry.code) ? { mode: 'automatic' } :
+      !schema.SPLIT_SOURCES.includes(entry.code) ? { mode: 'combined' } : {}),
+  })),
+  liveOutput: entries(liveOutputs, schema.LANG_NAMES).map((entry) => ({
+    ...entry, ...(!schema.SPLIT_TARGETS.includes(entry.code) ? { mode: 'combined' } : {}),
+  })),
   fileInput: entries(Object.keys(ENGINES), Object.fromEntries(Object.entries(ENGINES).map(([code, engine]) => [code, engine.label]))),
   fileOutput: entries(Object.keys(TARGETS).filter((code) => code !== 'none'), TARGETS),
 };

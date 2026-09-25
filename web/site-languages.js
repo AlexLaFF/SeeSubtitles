@@ -72,6 +72,16 @@ globalThis.SITE_LANGUAGES = {
     {
       "code": "de",
       "label": "Deutsch German"
+    },
+    {
+      "code": "ru",
+      "label": "Русский Russian",
+      "mode": "combined"
+    },
+    {
+      "code": "auto",
+      "label": "多语种自动识别 Multilingual",
+      "mode": "automatic"
     }
   ],
   "liveOutput": [
@@ -218,6 +228,11 @@ globalThis.SITE_LANGUAGES = {
     {
       "code": "ug",
       "label": "ئۇيغۇرچە Uyghur"
+    },
+    {
+      "code": "zh_en",
+      "label": "中英混合 Mandarin + English",
+      "mode": "combined"
     }
   ],
   "fileInput": [

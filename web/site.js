@@ -28,8 +28,9 @@
       'languages.tag.file3': '03 / 文件', 'languages.tag.file4': '04 / 文件',
       'languages.live.input': '讲话输入语言', 'languages.live.output': '字幕输出语言',
       'languages.file.input': '音视频输入语言', 'languages.file.output': '字幕输出语言',
-      'languages.live.input.note': '列表中的“普通话 + 英语”是混合输入选项，不是另一种语言。也可选多语种自动识别；效果取决于语言和音频质量。',
-      'languages.live.output.note': '标准实时模式中，上列任一输入选项均可搭配这些字幕语言。可选的合并实时模式支持的组合较少。',
+      'languages.live.input.note': '标准实时模式有 18 个输入选项，包括“普通话 + 英语”混合输入。俄语仅限合并模式；自动识别是独立模式，效果因语言而异。',
+      'languages.live.output.note': '标准实时模式的 18 个输入选项可搭配 36 种输出语言。“普通话 + 英语”输出仅限合并模式，该模式支持的组合较少。',
+      'languages.mode.combined': '仅合并模式', 'languages.mode.automatic': '自动识别模式',
       'languages.file.input.note': '这里列出所有可选的识别选项，包括混合语言、大模型和自动识别模式。',
       'languages.file.output.note': '也可以不翻译，只保留原文字幕。',
       'product.kicker': '01 / 实时体验', 'product.h2': '一个人讲。<br><em>全场都跟上。</em>',
@@ -75,6 +76,7 @@
     },
   };
   T.en = {
+    'languages.mode.combined': 'combined mode only', 'languages.mode.automatic': 'automatic mode',
     'form.sent': 'Thanks. We will reply to {email}.', 'form.err': 'Please give an email address we can reply to.',
     'dl.version': 'See Subtitles {version} · macOS 13 or later, Apple silicon', 'dl.none': 'No build is published for download yet; log in or request an account.',
     'dl.preview': 'Local preview · downloads and account requests work at seesubtitles.com.',
@@ -197,10 +199,15 @@
     ]) {
       const ul = $(id);
       ul.replaceChildren();
-      for (const { code, label } of lists[key]) {
+      for (const { code, label, mode } of lists[key]) {
         const li = document.createElement('li');
         li.dataset.code = code;
         li.textContent = label;
+        if (mode) {
+          const badge = document.createElement('small');
+          badge.textContent = msg(`languages.mode.${mode}`);
+          li.appendChild(badge);
+        }
         ul.appendChild(li);
       }
       $(`${key}Count`).textContent = String(lists[key].length).padStart(2, '0');
@@ -223,6 +230,7 @@
     applyMode();
     document.title = lang === 'en' ? 'See Subtitles — Make every word land' : 'See Subtitles — 让每句话都被看见';
     showLanguagePair();
+    renderLanguageReference();
   }
   $('lang').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setLang(b.dataset.lang); });
 
@@ -400,7 +408,6 @@
   try { saved = localStorage.getItem('site.lang') || ''; } catch { /* none */ }
   if (!saved) { const nav = (navigator.language || '').toLowerCase(); saved = /^zh/.test(nav) ? 'zh-Hans' : 'en'; }
   setLang(saved);
-  renderLanguageReference();
   startLanguageRotation();
   loadLanguagePairs();
 })();
