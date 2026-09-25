@@ -74,9 +74,21 @@ body.site { margin: 0; background: #171613; color: #f1ece2; font: 16px/1.5 var(-
 .site .phone-line { position: absolute; left: 13px; right: 13px; bottom: 53px; color: #fff; font: 700 15px/1.5 var(--cjk); }
 .site .phone-line small { display: block; font: 400 10px/1.45 var(--cjk); margin-top: 9px; color: #a3a09c; }
 .site .phone-foot { position: absolute; bottom: 15px; left: 13px; right: 13px; display: flex; justify-content: space-between; font-size: 8px; letter-spacing: .1em; color: var(--yellow); }
-.site .signal-bar { background: var(--yellow); color: #241d06; }
-.site .signal-bar .wrap { min-height: 58px; display: flex; justify-content: space-between; align-items: center; gap: 18px; font: 800 11px/1 var(--ui); letter-spacing: .13em; }
-.site .signal-bar i { width: 5px; height: 5px; border-radius: 50%; background: #8e6e07; flex: none; }
+.site .language-showcase { background: #f3efe6; color: #201d18; padding: 59px 0 53px; overflow: hidden; }
+.site .language-top, .site .language-bottom { display: flex; justify-content: space-between; align-items: center; gap: 30px; }
+.site .language-top .kicker { margin: 0; color: #a12f2b; }
+.site .language-top > span { color: #7f786b; font: 700 11px/1.3 var(--ui); letter-spacing: .14em; white-space: nowrap; }
+.site .language-pair { min-height: 190px; display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); align-items: center; gap: 28px; font: 600 clamp(40px,5.3vw,78px)/1.2 var(--ui); letter-spacing: -.055em; }
+.site .language-word { display: block; min-width: 0; white-space: nowrap; }
+.site .language-word.source { color: #c72e28; text-align: right; }
+.site .language-word.target { text-align: left; }
+.site .language-word b { display: inline-block; font-weight: 600; transition: opacity .17s ease, transform .17s ease; }
+.site .language-word.target b { background: var(--yellow); color: #211c0e; border-radius: .12em; padding: .04em .15em .1em; }
+.site .language-word.turning b { opacity: 0; transform: translateY(-.25em) rotateX(28deg); }
+.site .language-arrow { color: #aba397; font: 300 .55em/1 var(--ui); }
+.site .language-bottom { border-top: 1px solid #d6cfc3; padding-top: 20px; }
+.site .language-bottom p { margin: 0; font-size: 17px; font-weight: 600; }
+.site .language-bottom span { color: #7f786b; font-size: 12px; text-align: right; }
 .site .section { padding: 125px 0; scroll-margin-top: 80px; }
 .site h2 { margin: 0; font: 600 clamp(42px, 4.2vw, 66px)/1.04 var(--ui); letter-spacing: -.045em; }
 .site .section-intro { margin: 0; color: #aaa398; font-size: 17px; line-height: 1.7; max-width: 440px; }
@@ -149,13 +161,15 @@ html[lang^="zh"] .site .hero h1 { font-size: clamp(55px, 5.2vw, 80px); line-heig
 @media (max-width: 800px) {
   .site .nav .wrap { gap: 20px; }.site .links { display: none; }.site .nav-actions { margin-left: auto; }
   .site .hero-grid { grid-template-columns: 1fr; padding-top: 65px; gap: 20px; }.site .hero-copy { max-width: 620px; }.site .hero-art { width: min(100%, 680px); margin-inline: auto; height: 530px; }.site .display-ui { top: 30px; }
+  .site .language-pair { gap: 16px; font-size: clamp(34px,5vw,48px); min-height: 140px; }
+  .site .language-bottom { align-items: start; }.site .language-bottom p { font-size: 15px; }
   .site .section { padding: 85px 0; }.site .section-head, .site .pricing-head { display: block; }.site .section-head .section-intro { margin-top: 25px; }.site .product-grid { grid-template-columns: 1fr 1fr; }.site .feature-screen { grid-column: 1/-1; }.site .feature-screen { min-height: 500px; }.site .feature-screen .screen-scene { width: 70%; right: 0; left: auto; }.site .workflow-grid, .site .files-grid, .site .request-grid { grid-template-columns: 1fr; gap: 55px; }.site .editor-scene { max-width: 680px; }.site .pricing-head .modes { margin-top: 25px; }.site .plans { grid-template-columns: 1fr; }.site .plan .for { min-height: 0; }.site .use-list > div { grid-template-columns: 40px 1fr 30px; }.site .use-list p { grid-column: 2; grid-row: 2; }.site .use-list b { grid-column: 3; grid-row: 1; }.site .reqcard { max-width: 650px; }
 }
 @media (max-width: 570px) {
   .site .wrap { width: min(100% - 36px, 1360px); }.site .nav { height: 65px; }.site .nav .brand { font-size: 21px; }.site .nav .brand svg { width: 28px; height: 28px; }.site .nav-actions { gap: 12px; }.site .nav-cta { display: none; }
   .site .hero-grid { padding-top: 54px; padding-bottom: 34px; }.site .hero h1 { font-size: clamp(51px, 12vw, 72px); }.site .hero .lead { font-size: 16px; margin-top: 23px; }.site .hero-actions { gap: 18px; margin-top: 29px; }.site .hero-art { height: 385px; }.site .display-ui { width: 95%; right: 4%; top: 31px; transform: none; }.site .display-subtitles { bottom: 45px; }.site .display-subtitles .spoken { font-size: 10px; }.site .display-subtitles .translated { font-size: 12px; padding: 4px 5px; }.site .display-top, .site .display-bottom { left: 12px; right: 12px; font-size: 7px; }.site .display-top { top: 11px; }.site .display-bottom { bottom: 11px; }.site .phone-ui { width: 116px; height: 225px; border-width: 4px; border-radius: 21px; right: 0; bottom: 0; }.site .phone-head { font-size: 7px; padding: 10px 8px; }.site .phone-line { left: 8px; right: 8px; bottom: 42px; font-size: 10px; }.site .phone-line small { font-size: 7px; }.site .phone-foot { left: 8px; right: 8px; font-size: 6px; }.site .floating-card { left: 0; bottom: 5px; padding: 9px; gap: 7px; }.site .floating-icon { width: 28px; height: 28px; font-size: 17px; }.site .floating-card b { font-size: 9px; }.site .floating-card small { font-size: 7px; }.site .hero-bottom { font-size: 9px; }
-  .site .signal-bar .wrap { justify-content: center; flex-wrap: wrap; gap: 10px 15px; padding: 14px 0; font-size: 9px; }.site .signal-bar i:nth-of-type(2) { display: none; }
+  .site .language-showcase { padding: 40px 0 42px; }.site .language-top > span { display: none; }.site .language-pair { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-height: 185px; font-size: clamp(28px,8vw,39px); }.site .language-word.source, .site .language-word.target { text-align: center; }.site .language-arrow { transform: rotate(90deg); font-size: .7em; }.site .language-bottom { display: block; padding-top: 17px; }.site .language-bottom span { display: block; text-align: left; margin-top: 8px; }
   .site .section { padding: 72px 0; }.site h2 { font-size: clamp(38px, 10vw, 52px); }.site .section-intro { font-size: 15px; }.site .product-grid { grid-template-columns: 1fr; }.site .feature-screen { grid-column: auto; }.site .feature { min-height: 520px; }.site .feature-screen .screen-scene { width: 100%; }.site .feature-copy { padding: 23px; }.site .feature h3 { margin-top: 24px; }.site .workflow-grid { gap: 44px; }.site .editor-scene { min-height: 395px; }.site .editor-body { grid-template-columns: 1fr; min-height: 350px; }.site .editor-side { display: none; }.site .editor-main { padding: 18px; }.site .editor-cue { padding: 8px 0; }.site .summary-pop { right: -3px; bottom: -20px; min-width: 175px; padding: 11px; }.site .summary-pop b { font-size: 13px; }.site .files-grid { gap: 15px; }.site .file-visual { min-height: 310px; }.site .file-chip { left: 2%; top: 0; }.site .file-result { right: 0; width: 91%; }.site .use-list > div { gap: 9px; }.site .use-list h3 { font-size: 19px; }.site .pricing-head .modes { width: 100%; }.site .modes button { flex: 1; padding: 0 10px; }.site .plan { padding: 23px; }.site .rates .r { display: block; }.site .rates .amt { margin-top: 7px; }.site .reqcard { padding: 25px 18px; }.site .form { grid-template-columns: 1fr; }.site .form .wide { grid-column: auto; }.site .foot > .wrap:first-child { grid-template-columns: 1fr auto; gap: 35px; }.site .foot-brand { grid-column: 1/-1; }.site .foot-links { gap: 12px 22px; }.site .foot-bottom { margin-top: 50px; gap: 10px; }.site .foot-bottom span:last-child { text-align: right; }
   html[lang^="zh"] .site .hero h1 { font-size: clamp(45px, 10.5vw, 64px); }
 }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; }.site .btn { transition: none; }.site .audio-bars i { animation: none; } }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; }.site .btn, .site .language-word b { transition: none; }.site .audio-bars i { animation: none; } }

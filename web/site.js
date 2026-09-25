@@ -15,7 +15,11 @@
       'hero.art': '会场大屏和手机上的实时翻译字幕示意图',
       'hero.bottom': '为现场而生，也为散场以后准备。',
       'mock.display': '会场大屏', 'mock.share': '一场讲话，每块屏幕。', 'mock.shareSub': '通过链接或二维码分享', 'mock.phone': '实时跟读',
-      'signal.one': '实时语音识别', 'signal.two': '即时翻译', 'signal.three': '全场屏幕', 'signal.four': '可编辑记录',
+      'language.label': '实时语言组合示例',
+      'language.kicker': '自在表达，让更多人听懂。',
+      'language.live': '实时语言组合 <span aria-hidden="true">↗</span>',
+      'language.caption': '一种语言说出来，另一种语言同步显示。对话继续，字幕也不会停。',
+      'language.hint': '这里只展示 See Subtitles 支持的部分实时语言组合。',
       'product.kicker': '01 / 实时体验', 'product.h2': '一个人讲。<br><em>全场都跟上。</em>',
       'product.intro': '讲者说话时，字幕随即出现，译文紧接而来。观众不必等下一页幻灯片，也不必请讲者重复。',
       'product.screen.h': '大屏幕，看得清。', 'product.screen.p': '投影机上显示清晰字幕，也能覆盖在幻灯片上。一台 Mac 就能控制现场。',
@@ -75,6 +79,103 @@
   for (const n of nodes) { const attr = n.dataset.attr; n.dataset.en = attr ? n.getAttribute(attr) : n.innerHTML; }
   let lang = 'en';
   const msg = (key, vars = {}) => { const s = (T[lang] && T[lang][key]) || (T.en[key]) || ''; return s.replace(/\{(\w+)\}/g, (_, k) => vars[k] || ''); };
+
+  // Rotate only language pairs the live speech pipeline accepts. The served page loads the
+  // shared schema; the file preview uses the same source file, with a small valid fallback.
+  const LANG = {
+    yue: ['Cantonese', '粤语'], zh: ['Mandarin', '普通话'],
+    en: ['English', '英语'], ja: ['Japanese', '日语'],
+    ko: ['Korean', '韩语'], id: ['Indonesian', '印尼语'],
+    th: ['Thai', '泰语'], ru: ['Russian', '俄语'],
+  };
+  const FALLBACK_PAIRS = [['yue', 'zh'], ['id', 'en'], ['en', 'ja'], ['ko', 'zh'], ['th', 'en'], ['ru', 'zh']];
+  let pairs = FALLBACK_PAIRS;
+  let pairIndex = 0;
+  let pairTimer = null;
+  let flipTimer = null;
+
+  function orderedPairs(matrix) {
+    if (!matrix) return [];
+    const left = new Map();
+    for (const [source, targets] of Object.entries(matrix)) {
+      for (const target of targets) if (source !== target && LANG[source] && LANG[target]) left.set(`${source}>${target}`, [source, target]);
+    }
+    if (!left.size) return [];
+    const first = left.has('yue>zh') ? 'yue>zh' : left.keys().next().value;
+    const out = [left.get(first)];
+    left.delete(first);
+    const seen = new Map(out[0].map((code) => [code, 0]));
+    while (left.size) {
+      const step = out.length;
+      const [wasSource, wasTarget] = out[step - 1];
+      let bestKey;
+      let best = -Infinity;
+      for (const [key, [source, target]] of left) {
+        let score = (source !== wasSource ? 100 : 0) + (target !== wasTarget ? 100 : 0);
+        if (source !== wasTarget && target !== wasSource) score += 40;
+        score += Math.min(step - (seen.has(source) ? seen.get(source) : -10), 14);
+        score += Math.min(step - (seen.has(target) ? seen.get(target) : -10), 14);
+        if (score > best) { best = score; bestKey = key; }
+      }
+      const pair = left.get(bestKey);
+      out.push(pair);
+      left.delete(bestKey);
+      seen.set(pair[0], step);
+      seen.set(pair[1], step);
+    }
+    return out;
+  }
+
+  function showLanguagePair(animate = false) {
+    const source = $('languageSource');
+    const target = $('languageTarget');
+    const [from, to] = pairs[pairIndex];
+    const names = [LANG[from][lang === 'en' ? 0 : 1], LANG[to][lang === 'en' ? 0 : 1]];
+    clearTimeout(flipTimer);
+    source.classList.remove('turning');
+    target.classList.remove('turning');
+    if (!animate) {
+      source.firstElementChild.textContent = names[0];
+      target.firstElementChild.textContent = names[1];
+      return;
+    }
+    source.classList.add('turning');
+    target.classList.add('turning');
+    flipTimer = setTimeout(() => {
+      source.firstElementChild.textContent = names[0];
+      target.firstElementChild.textContent = names[1];
+      source.classList.remove('turning');
+      target.classList.remove('turning');
+    }, 170);
+  }
+
+  function startLanguageRotation() {
+    clearTimeout(pairTimer);
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const step = () => {
+      if (!document.hidden) {
+        pairIndex = (pairIndex + 1) % pairs.length;
+        showLanguagePair(true);
+      }
+      pairTimer = setTimeout(step, 2800);
+    };
+    pairTimer = setTimeout(step, 2800);
+  }
+
+  function loadLanguagePairs() {
+    const script = document.createElement('script');
+    script.src = location.protocol === 'file:' ? '../core/schema.js' : '/schema.js';
+    script.onload = () => {
+      const available = orderedPairs(window.SCHEMA && window.SCHEMA.LIVE_PAIRS);
+      if (available.length < 2) return;
+      pairs = available;
+      pairIndex = 0;
+      showLanguagePair();
+      startLanguageRotation();
+    };
+    document.head.appendChild(script);
+  }
+
   function setLang(l) {
     lang = T[l] ? l : 'en';
     document.documentElement.lang = lang === 'en' ? 'en' : lang;
@@ -90,6 +191,7 @@
     renderRates();
     applyMode();
     document.title = lang === 'en' ? 'See Subtitles — Make every word land' : 'See Subtitles — 让每句话都被看见';
+    showLanguagePair();
   }
   $('lang').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setLang(b.dataset.lang); });
 
@@ -267,4 +369,6 @@
   try { saved = localStorage.getItem('site.lang') || ''; } catch { /* none */ }
   if (!saved) { const nav = (navigator.language || '').toLowerCase(); saved = /^zh/.test(nav) ? 'zh-Hans' : 'en'; }
   setLang(saved);
+  startLanguageRotation();
+  loadLanguagePairs();
 })();
