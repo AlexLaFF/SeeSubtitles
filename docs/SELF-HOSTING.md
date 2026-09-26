@@ -15,10 +15,18 @@ pulls the commit on GitHub, rebuilds and restarts. A restart cuts off every talk
 asks the running server (`deploy/talks.sh`) and refuses while one is on; `--force` overrides that.
 
 **Backups.** `deploy/backup.sh` runs from cron at 03:30 and writes `~/backups/<date>/platform.sqlite` (a consistent
-snapshot of the database, integrity-checked before it is kept) and `data.tgz` (the jobs and sessions folders;
-published builds are left out, they are on GitHub). Seven days are kept. A Mac pulls them nightly with
+snapshot of the database, integrity-checked before it is kept) and `data.tgz` (original uploads, edited subtitle
+cues and versions, recognition results, text exports, and live session logs). Rendered MP4s, extracted audio when
+the original upload is present, incomplete uploads, and copies of published builds are left out. Original video
+uploads are omitted: their extracted audio stays in the backup, but the original picture cannot be recreated or
+used to render subtitles over the video after a restore. A restored job can still make audio-only subtitles from
+that sound. Setting `BACKUP_VIDEO_UPLOADS=1` keeps original videos too. Seven days are kept. A Mac pulls them
+nightly with
 `deploy/backup-pull.sh` (installed as a launchd job by `npm run backup:install`), keeping thirty days in
 `~/Backups/SeeSubtitles`. Run `npm run backup:pull` any time for a copy now.
+To apply the smaller policy to older copies, inspect with `python3 deploy/repack-backups.py ~/backups --dry-run`,
+then use `--apply`; do the same for `~/Backups/SeeSubtitles` on the Mac. Each replacement is checked before it
+takes the old archive's place.
 
 **Restoring.** With the app stopped, put a day's files back into the data volume, then start it:
 

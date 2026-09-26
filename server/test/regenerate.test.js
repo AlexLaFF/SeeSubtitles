@@ -68,6 +68,18 @@ test('subtitles made again in another language keep the earlier ones as a versio
   assert.ok(fs.existsSync(s.jobs.versionFile(s.j.id, 1, 'Lecture 12.zh.srt')) && fs.existsSync(s.jobs.versionFile(s.j.id, 2, 'Lecture 12.ja.srt')));
 });
 
+test('a video-free restore can regenerate subtitles from the kept audio and edited cues', async (t) => {
+  const s = setup(t);
+  fs.rmSync(path.join(s.dir, 'source.mp4'));
+  const wait = s.settled(s.j.id);
+  s.jobs.regenerate(s.j.id, { sourceLang: 'en', targetLang: 'ja' });
+  const after = await wait;
+  assert.equal(after.status, 'done', after.error);
+  assert.equal(s.jobs.sourceFile(s.j.id), path.join(s.dir, 'audio.mp3'));
+  assert.deepEqual(s.counted, [], 'recognition is preserved');
+  assert.match(fs.readFileSync(s.jobs.versionFile(s.j.id, 1, 'cues.json'), 'utf8'), /我改过的/);
+});
+
 test('heard as another language the file is recognised again; a job that is running or has lost its upload says so', async (t) => {
   const s = setup(t);
   assert.throws(() => s.jobs.regenerate(s.j.id, { sourceLang: 'xx', targetLang: 'zh' }), /unknown source language/);
@@ -82,6 +94,8 @@ test('heard as another language the file is recognised again; a job that is runn
   assert.equal(after.versions.length, 1, 'the English subtitles are kept all the same');
 
   fs.rmSync(path.join(s.dir, 'source.mp4'));
+  assert.equal(s.jobs.sourceFile(s.j.id), path.join(s.dir, 'audio.mp3'), 'a video-free restore can reuse extracted audio');
+  fs.rmSync(path.join(s.dir, 'audio.mp3'));
   assert.throws(() => s.jobs.regenerate(s.j.id, { sourceLang: 'en', targetLang: 'zh' }), /no longer on the server/);
 });
 

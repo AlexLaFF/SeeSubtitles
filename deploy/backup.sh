@@ -1,7 +1,7 @@
 #!/bin/sh
 # A copy of everything the server keeps, made while it runs. The database is copied as one consistent snapshot
-# (VACUUM INTO — safe beside the WAL the running server is writing), and the jobs and sessions folders as one
-# archive. Published builds are left out: they are on GitHub. Each day's copy lives in ~/backups/<date> for
+# (VACUUM INTO — safe beside the WAL the running server is writing), and the irreplaceable job and session files
+# as one archive. Published builds and generated media are left out. Each day's copy lives in ~/backups/<date> for
 # KEEP_DAYS days; the Mac pulls them nightly (deploy/backup-pull.sh), so a copy exists off this machine.
 #
 #   sh deploy/backup.sh          → ~/backups/2026-09-15/platform.sqlite + data.tgz
@@ -30,8 +30,10 @@ copy.close();'
 docker cp "$APP:/tmp/backup.sqlite" "$OUT/platform.sqlite" >/dev/null
 docker exec "$APP" rm -f /tmp/backup.sqlite
 
-# everything else in /data except the builds and the live database files
-docker exec "$APP" sh -c 'cd /data && tar -czf /tmp/backup.tgz --exclude=./updates --exclude="./platform.sqlite*" .'
+# Select the original uploads, edited cues and session logs without bundling rendered MP4s, temporary uploads,
+# extracted audio that can be made again, or published builds. Original video is omitted; its extracted audio
+# remains, but the picture cannot be recovered from this backup. BACKUP_VIDEO_UPLOADS=1 opts back in.
+docker exec -e BACKUP_VIDEO_UPLOADS="${BACKUP_VIDEO_UPLOADS:-0}" "$APP" node server/backup-archive.js
 docker cp "$APP:/tmp/backup.tgz" "$OUT/data.tgz" >/dev/null
 docker exec "$APP" rm -f /tmp/backup.tgz
 chmod 600 "$OUT"/*

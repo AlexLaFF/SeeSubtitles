@@ -371,7 +371,13 @@ class JobRunner extends EventEmitter {
 
   sourceFile(id) {
     const d = this.jobDir(id);
-    return fs.existsSync(d) ? fs.readdirSync(d).map((f) => path.join(d, f)).find((f) => /\/source\.[a-z0-9]+$/.test(f) && !f.endsWith('.part')) : null;
+    if (!fs.existsSync(d)) return null;
+    const source = fs.readdirSync(d).map((f) => path.join(d, f)).find((f) => /\/source\.[a-z0-9]+$/.test(f) && !f.endsWith('.part'));
+    if (source) return source;
+    // Video originals are omitted from space-saving backups. Their extracted audio is enough to regenerate
+    // speech subtitles after restore, though the original picture cannot be recovered.
+    const audio = path.join(d, 'audio.mp3');
+    return fs.existsSync(audio) ? audio : null;
   }
   cues(id) {
     try { return JSON.parse(fs.readFileSync(path.join(this.jobDir(id), 'cues.json'), 'utf8')); } catch { return null; }
